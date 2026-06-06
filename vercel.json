@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "src": "/manifest.webmanifest",
+      "dest": "/manifest.webmanifest",
+      "headers": {
+        "Content-Type": "application/manifest+json",
+        "Cache-Control": "public, max-age=3600, must-revalidate"
+      }
+    },
+    {
+      "src": "/sw.js",
+      "dest": "/sw.js",
+      "headers": {
+        "Content-Type": "application/javascript",
+        "Cache-Control": "public, max-age=0, must-revalidate"
+      }
+    },
+    {
+      "src": "/registerSW.js",
+      "dest": "/registerSW.js",
+      "headers": {
+        "Content-Type": "application/javascript",
+        "Cache-Control": "public, max-age=3600, must-revalidate"
+      }
+    },
+    {
+      "src": "/workbox-(.*)",
+      "dest": "/workbox-$1",
+      "headers": {
+        "Content-Type": "application/javascript",
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "src": "/index.html",
+      "dest": "/index.html",
+      "headers": {
+        "Cache-Control": "public, max-age=3600, must-revalidate"
+      }
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html",
+      "status": 200
+    }
+  ]
+}

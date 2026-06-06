@@ -1,0 +1,8380 @@
+﻿// src/pages/Croscek.jsx
+// import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { UploadCloud, FileSpreadsheet, ArrowRight, Search, X, Calendar,Users,CheckCircle,Plus, Trash2, Download } from "lucide-react";
+import * as XLSX from "xlsx";
+import sariAter from "../assets/sari-ater.png";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
+import logoCompany from "../assets/Image/logo.jpg";
+// import { 
+//   // FileSpreadsheet, 
+//   // X, 
+//   // Download, 
+//   Trash2, 
+//   Calendar,        // ✅ Tambahkan ini
+//   Users,           // Optional: untuk icon tambahan
+//   Clock,           // Optional: untuk icon tambahan
+//   CheckCircle,     // Optional: untuk icon tambahan
+//   AlertCircle      // Optional: untuk icon tambahan
+// } from 'lucide-react';
+
+
+export default function Croscek() {
+  // const API = "http://127.0.0.1:5000/api";
+  const API = import.meta.env.VITE_API_URL;
+
+  // PREVIEW FRONTEND
+  const [jadwalPreview, setJadwalPreview] = useState("");
+  const [jadwalFile, setJadwalFile] = useState(null);
+
+  const [kehadiranPreview, setKehadiranPreview] = useState("");
+  const [kehadiranFile, setKehadiranFile] = useState(null);
+
+  const [croscekData, setCroscekData] = useState([]);
+
+  // LOADING / STATUS
+  const [loadingJadwal, setLoadingJadwal] = useState(false);
+  const [loadingKehadiran, setLoadingKehadiran] = useState(false);
+  const [savingJadwal, setSavingJadwal] = useState(false);
+  const [savingKehadiran, setSavingKehadiran] = useState(false);
+  const [processing, setProcessing] = useState(false);
+
+  // MODAL PREVIEW CROSCEK
+  const [showModal, setShowModal] = useState(false);
+
+  // MODAL HASIL IMPORT
+  const [showImportResult, setShowImportResult] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const [showJadwalImportResult, setShowJadwalImportResult] = useState(false);
+  const [jadwalImportResult, setJadwalImportResult] = useState(null);
+
+  // PAGINATION & SEARCH
+  const [rows, setRows] = useState([]);   // SEMUA DATA
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const rowsPerPage = 30; // Tetap gunakan ini, bukan itemsPerPage
+
+  // TAMBAHAN: STATE UNTUK FILTER TANGGAL (diperlukan untuk input tanggal awal dan akhir)
+  const [startDate, setStartDate] = useState(''); // State untuk tanggal awal
+  const [endDate, setEndDate] = useState(''); // State untuk tanggal akhir
+
+  // TAMBAHAN: STATE UNTUK CRUD JADWAL KARYAWAN (DISESUAIKAN DENGAN KOLOM BARU, nik MANUAL)
+  const [jadwalKaryawanList, setJadwalKaryawanList] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [newData, setNewData] = useState({
+    nik: "", nama: "", tanggal: "", kode_shift: ""  // Tambahkan nik
+  });
+  const [showModalTambah, setShowModalTambah] = useState(false);
+  const [loadingCRUD, setLoadingCRUD] = useState(false);
+
+  // TAMBAHAN: LOAD DATA JADWAL KARYAWAN
+  const loadJadwalKaryawan = async () => {
+    try {
+      const res = await fetch(`${API}/jadwal-karyawan/list`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setJadwalKaryawanList(data);
+    } catch (e) {
+      alert("Gagal load data jadwal karyawan: " + e.message);
+    }
+  };
+
+  // TAMBAHAN: USE EFFECT UNTUK LOAD DATA
+  useEffect(() => {
+    loadJadwalKaryawan();
+  }, []);
+
+  // -----------------------------
+  // TABEL UTILITY
+  // -----------------------------
+  const styleHtmlTable = (html) => {
+    return html
+      .replace(
+        /<table/g,
+        `<table class='min-w-full border border-gray-300 text-xs md:text-sm bg-white'`
+      )
+      .replace(
+        /<td/g,
+        `<td class='border border-gray-300 px-2 md:px-3 py-2 whitespace-nowrap'`
+      )
+      .replace(
+        /<th/g,
+        `<th class='border border-gray-300 bg-gray-100 px-2 md:px-3 py-2 text-center font-semibold'`
+      );
+  };
+
+  const jsonToHtml = (rows, sheetName = "") => {
+    if (!rows || rows.length === 0)
+      return `<div class="text-sm text-gray-500">No data</div>`;
+    const keys = Object.keys(rows[0]);
+    let html = `<div class="mb-2 text-sm font-medium">${sheetName}</div>
+      <table class="min-w-full border border-gray-300 text-xs md:text-sm bg-white">
+      <thead class="bg-gray-100"><tr>`;
+    for (const k of keys) html += `<th class="border px-2 py-1 text-left">${k}</th>`;
+    html += `</tr></thead><tbody>`;
+
+    const maxPreview = 500;
+    for (let i = 0; i < Math.min(rows.length, maxPreview); i++) {
+      const r = rows[i];
+      html += `<tr>`;
+      for (const k of keys)
+        html += `<td class="border px-2 py-1">${String(r[k] ?? "")}</td>`;
+      html += `</tr>`;
+    }
+    if (rows.length > maxPreview) {
+      html += `<tr><td class="border px-2 py-1" colspan="${keys.length}">
+          Preview truncated â€” ${rows.length} total rows (showing ${maxPreview})
+        </td></tr>`;
+    }
+    html += `</tbody></table>`;
+    return html;
+  };
+
+  const attendancePreferredCols = [
+    "Tanggal scan",
+    "Tanggal",
+    "Jam",
+    "Nama",
+    "PIN",
+    "NIP",
+    "Verifikasi",
+    "I/O",
+    "Workcode",
+    "SN",
+    "Mesin",
+    "Jabatan",
+    "Departemen",
+    "Kantor",
+  ];
+
+  function pickAttendanceColumns(rows) {
+    if (!rows || rows.length === 0) return [];
+    const first = rows[0];
+    const present = new Set(Object.keys(first).map((k) => String(k).trim()));
+    const cols = [];
+    for (const p of attendancePreferredCols) {
+      if (present.has(p)) cols.push(p);
+    }
+    for (const k of Object.keys(first)) {
+      if (k && !k.toString().startsWith("__EMPTY") && !cols.includes(k))
+        cols.push(k);
+    }
+    return cols;
+  }
+
+  function cleanRowsWithCols(rows, cols) {
+    return rows.map((r) => {
+      const obj = {};
+      for (const c of cols) obj[c] = r[c] ?? "";
+      return obj;
+    });
+  }
+
+  // -----------------------------------------
+  // UPLOAD + PREVIEW JADWAL
+  // -----------------------------------------
+  async function handleUploadJadwal(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validasi file type
+    const isXlsx = file.name.endsWith('.xlsx') || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    const isXls = file.name.endsWith('.xls') || file.type === 'application/vnd.ms-excel';
+    
+    if (isXls) {
+      alert('❌ File format tidak didukung!\n\nFile adalah .xls (Excel 97-2003).\n\nSilakan:\n1. Buka file di Microsoft Excel\n2. Save As â†’ Format: Excel Workbook (.xlsx)\n3. Upload file .xlsx yang sudah di-convert\n\nAtau gunakan template dari aplikasi ini.');
+      e.target.value = ''; // Reset file input
+      return;
+    }
+    
+    if (!isXlsx) {
+      alert('❌ File format tidak didukung!\n\nHanya file .xlsx yang diterima.\n\nFormat yang didukung: .xlsx (Excel 2007+)');
+      e.target.value = ''; // Reset file input
+      return;
+    }
+
+    setLoadingJadwal(true);
+    setJadwalFile(file);
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+
+      let html = "";
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        let sheetHtml = "";
+
+        try {
+          sheetHtml = XLSX.utils.sheet_to_html(sheet);
+          sheetHtml =
+            `<div class="mb-2 font-semibold">${sheetName}</div>` +
+            styleHtmlTable(sheetHtml);
+        } catch {
+          const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+          sheetHtml = jsonToHtml(rows, sheetName);
+        }
+
+        html += sheetHtml;
+      }
+
+      setJadwalPreview(html);
+    } catch (err) {
+      alert("Gagal membaca file jadwal");
+    }
+
+    setLoadingJadwal(false);
+  }
+  
+
+  // Tambahkan state untuk bulan yang dipilih (0-11, default bulan sekarang)
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+
+  // Fungsi untuk handle perubahan bulan
+  const handleMonthChange = (e) => {
+    setSelectedMonth(parseInt(e.target.value));
+  };
+
+  // EXPORT TEMPLATE EXCEL UNTUK JADWAL (diperbaiki dengan aoa_to_sheet untuk memastikan data muncul)
+  const exportTemplateJadwal = () => {
+    const wb = XLSX.utils.book_new();
+
+    // Gunakan bulan yang dipilih, tahun sekarang
+    const month = selectedMonth; // 0-11
+    const year = new Date().getFullYear();
+
+    // Nama bulan (dalam bahasa Indonesia)
+    const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const monthText = `${monthNames[month]} ${year}`;
+
+    // Total hari di bulan ini
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    // Mapping hari singkat (Sabtu=SB, Minggu=MG, Senin=SN, Selasa=SL, Rabu=RB, Kamis=KM, Jumat=JM)
+    const dayShort = ["MG", "SN", "SL", "RB", "KM", "JM", "SB"];
+
+    // Buat array data untuk sheet (baris 0-based)
+    const data = [];
+
+    // Baris 0: SCHEDULE (akan di-merge A1:AH1)
+    data.push(["SCHEDULE", ...Array(33).fill("")]);
+
+    // Baris 1: Bulan & tahun (akan di-merge A2:AH2)
+    data.push([monthText, ...Array(33).fill("")]);
+
+    // Baris 2: Kosong (spacing)
+    data.push(Array(34).fill(""));
+
+    // Baris 3: Header atas (NO, ID ABSEN, NAMA, lalu hari-hari)
+    const headerRow3 = ["NO", "ID ABSEN", "NAMA"];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(year, month, d);
+      const dayCode = dayShort[date.getDay()];
+      headerRow3.push(dayCode);
+    }
+    // Pad dengan kosong jika kurang dari 34 kolom
+    while (headerRow3.length < 34) {
+      headerRow3.push("");
+    }
+    data.push(headerRow3);
+
+    // Baris 4: Header bawah (kosong untuk NO/ID ABSEN/NAMA, lalu tanggal)
+    const headerRow4 = ["", "", ""];
+    for (let d = 1; d <= daysInMonth; d++) {
+      headerRow4.push(d);
+    }
+    while (headerRow4.length < 34) {
+      headerRow4.push("");
+    }
+    data.push(headerRow4);
+
+    // Baris 5: Kosong untuk data record (baris 6 di Excel)
+    data.push(Array(34).fill(""));
+
+    // Buat worksheet dari array
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    // Set merges
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 33 } }, // A1:AH1 = SCHEDULE
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 33 } }, // A2:AH2 = Month
+      { s: { r: 3, c: 0 }, e: { r: 4, c: 0 } }, // A4:A5 = NO
+      { s: { r: 3, c: 1 }, e: { r: 4, c: 1 } }, // B4:B5 = ID ABSEN
+      { s: { r: 3, c: 2 }, e: { r: 4, c: 2 } }, // C4:C5 = NAMA
+    ];
+
+    // Lebar kolom
+    ws['!cols'] = Array(34).fill({ wch: 5 });
+
+    XLSX.utils.book_append_sheet(wb, ws, "Template Jadwal");
+    XLSX.writeFile(wb, `template_jadwal_karyawan_Bulan_ke-${month + 1}-${year}.xlsx`);
+  };
+
+  async function saveJadwal() {
+    if (!jadwalFile) return alert("Upload file dulu");
+
+    // Double-check file type before upload
+    const isXlsx = jadwalFile.name.endsWith('.xlsx') || jadwalFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    if (!isXlsx) {
+      alert('❌ Invalid file format!\n\nFile harus .xlsx format.\nDetected: ' + jadwalFile.name);
+      return;
+    }
+
+    setSavingJadwal(true);
+    try {
+      console.log("📄 File info:", {
+        name: jadwalFile.name,
+        size: jadwalFile.size,
+        type: jadwalFile.type,
+        lastModified: jadwalFile.lastModified
+      });
+
+      const form = new FormData();
+      form.append("file", jadwalFile);
+
+      console.log("ðŸ“¤ Uploading to:", `${API}/import-jadwal-karyawan`);
+
+      const res = await fetch(`${API}/import-jadwal-karyawan`, {
+        method: "POST",
+        body: form,
+      });
+
+      console.log("ðŸ“¥ Response status:", res.status);
+
+      const data = await res.json();
+      console.log("ðŸ“¥ Response data:", data);
+      setJadwalImportResult(data);
+      setShowJadwalImportResult(true);
+
+      if (!res.ok) {
+        return;
+      }
+      setJadwalFile(null);
+      setJadwalPreview("");
+      loadJadwalKaryawan(); // Reload data setelah save
+    } catch (err) {
+      console.error("❌ Error:", err);
+      setJadwalImportResult({ error: "Error saat menyimpan jadwal: " + err.message });
+      setShowJadwalImportResult(true);
+    } finally {
+      setSavingJadwal(false);
+    }
+  }
+
+
+  // -----------------------------------------
+  // UPLOAD + PREVIEW KEHADIRAN
+  // -----------------------------------------
+  async function handleUploadKehadiran(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validasi file type
+    const isXlsx = file.name.endsWith('.xlsx') || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    const isXls = file.name.endsWith('.xls') || file.type === 'application/vnd.ms-excel';
+    
+    if (isXls) {
+      alert('❌ File format tidak didukung!\n\nFile adalah .xls (Excel 97-2003).\n\nSilakan:\n1. Buka file di Microsoft Excel\n2. Save As â†’ Format: Excel Workbook (.xlsx)\n3. Upload file .xlsx yang sudah di-convert\n\nAtau gunakan template dari aplikasi ini.');
+      e.target.value = ''; // Reset file input
+      return;
+    }
+    
+    if (!isXlsx) {
+      alert('❌ File format tidak didukung!\n\nHanya file .xlsx yang diterima.\n\nFormat yang didukung: .xlsx (Excel 2007+)');
+      e.target.value = ''; // Reset file input
+      return;
+    }
+
+    setLoadingKehadiran(true);
+    setKehadiranFile(file);
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+
+      let htmlAll = "";
+
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+        const cols = pickAttendanceColumns(rows);
+        const cleaned = cleanRowsWithCols(rows, cols);
+
+        htmlAll += jsonToHtml(cleaned, sheetName);
+      }
+
+      setKehadiranPreview(htmlAll);
+    } catch (err) {
+      alert("Gagal membaca file kehadiran");
+    }
+
+    setLoadingKehadiran(false);
+  }
+
+  async function saveKehadiran() {
+      if (!kehadiranFile) return alert("Upload file dulu!");
+
+      // Double-check file type before upload
+      const isXlsx = kehadiranFile.name.endsWith('.xlsx') || kehadiranFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      if (!isXlsx) {
+        alert('❌ Invalid file format!\n\nFile harus .xlsx format.\nDetected: ' + kehadiranFile.name);
+        return;
+      }
+
+      setSavingKehadiran(true);
+
+      try {
+          console.log("📄 Kehadiran File info:", {
+            name: kehadiranFile.name,
+            size: kehadiranFile.size,
+            type: kehadiranFile.type,
+            lastModified: kehadiranFile.lastModified
+          });
+
+          const form = new FormData();
+          form.append("file", kehadiranFile);
+
+          console.log("ðŸ“¤ Uploading to:", `${API}/import-kehadiran`);
+
+          const res = await fetch(`${API}/import-kehadiran`, {
+              method: "POST",
+              body: form,
+          });
+
+          console.log("ðŸ“¥ Response status:", res.status);
+
+          const data = await res.json();
+
+          console.log("ðŸ“¥ Response data:", data);
+
+          // Set import result untuk modal (sukses atau error)
+          setImportResult(data);
+          setShowImportResult(true);
+
+          // CEK STATUS RESPONSE
+          if (!res.ok) {
+              setSavingKehadiran(false);
+              return;
+          }
+
+          // Status OK â†’ clear file setelah sukses
+          setKehadiranFile(null);
+          setKehadiranPreview("");
+          await loadAvailablePeriods();
+      } catch (e) {
+          // Show error in modal
+          setImportResult({
+            error: e.message,
+            message: "❌ Error saat menyimpan kehadiran"
+          });
+          setShowImportResult(true);
+      }
+
+      setSavingKehadiran(false);
+  }
+
+
+  // EXPORT TEMPLATE EXCEL UNTUK KEHADIRAN (diperbaiki sesuai spesifikasi)
+  const exportTemplateKehadiran = () => {
+    const wb = XLSX.utils.book_new();
+
+    // Header kolom sesuai spesifikasi (urutan: Tanggal scan, Tanggal, Jam, PIN, NIP, Nama, Jabatan, Departemen, Kantor, Verifikasi, I/O, Workcode, SN, Mesin)
+    const headers = ["Tanggal scan", "Tanggal", "Jam", "PIN", "NIP", "Nama", "Jabatan", "Departemen", "Kantor", "Verifikasi", "I/O", "Workcode", "SN", "Mesin"];
+
+    // Buat array data untuk sheet (baris 0-based)
+    const data = [];
+
+    // Baris 0: Kosong (Excel baris 1)
+    data.push(Array(14).fill(""));
+
+    // Baris 1: Header (Excel baris 2, A2:N2)
+    data.push(headers);
+
+    // Baris 2 sampai 4: Kosong (Excel baris 3-5)
+    for (let i = 0; i < 3; i++) {
+      data.push(Array(14).fill(""));
+    }
+
+    // Baris 5: Kosong untuk data record (Excel baris 6, A6:N6)
+    data.push(Array(14).fill(""));
+
+    // Buat worksheet dari array
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    // Style untuk header (baris 1, kolom 0-13, center, dan jika library mendukung: gray fill, white font, bold)
+    const headerStyle = {
+      fill: { fgColor: { rgb: "808080" } },
+      font: { color: { rgb: "FFFFFF" }, bold: true },
+      alignment: { horizontal: "center", vertical:"middle" }
+    };
+
+    // Terapkan style ke header (baris 1, kolom 0-13)
+    headers.forEach((_, index) => {
+      const cell = XLSX.utils.encode_cell({ r: 1, c: index });
+      if (ws[cell]) ws[cell].s = headerStyle;
+    });
+
+    // Lebar kolom
+    ws['!cols'] = headers.map(() => ({ wch: 15 }));
+
+    XLSX.utils.book_append_sheet(wb, ws, "Template Kehadiran");
+    XLSX.writeFile(wb, "template_kehadiran.xlsx");
+  };
+
+
+  // TAMBAHAN: STATE UNTUK KEHADIRAN (DINAMIS DARI DATA)
+  const [selectedMonthKehadiran, setSelectedMonthKehadiran] = useState(null);
+  const [selectedYearKehadiran, setSelectedYearKehadiran] = useState(null);
+  const [availablePeriods, setAvailablePeriods] = useState([]);
+  const [loadingPeriods, setLoadingPeriods] = useState(false);
+
+  // LOAD PERIODE
+  const loadAvailablePeriods = async () => {
+    setLoadingPeriods(true);
+    try {
+      const res = await fetch(`${API}/kehadiran-karyawan/available-periods`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const periods = data.periods || [];
+      setAvailablePeriods(periods);
+
+      // Pertahankan periode yang dipilih jika masih tersedia.
+      const hasCurrentSelection = periods.some(
+        (period) =>
+          period.bulan === selectedMonthKehadiran &&
+          period.tahun === selectedYearKehadiran
+      );
+
+      if (!hasCurrentSelection) {
+        setSelectedMonthKehadiran(periods[0]?.bulan ?? null);
+        setSelectedYearKehadiran(periods[0]?.tahun ?? null);
+      }
+    } catch (e) {
+      alert("Gagal load periode kehadiran: " + e.message);
+    }
+    setLoadingPeriods(false);
+  };
+
+  useEffect(() => {
+    loadAvailablePeriods();
+  }, []);
+
+  // HAPUS PERIODE
+  const handleDeleteKehadiranPeriod = async () => {
+    if (!selectedMonthKehadiran || !selectedYearKehadiran) {
+      alert("Silakan pilih periode terlebih dahulu.");
+      return;
+    }
+
+    if (!window.confirm(
+        `Yakin ingin menghapus semua data kehadiran untuk ${selectedMonthKehadiran}/${selectedYearKehadiran}?`
+    )) return;
+
+    try {
+      const res = await fetch(`${API}/kehadiran-karyawan/delete-period`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bulan: selectedMonthKehadiran,
+          tahun: selectedYearKehadiran,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Gagal hapus periode");
+        return;
+      }
+
+      alert(data.message);
+      await loadAvailablePeriods();
+    } catch (e) {
+      alert("Error saat hapus periode: " + e.message);
+    }
+  };
+
+  // TAMBAHAN: STATE UNTUK PROGRESS BAR POP-UP
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressInterval, setProgressInterval] = useState(null); // Untuk menyimpan ID interval
+
+  async function prosesCroscek() {
+    setProcessing(true);
+    setShowProgressModal(true); // Tampilkan modal progress
+    setProgress(0); // Reset progress
+
+    // Simulasi progress: Naik 10% setiap 500ms (total ~5 detik untuk mencapai 100%)
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 90) return prev; // Jangan lewati 90% sampai data selesai
+        return prev + 10;
+      });
+    }, 500);
+    setProgressInterval(interval);
+
+    try {
+      const res = await fetch(`${API}/croscek-karyawan`);
+      // const data = await res.json();
+      // setCroscekData(data.data || []);
+      const data = await res.json();
+      const rows = data.data || [];
+      // UID harus benar-benar unik per baris agar reasonMap tidak saling timpa.
+      const rowsWithUid = rows.map((r, idx) => ({
+        ...r,
+        __uid: buildRowUid(r, idx)
+      }));
+      setCroscekData(rowsWithUid);
+      setShowModal(true); // Tampilkan modal preview setelah selesai
+      // setReasonMap({});
+    } catch (err) {
+      alert("Gagal memproses croscek");
+    }
+
+    // Set progress ke 100% dan tutup modal setelah delay
+    setProgress(100);
+    clearInterval(interval); // Hentikan interval
+    setTimeout(() => {
+      setShowProgressModal(false);
+      setProcessing(false);
+    }, 1000); // Delay 1 detik untuk menampilkan 100%
+  }
+
+
+  // -----------------------------------------
+  // PAGINATION + SEARCH + FILTER TANGGAL
+  // -----------------------------------------
+  // Filter data berdasarkan search dan tanggal
+  const filteredData = croscekData.filter(row => {
+    const keyword = String(search || "").toLowerCase();
+    const contains = (val) => String(val ?? "").toLowerCase().includes(keyword);
+    const matchesSearch =
+      !keyword ||
+      contains(row.Nama) ||
+      contains(row.Tanggal) ||
+      contains(row.Kode_Shift) ||
+      contains(row.Status_Pulang) ||
+      contains(row.Status_Masuk) ||
+      contains(row.Departemen) ||
+      contains(row.Jabatan);
+
+    const rowDate = row?.Tanggal ? new Date(row.Tanggal) : null; // Asumsikan Tanggal dalam format YYYY-MM-DD
+    const isRowDateValid = !!rowDate && !Number.isNaN(rowDate.getTime());
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+    const matchesDate =
+      (!start && !end) ||
+      (isRowDateValid && (!start || rowDate >= start) && (!end || rowDate <= end));
+    return matchesSearch && matchesDate;
+  });
+
+  // Pagination untuk filteredData
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+  const paginated = filteredData.slice((page - 1) * rowsPerPage, page * rowsPerPage);
+  const paginatedRows = filteredData.slice(
+    (page - 1) * rowsPerPage,
+    page * rowsPerPage
+  );
+
+  // TAMBAHAN: CRUD HANDLERS UNTUK JADWAL KARYAWAN (DISESUAIKAN DENGAN nik MANUAL)
+  const handleCreate = async () => {
+    if (!newData.nama || !newData.kode_shift || !newData.tanggal)
+      return alert("Lengkapi data dulu, masa nambah jadwal tapi kosong? 😄");
+
+    setLoadingCRUD(true);
+    try {
+      await fetch(`${API}/jadwal-karyawan/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newData),
+      });
+      setShowModalTambah(false);
+      setNewData({ nik: "", nama: "", tanggal: "", kode_shift: "" });
+      loadJadwalKaryawan();
+    } catch (e) {
+      alert("Gagal tambah: " + e.message);
+    } finally {
+      setLoadingCRUD(false);
+    }
+  };
+
+  const [listKaryawan, setListKaryawan] = useState([]);
+  const [showNamaDropdown, setShowNamaDropdown] = useState(false);
+  useEffect(() => {
+    const handleClick = (e) => {
+      // Periksa apakah klik di dalam dropdown atau input
+      if (!e.target.closest('.nama-dropdown') && !e.target.closest('.nama-input')) {
+        setShowNamaDropdown(false);
+      }
+    };
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+  }, []);
+
+  const [showShiftDropdown, setShowShiftDropdown] = useState(false);
+  useEffect(() => {
+    const handleClick = (e) => {
+      // Periksa apakah klik di dalam dropdown atau input
+      if (!e.target.closest('.shift-dropdown') && !e.target.closest('.shift-input')) {
+        setShowShiftDropdown(false);
+      }
+    };
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+  }, []);
+
+  const loadListKaryawan = async () => {
+    try {
+      const res = await fetch(`${API}/karyawan/list/nama`);
+      const data = await res.json();
+
+      console.log("DEBUG LIST KARYAWAN:", data);
+
+      setListKaryawan(
+        Array.isArray(data)
+          ? data
+          : Array.isArray(data.data)
+          ? data.data
+          : []
+      );
+    } catch (e) {
+      alert("Gagal load list karyawan: " + e.message);
+    }
+  };
+
+  // pastikan nama karyawan unik
+  const uniqueKaryawan = Array.isArray(listKaryawan)
+    ? Array.from(new Map(
+        listKaryawan
+          .filter(x => x.nama)     // pastikan nama tidak null
+          .map(item => [item.nama, item])
+      ).values())
+    : [];
+
+
+  useEffect(() => {
+    loadListKaryawan();
+  }, []);
+
+  const handleEditChange = (nik, field, value) => {
+    setJadwalKaryawanList(prev => prev.map(item => (item.no === nik ? { ...item, [field]: value } : item)));
+  };
+
+  const handleUpdate = async (no) => {
+    const data = jadwalKaryawanList.find(item => item.no === no);
+    if (!data) {
+      alert("Data tidak ditemukan");
+      return;
+    }
+    try {
+      setLoadingCRUD(true);
+      const res = await fetch(`${API}/jadwal-karyawan/update/${no}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        alert("Gagal update: " + (json.error || res.statusText));
+        return;
+      }
+      setEditingId(null);
+      await loadJadwalKaryawan();
+    } catch (e) {
+      alert("Update gagal: " + e.message);
+    } finally {
+      setLoadingCRUD(false);
+    }
+  };
+
+  const [kodeShiftOptions, setKodeShiftOptions] = useState([]);
+  const [shiftScheduleMap, setShiftScheduleMap] = useState({});
+  const [searchShift, setSearchShift] = useState("");
+
+  const filteredShiftOptions = kodeShiftOptions.filter(k =>
+    k.toLowerCase().includes(searchShift.toLowerCase())
+  );
+
+
+  const loadKodeShiftOptions = async () => {
+    try {
+      const res = await fetch(`${API}/informasi-jadwal/list`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      
+      // Validasi: pastikan data adalah array
+      if (!Array.isArray(data)) {
+        console.warn("Data kode shift bukan array:", data);
+        setKodeShiftOptions([]);
+        setShiftScheduleMap({});
+        return;
+      }
+      
+      // misal backend mengembalikan array objek { kode_shift: "A", keterangan: "Shift Pagi" }
+      setKodeShiftOptions(data.map(item => item.kode_shift));
+
+      const scheduleMap = {};
+      data.forEach((item) => {
+        const kode = String(item.kode_shift || "").trim().toUpperCase();
+        if (!kode) return;
+        scheduleMap[kode] = {
+          jam_masuk: item.jam_masuk || null,
+          jam_pulang: item.jam_pulang || null,
+        };
+      });
+      setShiftScheduleMap(scheduleMap);
+    } catch (e) {
+      console.error("Error loading kode shift:", e);
+      alert("Gagal load kode shift: " + e.message);
+    }
+  };
+
+  useEffect(() => {
+    loadKodeShiftOptions();
+  }, []);
+
+
+
+
+  const handleDelete = async (no) => {
+    if (!confirm("Hapus data ini?")) return;
+    try {
+      const res = await fetch(`${API}/jadwal-karyawan/delete/${no}`, { method: "DELETE" });
+      if (!res.ok) {
+        const json = await res.json();
+        alert("Gagal hapus: " + (json.error || res.statusText));
+        return;
+      }
+      await loadJadwalKaryawan();
+    } catch (e) {
+      alert("Hapus gagal: " + e.message);
+    }
+  };
+
+  // TAMBAHAN: FILTER & PAGINATION UNTUK TABEL JADWAL KARYAWAN
+  const [searchJadwal, setSearchJadwal] = useState("");
+  // const [pageJadwal, setPageJadwal] = useState(1);
+  // const rowsPerPageJadwal = 10;
+
+  const [pageJadwal, setPageJadwal] = useState(1);
+  const [rowsPerPageJadwal, setRowsPerPageJadwal] = useState(10); // default 10
+
+
+  // ðŸ“Œ FILTER BULAN–TAHUN UNTUK JADWAL KARYAWAN
+  const [selectedMonthJadwal, setSelectedMonthJadwal] = useState(null);
+  const [selectedYearJadwal, setSelectedYearJadwal] = useState(null);
+  const [availablePeriodsJadwal, setAvailablePeriodsJadwal] = useState([]);
+
+  // ðŸ”¥ Extract bulan-tahun dari tanggal jadwal yang ada
+  // const extractPeriodsJadwal = (list) => {
+  //   const set = new Set();
+
+  //   list.forEach(item => {
+  //     if (!item.tanggal) return;
+  //     const d = new Date(item.tanggal);
+  //     const bulan = d.getMonth() + 1;
+  //     const tahun = d.getFullYear();
+  //     set.add(`${bulan}-${tahun}`);
+  //   });
+
+  //   const periods = Array.from(set).map(str => {
+  //     const [bulan, tahun] = str.split("-").map(Number);
+  //     return { bulan, tahun };
+  //   });
+
+  //   // urutkan terbaru dulu
+  //   periods.sort((a, b) => b.tahun - a.tahun || b.bulan - a.bulan);
+
+  //   setAvailablePeriodsJadwal(periods);
+
+  //   if (periods.length > 0) {
+  //     setSelectedMonthJadwal(periods[0].bulan);
+  //     setSelectedYearJadwal(periods[0].tahun);
+  //   }
+  // };
+
+  const extractPeriodsJadwal = (list) => {
+    const set = new Set();
+
+    list.forEach(item => {
+      if (!item.tanggal) return;
+      const d = new Date(item.tanggal);
+      set.add(`${d.getMonth() + 1}-${d.getFullYear()}`);
+    });
+
+    const periods = Array.from(set).map(str => {
+      const [bulan, tahun] = str.split("-").map(Number);
+      return { bulan, tahun };
+    });
+
+    periods.sort((a, b) => b.tahun - a.tahun || b.bulan - a.bulan);
+
+    setAvailablePeriodsJadwal(periods);
+
+    // ✅ SET DEFAULT HANYA JIKA BELUM ADA PILIHAN
+    const hasCurrentSelection = periods.some(
+      (period) =>
+        period.bulan === selectedMonthJadwal &&
+        period.tahun === selectedYearJadwal
+    );
+
+    if (!hasCurrentSelection) {
+      setSelectedMonthJadwal(periods[0]?.bulan ?? null);
+      setSelectedYearJadwal(periods[0]?.tahun ?? null);
+    }
+  };
+
+
+  useEffect(() => {
+    loadJadwalKaryawan();
+  }, []);
+
+  useEffect(() => {
+    extractPeriodsJadwal(jadwalKaryawanList);
+  }, [jadwalKaryawanList]);
+
+
+
+  const filteredJadwal = jadwalKaryawanList.filter(item => {
+    if (!selectedMonthJadwal || !selectedYearJadwal) return true;
+
+    const d = new Date(item.tanggal);
+    const bulan = d.getMonth() + 1;
+    const tahun = d.getFullYear();
+
+    return bulan === selectedMonthJadwal && tahun === selectedYearJadwal;
+  }).filter(item => {
+    const keyword = searchJadwal.toLowerCase();
+    return Object.values(item).some(val =>
+      String(val).toLowerCase().includes(keyword)
+    );
+  });
+
+
+  // const totalPagesJadwal = Math.ceil(filteredJadwal.length / rowsPerPageJadwal);
+  // const paginatedJadwal = filteredJadwal.slice((pageJadwal - 1) * rowsPerPageJadwal, pageJadwal * rowsPerPageJadwal);
+
+  const isAllRows = rowsPerPageJadwal === "ALL";
+
+  const totalPagesJadwal = isAllRows
+    ? 1
+    : Math.ceil(filteredJadwal.length / rowsPerPageJadwal);
+
+  const paginatedJadwal = isAllRows
+    ? filteredJadwal
+    : filteredJadwal.slice(
+        (pageJadwal - 1) * rowsPerPageJadwal,
+        pageJadwal * rowsPerPageJadwal
+      );
+
+  
+
+  const colsJadwal = ["nik", "nama", "tanggal", "kode_shift"];
+
+  // format jam ke HH:MM:SS untuk actual masuk/pulang
+  const formatJam = (val) => {
+    if (!val) return "";
+    const d = new Date(val);
+    if (isNaN(d)) return val; 
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const ss = String(d.getSeconds()).padStart(2, "0");
+    return `${hh}:${mm}:${ss}`;
+  };
+
+  const getDatePart = (value) => {
+    if (!value) return "";
+    const raw = String(value).trim();
+    const directMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (directMatch) return directMatch[1];
+
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return raw;
+    return d.toISOString().slice(0, 10);
+  };
+
+  const buildRowUid = (row, idx = 0) => {
+    const idPart =
+      row?.id_karyawan ??
+      row?.id_absen ??
+      row?.NIK ??
+      row?.NIP ??
+      row?.nip ??
+      row?.Nama ??
+      "UNKNOWN_ID";
+    const tanggalPart = getDatePart(row?.Tanggal) || "UNKNOWN_DATE";
+    const shiftPart = String(row?.Kode_Shift ?? "NO_SHIFT").trim() || "NO_SHIFT";
+    const fallbackPart = row?.no ?? idx;
+    return `${String(idPart).trim()}__${tanggalPart}__${shiftPart}__${fallbackPart}`;
+  };
+
+  const [reasonMap, setReasonMap] = useState({});
+
+
+  // Export Crocek Absensi (filtered data)
+  const exportFilteredData = () => {
+    const wb = XLSX.utils.book_new();
+
+    const headers = [
+      "Nama", "Tanggal", "Kode Shift", "Jabatan", "Departemen",
+      "Jadwal Masuk", "Jadwal Pulang", "Aktual Masuk", "Aktual Pulang",
+      "Keterangan Jadwal", "Status Kehadiran", "Status Masuk", "Status Pulang"
+    ];
+
+    // Format tanggal ke dd-mm-yyyy
+    const formatTanggal = (tgl) => {
+      if (!tgl) return "";
+      const d = new Date(tgl);
+      if (isNaN(d)) return tgl;
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
+
+    const data = [headers];
+
+    filteredData.forEach((row, i) => {
+      const uid = row.__uid || buildRowUid(row, i);
+      const finalStatus =
+        row.Status_Kehadiran === "Tidak Hadir"
+          ? (reasonMap[uid] || "Tidak Hadir")
+          : row.Status_Kehadiran;
+
+      data.push([
+        row.Nama,
+        formatTanggal(row.Tanggal),
+        row.Kode_Shift,
+        row.Jabatan,
+        row.Departemen,
+        row.Jadwal_Masuk,
+        row.Jadwal_Pulang,
+        formatJam(row.Actual_Masuk),
+        formatJam(row.Actual_Pulang),
+        row.Keterangan,
+        finalStatus,
+        row.Status_Masuk,
+        row.Status_Pulang
+      ]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = headers.map(() => ({ wch: 15 }));
+
+    XLSX.utils.book_append_sheet(wb, ws, "Hasil Croscek");
+
+    XLSX.writeFile(
+      wb,
+      `hasil_croscek_${startDate || 'all'}_sd_${endDate || 'all'}.xlsx`
+    );
+  };
+
+
+
+  // ðŸ”¥ HANDLER UNTUK KOSONGKAN SEMUA DATA JADWAL KARYAWAN
+  const handleDeleteJadwalPeriod = async () => {
+    if (!selectedMonthJadwal || !selectedYearJadwal) {
+      alert("Silakan pilih periode jadwal terlebih dahulu.");
+      return;
+    }
+
+    const labelPeriode = new Date(
+      selectedYearJadwal,
+      selectedMonthJadwal - 1,
+      1
+    ).toLocaleString("id-ID", {
+      month: "long",
+      year: "numeric",
+    });
+
+    if (!window.confirm(`Yakin ingin menghapus semua jadwal periode ${labelPeriode}?`)) return;
+
+    try {
+      const res = await fetch(`${API}/jadwal-karyawan/delete-period`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bulan: selectedMonthJadwal,
+          tahun: selectedYearJadwal,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        alert(result.error || "Gagal menghapus periode jadwal.");
+        return;
+      }
+
+      alert(result.message || "Periode jadwal berhasil dihapus.");
+      await loadJadwalKaryawan();
+    } catch (err) {
+      alert("Terjadi kesalahan saat hapus periode jadwal: " + err.message);
+    }
+  };
+
+  // ðŸ”¥ HANDLER UNTUK KOSONGKAN SEMUA DATA JADWAL KARYAWAN
+  const handleKosongkanJadwal = async () => {
+    if (!window.confirm("Yakin ingin menghapus SEMUA data jadwal karyawan?")) return;
+
+    try {
+      const res = await fetch(`${API}/jadwal-karyawan/clear`, {
+        method: "POST",
+      });
+
+      let result = {};
+      try {
+        result = await res.json();
+      } catch (e) {
+        console.warn("Response bukan JSON:", e);
+      }
+
+      if (res.ok) {
+        alert(result.message || "Semua jadwal berhasil dikosongkan!");
+        loadJadwalKaryawan();
+      } else {
+        alert("Gagal mengosongkan: " + (result.error || "Unknown error"));
+      }
+    } catch (err) {
+      alert("Terjadi kesalahan: " + err.message);
+    }
+  };
+
+
+  // Helper: convert imported image URL -> base64 (ExcelJS expects base64)
+  async function imageToBase64(path) {
+    const resp = await fetch(path);
+    const blob = await resp.blob();
+    return await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result;
+        // return base64 without prefix
+        res(dataUrl.split(",")[1]);
+      };
+      reader.onerror = rej;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // === Format Tanggal Indonesia Per-Hari ===
+  function formatDateIdPerDay(date) {
+    const bulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+    const d = new Date(date);
+    if (isNaN(d)) return "";
+    const dayName = d.toLocaleDateString("id-ID", { weekday: "long" });
+    return `Periode : ${dayName}, ${String(d.getDate()).padStart(2,"0")} ${bulan[d.getMonth()]} ${d.getFullYear()}`;
+  }
+
+  // helper: format time hh:mm dari string/datetime
+  function formatTime(t) {
+    if (!t) return "";
+    try {
+      const d = new Date(t);
+      if (isNaN(d)) {
+        // maybe t is TIME like "15:00:00"
+        const parts = String(t).split(":");
+        if (parts.length >= 2) return `${parts[0].padStart(2,"0")}:${parts[1].padStart(2,"0")}`;
+        return String(t);
+      }
+      return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+    } catch(e) { return String(t); }
+  }
+
+  // helper: mendapatkan final status kehadiran dari reasonMap atau data asli
+  const getFinalStatusKehadiran = (row) => {
+    const selected = reasonMap?.[row.__uid];
+
+    // jika user pilih dari select
+    if (typeof selected === "string" && selected.trim() !== "") {
+      return selected.toUpperCase();
+    }
+
+    // fallback dari data asli
+    return (row.Status_Kehadiran || "").toUpperCase();
+  };
+
+
+  // === FULL UPDATE Export Rekap Perhari (dengan blok TERLAMBAT) ===
+  async function exportRekapPerhari() {
+    try {
+      if (!filteredData || filteredData.length === 0) {
+        alert("Tidak ada data untuk diexport.");
+        return;
+      }
+
+      const dataWithIndex = filteredData.map((r, idx) => ({ ...r, _idx: idx }));
+
+      // // Pisahkan filter untuk bagian utama (sakit/izin/alpa/tidak hadir) dan terlambat
+      // const filteredRekapUtama = dataWithIndex.filter(row => {
+      //   // const status = (row.Status_Kehadiran || "").toUpperCase();
+      //   const selected = reasonMap?.[row.__uid];
+      //   // hanya selected atau status sakit/izin/alpa/tidak hadir, tanpa telat
+      //   // if (selected || ["ALPA","SAKIT","IZIN","TIDAK HADIR","DINAS LUAR"].includes(status)) {
+      //   //   return true;
+      //   // }
+      //   // return false;
+      //   if (
+      //     ["ALPA","SAKIT","IZIN","TIDAK HADIR","DINAS LUAR"].includes(status)
+      //   ) {
+      //     return true;
+      //   }
+
+      //   // jika ada selected, pastikan BUKAN TL & BUKAN PA
+      //   if (selected) {
+      //     const hasAbsenceReason =
+      //       selected.ALPA ||
+      //       selected.SAKIT ||
+      //       selected.IZIN ||
+      //       selected.TIDAK_HADIR ||
+      //       selected.DINAS_LUAR;
+
+      //     return Boolean(hasAbsenceReason);
+      //   }
+
+      //   return false;
+      // });
+      const filteredRekapUtama = dataWithIndex.filter(row => {
+        const status = getFinalStatusKehadiran(row);
+
+        return ["ALPA","SAKIT","IZIN","TIDAK HADIR","DINAS LUAR"].includes(status);
+      });
+
+
+      const filteredRekapTerlambat = dataWithIndex.filter(row => {
+        const masuk = (row.Status_Masuk || "").toUpperCase();
+        const tlCode = reasonMap[row.__uid]?.TL_Code || "";
+        
+        // hanya yang telat - cek dari Status_Masuk atau dari reasonMap
+        if (
+          masuk.includes("TELAT") || 
+          masuk.includes("TERLAMBAT") || 
+          masuk.includes("TL") ||
+          tlCode.startsWith("TL_")
+        ) {
+          return true;
+        }
+        return false;
+      });
+
+      const getReason = (row) => reasonMap?.[row.__uid] || row.Status_Kehadiran || "";
+      const getNik = (r) => (r.NIP || r.nip || r.NIK || r.id_karyawan || "") + "";
+
+      // group per tanggal untuk utama dan terlambat terpisah
+      const rowsByDateUtama = {};
+      for (const r of filteredRekapUtama) {
+        const dt = new Date(r.Tanggal);
+        const key = isNaN(dt) ? String(r.Tanggal) : dt.toISOString().slice(0,10);
+        if (!rowsByDateUtama[key]) rowsByDateUtama[key] = [];
+        rowsByDateUtama[key].push(r);
+      }
+
+      const rowsByDateTerlambat = {};
+      for (const r of filteredRekapTerlambat) {
+        const dt = new Date(r.Tanggal);
+        const key = isNaN(dt) ? String(r.Tanggal) : dt.toISOString().slice(0,10);
+        if (!rowsByDateTerlambat[key]) rowsByDateTerlambat[key] = [];
+        // Add TL_Code to track if this came from reasonMap
+        rowsByDateTerlambat[key].push({
+          ...r,
+          TL_Code: reasonMap[r.__uid]?.TL_Code || r.TL_Code || ""
+        });
+      }
+
+      const dateKeys = [...new Set([
+        ...Object.keys(rowsByDateUtama || {}),
+        ...Object.keys(rowsByDateTerlambat || {})
+      ])]
+      .filter(Boolean)      // hilangkan null/undefined/"" 
+      .sort();
+
+      const hasRange = startDate && endDate;
+
+      const wb = new ExcelJS.Workbook();
+
+      // create one sheet per day (always)
+      const createSheetForRows = async (sheetName, rowsForSheetUtama, rowsForSheetTerlambat, currentDateKey) => {
+        const ws = wb.addWorksheet(sheetName);
+
+        ws.columns = [
+          { key: "A", width: 6 }, { key: "B", width: 30 }, { key: "C", width: 18 },
+          { key: "D", width: 20 }, { key: "E", width: 18 }, { key: "F", width: 8 },
+          { key: "G", width: 28 }, { key: "H", width: 10 }, { key: "I", width: 10 }
+        ];
+
+        // logo + header (sama style)
+        try {
+          const base64 = await imageToBase64(logoCompany);
+          const imageId = wb.addImage({ base64, extension: "jpg" });
+          ws.mergeCells("A1:A2");
+          ws.addImage(imageId, { tl: { col: 0.2, row: 0.2 }, ext: { width: 40, height: 40 } });
+          ws.getRow(1).height = 18;
+          ws.getRow(2).height = 18;
+        } catch (e) { console.warn("Gagal load logo:", e); }
+
+        ws.mergeCells("B1:I1");
+        ws.getCell("B1").value = { richText:[
+          { text:"Sari Ater ", font:{ name:"Times New Roman", size:9, color:{ argb:"FF23FF23" }, underline:true } },
+          { text:"Hot Spring Ciater", font:{ name:"Mistral", size:9, color:{ argb:"FFFF0000" }, italic:true, underline:true } }
+        ]};
+        ws.getCell("B1").alignment = { vertical:"middle", horizontal:"left" };
+
+        ws.mergeCells("B2:I2");
+        ws.getCell("B2").value = "Human Resources Department";
+        ws.getCell("B2").font = { name:"Arial", size:8, bold:true };
+        ws.getCell("B2").alignment = { vertical:"middle", horizontal:"left" };
+
+        ws.mergeCells("A3:I3");
+        ws.getCell("A3").value = "REKAPITULASI HARIAN";
+        ws.getCell("A3").font = { name:"Times New Roman", size:9, bold:true, italic:true };
+        ws.getCell("A3").alignment = { vertical:"middle", horizontal:"center" };
+
+        ws.mergeCells("A4:I4");
+        ws.getCell("A4").value = "( Sakit, Izin, Alpa & Terlambat masuk kerja )";
+        ws.getCell("A4").font = { name:"Times New Roman", size:9, italic:true };
+        ws.getCell("A4").alignment = { vertical:"middle", horizontal:"center" };
+
+        // periode (selalu per-hari)
+        ws.mergeCells("A5:I5");
+        ws.getCell("A5").value = formatDateIdPerDay(currentDateKey);
+        ws.getCell("A5").font = { name:"Times New Roman", size:9, bold:true, italic:true };
+        ws.getCell("A5").alignment = { vertical:"middle", horizontal:"center" };
+
+        let curRow = 6;
+
+        // Group by shift untuk bagian utama
+        const groupedUtama = {};
+        for (const r of rowsForSheetUtama) {
+          const key = r.Kode_Shift ?? "UNSPEC";
+          if (!groupedUtama[key]) groupedUtama[key] = [];
+          groupedUtama[key].push(r);
+        }
+
+        const shiftsUtama = Object.keys(groupedUtama).sort((a,b)=> {
+          const na = Number(a), nb = Number(b);
+          if (!isNaN(na) && !isNaN(nb)) return na-nb;
+          return a.localeCompare(b);
+        });
+
+        // --- REKAP UTAMA (Izin/Sakit/Alpa/Tidak Hadir) ---
+        for (const shift of shiftsUtama) {
+          // shift header (merge A-I)
+          ws.mergeCells(`A${curRow}:I${curRow}`);
+          ws.getCell(`A${curRow}`).value = `Shift : ${shift}`;
+          ws.getCell(`A${curRow}`).font = { name:"Times New Roman", size:9, bold:true, italic:true };
+          ws.getCell(`A${curRow}`).alignment = { horizontal:"left", vertical:"middle" };
+          ws.getCell(`A${curRow}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+            ws.getCell(`A${curRow}`).fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FFD9D9D9"} };
+          curRow++;
+
+          // header kolom: No, Nama, NIK, Jabatan, Dept, Shift, Keterangan(merge G-I)
+          // A-F headers
+          const headersLeft = ["No","Nama Karyawan","NIK","Jabatan","Dept","Shift"];
+          for (let i=0;i<headersLeft.length;i++){
+            const col = String.fromCharCode(65+i);
+            ws.getCell(`${col}${curRow}`).value = headersLeft[i];
+            ws.getCell(`${col}${curRow}`).font = { name:"Times New Roman", size:9, bold:true, italic:true };
+            ws.getCell(`${col}${curRow}`).alignment = { horizontal:"center", vertical:"middle" };
+            ws.getCell(`${col}${curRow}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+            ws.getCell(`${col}${curRow}`).fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FFD9D9D9"} };
+          }
+          // Keterangan header merged G-I
+          ws.mergeCells(`G${curRow}:I${curRow}`);
+          ws.getCell(`G${curRow}`).value = "Keterangan";
+          ws.getCell(`G${curRow}`).font = { name:"Times New Roman", size:9, bold:true, italic:true };
+          ws.getCell(`G${curRow}`).alignment = { horizontal:"center", vertical:"middle" };
+          ws.getCell(`G${curRow}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+          ws.getCell(`G${curRow}`).fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FFD9D9D9"} };
+
+          curRow++;
+
+          // data rows
+          const rows = groupedUtama[shift];
+          for (let i=0;i<rows.length;i++){
+            const r = rows[i];
+            const nomor = i+1;
+
+            // first fill A-F normally
+            const leftVals = [
+              nomor,
+              r.Nama ?? "",
+              getNik(r),
+              r.Jabatan ?? "",
+              r.Departemen ?? "",
+              r.Kode_Shift ?? ""
+            ];
+            for (let ci=0; ci<leftVals.length; ci++){
+              const col = String.fromCharCode(65+ci);
+              ws.getCell(`${col}${curRow}`).value = leftVals[ci];
+              ws.getCell(`${col}${curRow}`).font = { name:"Times New Roman", size:9 };
+              ws.getCell(`${col}${curRow}`).alignment = { horizontal: "center", vertical:"middle" };
+              ws.getCell(`${col}${curRow}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+            }
+
+            // merge G-I for keterangan value
+            ws.mergeCells(`G${curRow}:I${curRow}`);
+            // const keteranganVal = (r.Status_Kehadiran === "Tidak Hadir") ? ( getReason(r) || "Tidak Hadir" ) : (r.Status_Kehadiran || "");
+            let keteranganVal = "";
+            // if (["ALPA","SAKIT","IZIN","TIDAK HADIR","DINAS LUAR"].includes(
+            //   (r.Status_Kehadiran || "").toUpperCase()
+            // )) {
+            //   keteranganVal = r.Status_Kehadiran;
+            // }
+            const finalStatus = getFinalStatusKehadiran(r);
+            if (["ALPA","SAKIT","IZIN","TIDAK HADIR","DINAS LUAR"].includes(finalStatus)) {
+              keteranganVal = finalStatus;
+            }
+
+            ws.getCell(`G${curRow}`).value = keteranganVal;
+            ws.getCell(`G${curRow}`).font = { name:"Times New Roman", size:9 };
+            ws.getCell(`G${curRow}`).alignment = { horizontal:"center", vertical:"middle" };
+            // set borders for merged region (G,H,I)
+            ["G","H","I"].forEach(c => {
+              ws.getCell(`${c}${curRow}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+            });
+
+            curRow++;
+          }
+
+          curRow++; // spacing antar shift
+        }
+
+        // === setelah rekap utama -> lewati 2 baris sebelum blok terlambat ===
+        curRow += 2;
+
+        // --- BLOK DATA KARYAWAN TERLAMBAT ---
+        if (rowsForSheetTerlambat.length > 0) {
+          // header title
+          ws.mergeCells(`A${curRow}:I${curRow}`);
+          ws.getCell(`A${curRow}`).value = "Data Karyaman yang terlambat masuk kerja";
+          ws.getCell(`A${curRow}`).font = { name:"Times New Roman", size:11, bold:true, italic:true };
+          ws.getCell(`A${curRow}`).alignment = { horizontal:"center", vertical:"middle" };
+          curRow++;
+
+          // periode under title (same style requested)
+          ws.mergeCells(`A${curRow}:I${curRow}`);
+          ws.getCell(`A${curRow}`).value = formatDateIdPerDay(currentDateKey);
+          ws.getCell(`A${curRow}`).font = { name:"Times New Roman", size:11, bold:true, italic:true };
+          ws.getCell(`A${curRow}`).alignment = { horizontal:"center", vertical:"middle" };
+          curRow++;
+
+          // group late rows by shift
+          const lateGroup = {};
+          for (const r of rowsForSheetTerlambat) {
+            const key = r.Kode_Shift ?? "UNSPEC";
+            if (!lateGroup[key]) lateGroup[key] = [];
+            lateGroup[key].push(r);
+          }
+          const lateShifts = Object.keys(lateGroup).sort();
+
+          for (const sh of lateShifts) {
+            // shift header
+            ws.mergeCells(`A${curRow}:I${curRow}`);
+            ws.getCell(`A${curRow}`).value = `Shift : ${sh}`;
+            ws.getCell(`A${curRow}`).font = { name:"Times New Roman", size:9, bold:true, italic:true };
+            ws.getCell(`A${curRow}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+            ws.getCell(`A${curRow}`).alignment = { horizontal:"left", vertical:"middle" };
+            ws.getCell(`A${curRow}`).fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FFD9D9D9"} };
+            curRow++;
+
+            // Header 2-bar rows:
+            // Merge A-D vertically (2 rows)
+            ws.mergeCells(`A${curRow}:A${curRow+1}`);
+            ws.mergeCells(`B${curRow}:B${curRow+1}`);
+            ws.mergeCells(`C${curRow}:C${curRow+1}`);
+            ws.mergeCells(`D${curRow}:D${curRow+1}`);
+            ws.getCell(`A${curRow}`).value = "No";
+            ws.getCell(`B${curRow}`).value = "Nama Karyawan";
+            ws.getCell(`C${curRow}`).value = "NIK";
+            ws.getCell(`D${curRow}`).value = "Jabatan";
+            ["A","B","C","D"].forEach(col => {
+              ws.getCell(`${col}${curRow}`).font = { name:"Times New Roman", size:9, bold:true, italic:true };
+              ws.getCell(`${col}${curRow}`).alignment = { horizontal:"center", vertical:"middle" };
+              // also put borders for both rows of merge
+              ws.getCell(`${col}${curRow}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+              ws.getCell(`${col}${curRow+1}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+              ws.getCell(`${col}${curRow}`).fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FFD9D9D9"} };
+            });
+
+            // E-G row1 merged as "Jadwal Kerja"
+            ws.mergeCells(`E${curRow}:G${curRow}`);
+            ws.getCell(`E${curRow}`).value = "Jadwal Kerja";
+            ws.getCell(`E${curRow}`).font = { name:"Times New Roman", size:9, bold:true, italic:true };
+            ws.getCell(`E${curRow}`).alignment = { horizontal:"center", vertical:"middle" };
+            ws.getCell(`E${curRow}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+            ws.getCell(`E${curRow}`).fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FFD9D9D9"} };
+
+            // Under E-G row+1: Dept, Shift, Jam Cek In
+            ws.getCell(`E${curRow+1}`).value = "Dept";
+            ws.getCell(`F${curRow+1}`).value = "Shift";
+            ws.getCell(`G${curRow+1}`).value = "Jam Cek In";
+            ["E","F","G"].forEach(col => {
+              ws.getCell(`${col}${curRow+1}`).font = { name:"Times New Roman", size:9, bold:true, italic:true };
+              ws.getCell(`${col}${curRow+1}`).alignment = { horizontal:"center", vertical:"middle" };
+              ws.getCell(`${col}${curRow+1}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+              ws.getCell(`${col}${curRow+1}`).fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FFD9D9D9"} };
+            });
+
+            // H header merged vertical (Actual)
+            ws.mergeCells(`H${curRow}:H${curRow+1}`);
+            ws.getCell(`H${curRow}`).value = "Actual";
+            ws.getCell(`H${curRow}`).font = { name:"Times New Roman", size:9, bold:true, italic:true };
+            ws.getCell(`H${curRow}`).alignment = { horizontal:"center", vertical:"middle" };
+            ws.getCell(`H${curRow}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+            ws.getCell(`H${curRow+1}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+            ws.getCell(`H${curRow}`).fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FFD9D9D9"} };
+            
+            // I header merged vertical (Durasi Terlambat)
+            ws.mergeCells(`I${curRow}:I${curRow+1}`);
+            ws.getCell(`I${curRow}`).value = "Durasi Terlambat";
+            ws.getCell(`I${curRow}`).font = { name:"Times New Roman", size:9, bold:true, italic:true };
+            ws.getCell(`I${curRow}`).alignment = { horizontal:"center", vertical:"middle" };
+            ws.getCell(`I${curRow}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+            ws.getCell(`I${curRow+1}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+            ws.getCell(`I${curRow}`).fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FFD9D9D9"} };
+
+            // Update column widths for better layout
+            ws.columns = [
+              { key: "A", width: 6 }, { key: "B", width: 30 }, { key: "C", width: 18 },
+              { key: "D", width: 20 }, { key: "E", width: 18 }, { key: "F", width: 12 },
+              { key: "G", width: 12 }, { key: "H", width: 12 }, { key: "I", width: 18 }
+            ];
+
+
+            curRow += 2;
+
+            // fill data rows for this shift
+            const arr = lateGroup[sh];
+            for (let i=0;i<arr.length;i++){
+              const r = arr[i];
+              const nomor = i+1;
+
+              // Jadwal masuk: may be r.Jadwal_Masuk (TIME) or Scheduled_Start string
+              const jamCekIn = formatTime(r.Jadwal_Masuk || r.Scheduled_Start);
+              const jamActual = formatTime(r.Actual_Masuk);
+              // compute duration: Actual_Masuk - Scheduled_Start
+              let durasi = "";
+              try {
+                const sched = r.Scheduled_Start || r.Jadwal_Masuk;
+                const jamScheduled = formatTime(sched);
+                const jamActual = formatTime(r.Actual_Masuk);
+
+                const baseDate = currentDateKey; // yyyy-mm-dd dari sheet
+                const start = new Date(`${baseDate}T${jamScheduled}:00`);
+                const actual = new Date(`${baseDate}T${jamActual}:00`);
+
+                if (!isNaN(start) && !isNaN(actual) && actual > start) {
+                  const ms = actual - start;
+                  const h = Math.floor(ms / 1000 / 3600);
+                  const m = Math.floor((ms / 1000 / 60) % 60);
+                  durasi = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+                }
+              } catch(e) { durasi = ""; }
+
+
+              const vals = [
+                nomor,
+                r.Nama ?? "",
+                getNik(r),
+                r.Jabatan ?? "",
+                r.Departemen ?? "",
+                r.Kode_Shift ?? "",
+                jamCekIn,
+                jamActual,
+                durasi
+              ];
+
+              // write columns A..I
+              for (let c=0;c<vals.length;c++){
+                const col = String.fromCharCode(65 + c);
+                ws.getCell(`${col}${curRow}`).value = vals[c];
+                ws.getCell(`${col}${curRow}`).font = { name:"Times New Roman", size:9 };
+                ws.getCell(`${col}${curRow}`).alignment = { horizontal:"center", vertical:"middle" };
+                ws.getCell(`${col}${curRow}`).border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+              }
+              curRow++;
+            }
+
+            curRow += 2; // spacing setelah list shift terlambat
+          } // end for late shifts
+        } // end if terlambatRowsAll
+
+        // --- footer (tanda tangan) seperti sebelumnya ---
+        curRow++;
+        const now = new Date();
+        const monthEn = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        ws.getCell(`A${curRow}`).value = `${String(now.getDate()).padStart(2,"0")} ${monthEn[now.getMonth()]} ${now.getFullYear()}`;
+        ws.getCell(`A${curRow}`).font = { name:"Times New Roman", size:9 };
+
+        ws.getCell(`A${curRow+1}`).value = "Human Resources Dept.";
+        ws.getCell(`A${curRow+1}`).font = { name:"Times New Roman", size:9, italic:true };
+        ws.mergeCells(`E${curRow+1}:I${curRow+1}`);
+        ws.getCell(`E${curRow+1}`).value = "Mengetahui,";
+        ws.getCell(`E${curRow+1}`).font = { name:"Times New Roman", size:9, italic:true };
+        ws.getCell(`E${curRow+1}`).alignment = { horizontal:"center" };
+
+        ws.getCell(`A${curRow+4}`).value = "â€¦â€¦â€¦â€¦â€¦â€¦â€¦.";
+        ws.getCell(`A${curRow+4}`).font = { name:"Times New Roman", size:9, bold:true, underline:true };
+        ws.mergeCells(`E${curRow+4}:I${curRow+4}`);
+        ws.getCell(`E${curRow+4}`).value = "â€¦â€¦â€¦â€¦â€¦â€¦â€¦.";
+        ws.getCell(`E${curRow+4}`).font = { name:"Times New Roman", size:9, bold:true, underline:true };
+        ws.getCell(`E${curRow+4}`).alignment = { horizontal:"center" };
+
+        ws.getCell(`A${curRow+5}`).value = "Time Keeper Staff";
+        ws.getCell(`A${curRow+5}`).font = { name:"Times New Roman", size:9, italic:true };
+        ws.getCell(`D${curRow+5}`).value = "Menyetujui,";
+        ws.getCell(`D${curRow+5}`).font = { name:"Times New Roman", size:9, italic:true };
+
+        ws.getCell(`D${curRow+8}`).value = "Maman Somantri";
+        ws.getCell(`D${curRow+8}`).font = { name:"Times New Roman", size:9, italic:true, underline:true };
+        ws.getCell(`D${curRow+9}`).value = "HR Manager";
+        ws.getCell(`D${curRow+9}`).font = { name:"Times New Roman", size:9, italic:true };
+
+      }; // end createSheetForRows
+
+      // === generate per day sheet ===
+      for (const key of dateKeys) {
+        const rowsForDateUtama = rowsByDateUtama[key] || [];
+        const rowsForDateTerlambat = rowsByDateTerlambat[key] || [];
+        const dt = new Date(key);
+        const sheetName = isNaN(dt) ? key : `${String(dt.getDate()).padStart(2,"0")}-${String(dt.getMonth()+1).padStart(2,"0")}-${dt.getFullYear()}`;
+        await createSheetForRows(sheetName, rowsForDateUtama, rowsForDateTerlambat, key);
+      }
+
+      // write workbook
+      const buffer = await wb.xlsx.writeBuffer();
+      saveAs(new Blob([buffer]), `rekap_harian_${startDate || 'all'}_to_${endDate || 'all'}.xlsx`);
+      alert("Export Rekap Perhari selesai (per hari per sheet).");
+    } catch(err) {
+      console.error("Export failed:", err);
+      alert("Gagal export: " + (err.message || err));
+    }
+  }
+
+  const STATUS_TANPA_SCAN = [
+    "TIDAK HADIR",
+    "LIBUR",
+    "EXTRAOFF",
+    "CUTI ISTIMEWA",
+    "CUTI TAHUNAN",
+    "CUTI BERSAMA",
+    "LIBUR SETELAH MASUK DOBLE SHIFT"
+  ];
+
+  function isEmptyTime(value) {
+    if (!value) return true;
+
+    const v = String(value).trim();
+
+    return (
+      v === "" ||
+      v === "0:00" ||
+      v === "0:00:00" ||
+      v === "00:00" ||
+      v === "00:00:00"
+    );
+  }
+
+
+  function getMonthKey(dateStr) {
+    const d = new Date(dateStr);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function groupByMonth(data) {
+    const map = {};
+    data.forEach(r => {
+      const key = getMonthKey(r.Tanggal);
+      if (!map[key]) map[key] = [];
+      map[key].push(r);
+    });
+    return map;
+  }
+
+  function formatDateFile(dateStr) {
+    const d = new Date(dateStr);
+    return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
+  }
+
+
+  async function exportRekapKehadiran() {
+    try {
+      function applyReasonMap(data, reasonMap) {
+        return data.map((row, idx) => {
+          const rawReason = reasonMap[row.__uid || buildRowUid(row, idx)];
+
+          const reason =
+            typeof rawReason === "string"
+              ? { Status_Kehadiran: rawReason }
+              : (rawReason || {});
+
+          const statusKehadiranFinal =
+            (reason.Status_Kehadiran || row.Status_Kehadiran || "HADIR")
+              .trim()
+              .toUpperCase();
+
+              
+              const STATUS_BEBAS_SCAN = [
+                "LIBUR",
+                "OFF",
+            "CUTI",
+            "CUTI TAHUNAN",
+            "CUTI ISTIMEWA",
+            "CUTI BERSAMA",
+            "DINAS LUAR",
+            "SAKIT",
+            "IZIN",
+            "ALPA"
+          ];
+
+          // const isShiftOff = isEmptyTime(row.Jadwal_Masuk);
+          // const bebasScan =
+          //   isShiftOff || STATUS_BEBAS_SCAN.includes(statusKehadiranFinal);
+
+          // const isHadir = statusKehadiranFinal === "HADIR";
+
+          // const tidakScanMasuk =
+          //   isHadir &&
+          //   !bebasScan &&
+          //   isEmptyTime(row.Actual_Masuk);
+
+          // const tidakScanPulang =
+          //   isHadir &&
+          //   !bebasScan &&
+          //   isEmptyTime(row.Actual_Pulang);
+
+          const tidakScanMasuk = isTidakScanMasuk({
+            ...row,
+            Status_Kehadiran: statusKehadiranFinal
+          });
+
+          const tidakScanPulang = isTidakScanPulang({
+            ...row,
+            Status_Kehadiran: statusKehadiranFinal
+          });
+
+
+          return {
+            ...row,
+            Status_Kehadiran: statusKehadiranFinal,
+            TL_Code: reason.TL_Code || "",
+            PA_Code: reason.PA_Code || "",
+            TidakPostingDatang: tidakScanMasuk ? 1 : 0,
+            TidakPostingPulang: tidakScanPulang ? 1 : 0
+          };
+        });
+      }
+
+      // function parseTLCode(statusMasuk) {
+      //   if (!statusMasuk) return "";
+      //   const st = String(statusMasuk).toUpperCase();
+      //   if (st.includes("TL") && st.includes("1") && st.includes("5")) {
+      //     return st.includes("IZIN") || st.includes("D") ? "TL_1_5_D" : "TL_1_5_T";
+      //   }
+      //   if (st.includes("TL") && st.includes("5") && st.includes("10")) {
+      //     return st.includes("IZIN") || st.includes("D") ? "TL_5_10_D" : "TL_5_10_T";
+      //   }
+      //   if (st.includes("TL") && st.includes("10")) {
+      //     return st.includes("IZIN") || st.includes("D") ? "TL_10_D" : "TL_10_T";
+      //   }
+      //   return "";
+      // }
+
+      // Fixed version of parseTLCode to be more robust and handle cases like "TL 1-5", "TL 5-10", "TL 10+" etc.
+      // function parseTLCode(statusMasuk) {
+      //   if (!statusMasuk) return "";
+      //   const st = String(statusMasuk).toUpperCase();
+
+      //   // Ambil angka dari string
+      //   const match = st.match(/TL\s*(\d+)\s*(\d+)?/);
+      //   if (!match) return "";
+
+      //   const start = parseInt(match[1], 10);
+      //   const end = match[2] ? parseInt(match[2], 10) : null;
+
+      //   if (start === 1 && end === 5) {
+      //     return st.includes("IZIN") || st.includes("D") ? "TL_1_5_D" : "TL_1_5_T";
+      //   }
+      //   if (start === 5 && end === 10) {
+      //     return st.includes("IZIN") || st.includes("D") ? "TL_5_10_D" : "TL_5_10_T";
+      //   }
+      //   if (start >= 10 || start === 10) {
+      //     return st.includes("IZIN") || st.includes("D") ? "TL_10_D" : "TL_10_T";
+      //   }
+
+      //   return "";
+      // }
+
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // GANTI fungsi parseTLCode yang lama dengan ini
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      function parseTLCode(statusMasuk) {
+        if (!statusMasuk) return "";
+        const st = String(statusMasuk).toUpperCase();
+        const match = st.match(/TL\s*(\d+)\s*(\d+)?/);
+        if (!match) return "";
+        const start = parseInt(match[1], 10);
+        const end = match[2] ? parseInt(match[2], 10) : null;
+        if (start === 1 && end === 5) {
+          return st.includes("IZIN") || st.includes("D") ? "TL_1_5_D" : "TL_1_5_T";
+        }
+        if (start === 5 && end === 10) {
+          return st.includes("IZIN") || st.includes("D") ? "TL_5_10_D" : "TL_5_10_T";
+        }
+        if (start >= 10) {
+          return st.includes("IZIN") || st.includes("D") ? "TL_10_D" : "TL_10_T";
+        }
+        return "";
+      }
+
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // TAMBAHKAN fungsi helper baru ini
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+      // Parse "HH:MM" atau "HH:MM:SS" â†’ total menit sejak tengah malam
+      function timeToMinutes(timeStr) {
+        if (!timeStr) return null;
+        const str = String(timeStr).trim();
+        const match = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+        if (!match) return null;
+        const h = parseInt(match[1], 10);
+        const m = parseInt(match[2], 10);
+        const s = parseInt(match[3] || "0", 10);
+        if ([h, m, s].some((v) => Number.isNaN(v))) return null;
+        if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) return null;
+        return h * 60 + m + s / 60;
+      }
+
+      function normalizeDayDiff(diff) {
+        let d = diff;
+        if (d > 720) d -= 1440;
+        if (d < -720) d += 1440;
+        return d;
+      }
+
+      function getSelisihMasukMenit(row) {
+        const { jadwalMasuk, actualMasuk } = getEffectiveTimeContext(row);
+        const jadwalMasukMnt = timeToMinutes(jadwalMasuk);
+        const actualMasukMnt = timeToMinutes(actualMasuk);
+        if (jadwalMasukMnt === null || actualMasukMnt === null) return null;
+        return normalizeDayDiff(actualMasukMnt - jadwalMasukMnt);
+      }
+
+      function getSelisihPulangMenit(row) {
+        const { jadwalPulang, actualPulang } = getEffectiveTimeContext(row);
+        const jadwalPulangMnt = timeToMinutes(jadwalPulang);
+        const actualPulangMnt = timeToMinutes(actualPulang);
+        if (jadwalPulangMnt === null || actualPulangMnt === null) return null;
+        return normalizeDayDiff(actualPulangMnt - jadwalPulangMnt);
+      }
+
+      /**
+       * Hitung TL code dari data aktual jam â€” HANYA dipakai sebagai fallback
+       * ketika Status_Masuk dari DB kosong / tidak ada kode TL dan user
+       * belum memilih di dropdown reasonMap.
+       *
+       * Aturan kompensasi:
+       *   Jika (Actual_Pulang - Jadwal_Pulang) >= selisih_telat â†’ TIDAK TELAT
+       *
+       * Default: TANPA IZIN (karena user tidak memilih)
+       */
+      function autoDetectTLCode(row) {
+        const statusKehadiran = String(row.Status_Kehadiran || "").toUpperCase();
+        if (statusKehadiran !== "HADIR") return "";
+
+        const statusMasukRaw = String(row.Status_Masuk || "").toUpperCase();
+        if (statusMasukRaw.includes("TL")) return "";
+
+        // Determine effective times (with prediction support)
+        let effectiveJadwalMasuk = row.Jadwal_Masuk;
+        let effectiveActualMasuk = row.Actual_Masuk;
+        let effectiveJadwalPulang = row.Jadwal_Pulang;
+        let effectiveActualPulang = row.Actual_Pulang;
+
+        // If ada prediksi shift dan prediksi masuk, gunakan untuk menghitung
+        if (row.Prediksi_Shift && row.Prediksi_Actual_Masuk) {
+          effectiveActualMasuk = row.Prediksi_Actual_Masuk;
+          if (row.Prediksi_Actual_Pulang) {
+            effectiveActualPulang = row.Prediksi_Actual_Pulang;
+          }
+        }
+
+        const selisihMasuk = getSelisihMasukMenitWithTimes(effectiveJadwalMasuk, effectiveActualMasuk);
+        const selisihPulang = getSelisihPulangMenitWithTimes(effectiveJadwalPulang, effectiveActualPulang);
+        if (selisihMasuk === null) return "";
+
+        const telatMenit = Math.max(0, selisihMasuk);
+        if (telatMenit <= 0) return "";
+
+        // Selaras indikator: kasus ungu (>2 jam) tidak masuk bucket TL rekap.
+        if (telatMenit > 120) return "";
+
+        // Kompensasi selaras indikator hijau.
+        const kompensasiPulangMenit = Math.ceil(telatMenit / 60) * 60;
+        if (selisihPulang !== null && selisihPulang >= kompensasiPulangMenit) return "";
+
+        if (telatMenit >= 4 && telatMenit < 6) return "TL_1_5_T";
+        if (telatMenit >= 6 && telatMenit <= 10) return "TL_5_10_T";
+        if (telatMenit > 10) return "TL_10_T";
+        return "";
+      }
+
+      // Helper: Calculate selisih masuk dengan waktu spesifik
+      function getSelisihMasukMenitWithTimes(jadwalMasuk, actualMasuk) {
+        const jadwalMasukMnt = timeToMinutes(jadwalMasuk);
+        const actualMasukMnt = timeToMinutes(actualMasuk);
+        if (jadwalMasukMnt === null || actualMasukMnt === null) return null;
+        return normalizeDayDiff(actualMasukMnt - jadwalMasukMnt);
+      }
+
+      // Helper: Calculate selisih pulang dengan waktu spesifik
+      function getSelisihPulangMenitWithTimes(jadwalPulang, actualPulang) {
+        const jadwalPulangMnt = timeToMinutes(jadwalPulang);
+        const actualPulangMnt = timeToMinutes(actualPulang);
+        if (jadwalPulangMnt === null || actualPulangMnt === null) return null;
+        return normalizeDayDiff(actualPulangMnt - jadwalPulangMnt);
+      }
+
+      function isTidakScanMasuk(row) {
+        const statusKehadiran = String(row.Status_Kehadiran || "").toUpperCase();
+        const statusMasuk = String(row.Status_Masuk || "").toUpperCase();
+
+        // Hanya HADIR yang boleh dihitung tidak scan
+        if (statusKehadiran !== "HADIR") return false;
+
+        // Deteksi dari status (PRIORITAS UTAMA)
+        if (statusMasuk.includes("TIDAK SCAN")) return true;
+
+        // Fallback dari jam (jika status kosong)
+        return isEmptyTime(row.Actual_Masuk);
+      }
+
+      function isTidakScanPulang(row) {
+        const statusKehadiran = String(row.Status_Kehadiran || "").toUpperCase();
+        const statusPulang = String(row.Status_Pulang || "").toUpperCase();
+
+        if (statusKehadiran !== "HADIR") return false;
+
+        if (statusPulang.includes("TIDAK SCAN")) return true;
+
+        return isEmptyTime(row.Actual_Pulang);
+      }
+
+
+
+      // function parsePACode(statusPulang) {
+      //   if (!statusPulang) return "";
+      //   const st = String(statusPulang).toUpperCase();
+      //   if (st.includes("PULANG AWAL")) {
+      //     return st.includes("IZIN") || st.includes("D") ? "PA_D" : "PA_T";
+      //   }
+      //   return "";
+      // }
+
+      function parsePACode(row) {
+        // === PRIORITAS 1: USER INPUT (STATE) ===
+        if (row.PA_Code === "PA_D") return "PA_D";
+        if (row.PA_Code === "PA_T") return "PA_T";
+
+        const statusKehadiran = String(row.Status_Kehadiran || "").toUpperCase();
+        if (statusKehadiran !== "HADIR") return "";
+
+        // Untuk pindah shift, jangan pakai status lama DB.
+        if (!isPindahShiftRow(row)) {
+          const st = String(row.Status_Pulang || "").toUpperCase();
+          if (st === "PULANG AWAL DENGAN IZIN") return "PA_D";
+          if (st === "PULANG AWAL TANPA IZIN") return "PA_T";
+        }
+
+        // === AUTO TANPA IZIN jika belum dipilih user ===
+        // Rule: actual pulang < jadwal pulang => PA_T.
+        const toMinutes = (val) => {
+          if (!val) return null;
+          const str = String(val).trim();
+          const match = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+          if (!match) return null;
+          const h = parseInt(match[1], 10);
+          const m = parseInt(match[2], 10);
+          const s = parseInt(match[3] || "0", 10);
+          if ([h, m, s].some((v) => Number.isNaN(v))) return null;
+          return h * 60 + m + s / 60;
+        };
+
+        const normalizeDayDiff = (diff) => {
+          let d = diff;
+          if (d > 720) d -= 1440;
+          if (d < -720) d += 1440;
+          return d;
+        };
+
+        const { jadwalPulang, actualPulang } = getEffectiveTimeContext(row);
+        const jadwalPulangMnt = toMinutes(jadwalPulang);
+        const actualPulangMnt = toMinutes(actualPulang);
+        if (jadwalPulangMnt === null || actualPulangMnt === null) return "";
+
+        const selisihPulang = normalizeDayDiff(actualPulangMnt - jadwalPulangMnt);
+        if (selisihPulang < 0) return "PA_T";
+
+        return "";
+      }
+
+
+
+      if (!filteredData || filteredData.length === 0) {
+        alert("Tidak ada data untuk diexport.");
+        return;
+      }
+
+      function getColumnLetter(colNum) {
+        let letter = '';
+        while (colNum > 0) {
+          colNum--;
+          letter = String.fromCharCode(65 + (colNum % 26)) + letter;
+          colNum = Math.floor(colNum / 26);
+        }
+        return letter;
+      }
+
+      const wb = new ExcelJS.Workbook();
+      const appliedData = applyReasonMap(filteredData, reasonMap);
+      const dataByMonth = groupByMonth(appliedData);
+      const monthKeys = Object.keys(dataByMonth).sort();
+
+      const MONTH_NAMES = [
+        "JANUARI", "FEBRUARI", "MARET", "APRIL",
+        "MEI", "JUNI", "JULI", "AGUSTUS",
+        "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"
+      ];
+
+      monthKeys.forEach(monthKey => {
+        const monthlyData = dataByMonth[monthKey];
+        const [year, month] = monthKey.split('-');
+        const monthIdx = parseInt(month, 10) - 1;
+        const sheetName = `${MONTH_NAMES[monthIdx]} ${year}`;
+        const periodText = `PERIODE : ${MONTH_NAMES[monthIdx]} ${year}`;
+
+        const ws = wb.addWorksheet(sheetName);
+
+        ws.columns = Array(27).fill({ width: 12 });
+
+        ws.views = [
+          {
+            state: "frozen",
+            ySplit: 8,
+            xSplit: 6
+          }
+        ];
+        ws.getColumn("A").width = 6;
+        ws.getColumn("B").width = 8;
+        ws.getColumn("C").width = 30;
+        ws.getColumn("D").width = 15;
+        ws.getColumn("E").width = 35;
+        ws.getColumn("F").width = 20;
+
+        ws.mergeCells("A1:AA1");
+        ws.getCell("A1").value = "REKAPITULASI KEHADIRAN KARYAWAN";
+        ws.getCell("A1").font = { name: "Calibri", size: 11, bold: true, italic: true };
+        ws.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getRow(1).height = 25;
+
+        ws.mergeCells("A2:AA2");
+        ws.getCell("A2").value = "SARI ATER HOT SPRINGS CIATER";
+        ws.getCell("A2").font = { name: "Calibri", size: 11, bold: true, italic: true };
+        ws.getCell("A2").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getRow(2).height = 25;
+
+        ws.mergeCells("A3:AA3");
+        ws.getCell("A3").value = periodText;
+        ws.getCell("A3").font = { name: "Calibri", size: 11, bold: true, italic: true };
+        ws.getCell("A3").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getRow(3).height = 25;
+
+        ws.mergeCells("A4:AA4");
+        ws.getRow(4).height = 10;
+
+        ws.mergeCells("A5:B8");
+        ws.getCell("A5").value = "NO.";
+        ws.getCell("A5").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("A5").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("A5").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("A5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        ws.mergeCells("C5:C8");
+        ws.getCell("C5").value = "NAMA";
+        ws.getCell("C5").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("C5").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("C5").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("C5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        ws.mergeCells("D5:D8");
+        ws.getCell("D5").value = "NIK";
+        ws.getCell("D5").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("D5").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("D5").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("D5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        ws.mergeCells("E5:E8");
+        ws.getCell("E5").value = "JABATAN";
+        ws.getCell("E5").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("E5").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("E5").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("E5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        ws.mergeCells("F5:F8");
+        ws.getCell("F5").value = "DEPARTEMEN";
+        ws.getCell("F5").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("F5").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("F5").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("F5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        ws.mergeCells("G5:AA5");
+        ws.getCell("G5").value = "KEHADIRAN";
+        ws.getCell("G5").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("G5").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("G5").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("G5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        ws.mergeCells("G6:N6");
+        ws.getCell("G6").value = "REKAPITULASI";
+        ws.getCell("G6").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("G6").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("G6").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("G6").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        ws.mergeCells("O6:W6");
+        ws.getCell("O6").value = "TERLAMBAT";
+        ws.getCell("O6").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("O6").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("O6").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("O6").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        ws.mergeCells("X6:Y6");
+        ws.getCell("X6").value = "Pulang Awal";
+        ws.getCell("X6").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("X6").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("X6").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("X6").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        ws.mergeCells("Z6:AA6");
+        ws.getCell("Z6").value = "TIDAK SCAN";
+        ws.getCell("Z6").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("Z6").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("Z6").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("Z6").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        const subHeaders7 = [
+          { col: "G", mergeRange: "G7:G8", text: "HADIR" },
+          { col: "H", mergeRange: "H7:H8", text: "OFF" },
+          { col: "I", mergeRange: "I7:I8", text: "SAKIT" },
+          { col: "J", mergeRange: "J7:J8", text: "IZIN" },
+          { col: "K", mergeRange: "K7:K8", text: "ALPA" },
+          { col: "L", mergeRange: "L7:L8", text: "EO (EXTRA OFF)" },
+          { col: "M", mergeRange: "M7:M8", text: "CUTI" },
+          { col: "N", mergeRange: "N7:N8", text: "DINAS LUAR" },
+          { col: "O", mergeRange: "O7:O8", text: "TOTAL HARI" },
+          { col: "P", mergeRange: "P7:Q7", text: "1'-5'" },
+          { col: "R", mergeRange: "R7:S7", text: "5'-10'" },
+          { col: "T", mergeRange: "T7:U7", text: "≥10'" },
+          { col: "V", mergeRange: "V7:V8", text: "∑ Dgn Izin" },
+          { col: "W", mergeRange: "W7:W8", text: "∑ Tanpa Izin" },
+          { col: "X", mergeRange: "X7:X8", text: "Dgn Izin" },
+          { col: "Y", mergeRange: "Y7:Y8", text: "Tanpa Izin" },
+          { col: "Z", mergeRange: "Z7:Z8", text: "DATANG" },
+          { col: "AA", mergeRange: "AA7:AA8", text: "PULANG" }
+        ];
+
+        subHeaders7.forEach(header => {
+          ws.mergeCells(header.mergeRange);
+          ws.getCell(`${header.col}7`).value = header.text;
+          ws.getCell(`${header.col}7`).font = { name: "Calibri", size: 9, bold: true, italic: true };
+          ws.getCell(`${header.col}7`).alignment = { horizontal: "center", vertical: "middle" };
+          ws.getCell(`${header.col}7`).border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+          ws.getCell(`${header.col}7`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+        });
+
+        const row8Headers = [
+          { col: "P", text: "Dgn Izin" },
+          { col: "Q", text: "Tanpa Izin" },
+          { col: "R", text: "Dgn Izin" },
+          { col: "S", text: "Tanpa Izin" },
+          { col: "T", text: "Dgn Izin" },
+          { col: "U", text: "Tanpa Izin" }
+        ];
+
+        row8Headers.forEach(header => {
+          ws.getCell(`${header.col}8`).value = header.text;
+          ws.getCell(`${header.col}8`).font = { name: "Calibri", size: 9, bold: true, italic: true };
+          ws.getCell(`${header.col}8`).alignment = { horizontal: "center", vertical: "middle" };
+          ws.getCell(`${header.col}8`).border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+          ws.getCell(`${header.col}8`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+        });
+
+        let currentRow = 9;
+        function isDoubleShiftCiater(row) {
+          const kodeShift = String(row.Kode_Shift || "").toUpperCase();
+
+          // Semua kode D* DIJAMIN hanya ada di Ciater (berdasarkan master jadwal)
+          return kodeShift.startsWith("D");
+        }
+
+
+        function groupAndSumByEmployee(data) {
+          const result = {};
+          const tlCodeFromIndicatorKategori = (row) => {
+            const kategori = getTLKategoriByIndicator(row);
+            if (kategori === "1_5" || kategori === "1 5") return "TL_1_5_T";
+            if (kategori === "5_10" || kategori === "5 10") return "TL_5_10_T";
+            if (kategori === "10") return "TL_10_T";
+            return "";
+          };
+
+          data.forEach(r => {
+            const nik = r.NIK || r.NIP || r.nip || "";
+            if (!result[nik]) {
+              result[nik] = {
+                statusKehadiranUpper :r.Status_Kehadiran === "Tidak Hadir" ? "TIDAK HADIR" : (r.Status_Kehadiran || "").trim().toUpperCase(),
+                NIK: nik,
+                Nama: r.Nama || "",
+                Jabatan: r.Jabatan || "",
+                Departemen: r.Departemen || "",
+                // ðŸ”‘ FLAG PREDIKSI
+                hasPrediksi: false,
+                hasPindahShift: false,
+                hadir: 0,
+                off: 0,
+                sakit: 0,
+                izin: 0,
+                alpa: 0,
+                eo: 0,
+                cuti: 0,
+                dinas: 0,
+                total_hari: 0,
+                tl1_5_izin: 0,
+                tl1_5_tanpa: 0,
+                tl5_10_izin: 0,
+                tl5_10_tanpa: 0,
+                tl10_izin: 0,
+                tl10_tanpa: 0,
+                pa_izin: 0,
+                pa_tanpa: 0,
+                tidak_posting_datang: 0,
+                tidak_posting_pulang: 0
+              };
+            }
+
+            const emp = result[nik];
+            // ✅ UPDATE hasPrediksi jika ada prediksi di row manapun
+            if (r.Prediksi_Shift || r.Prediksi_Actual_Masuk || r.Prediksi_Actual_Pulang) {
+              emp.hasPrediksi = true;
+            }
+            if (isPindahShiftRow(r)) {
+              emp.hasPindahShift = true;
+            }
+
+            // ==== STATUS KEHADIRAN ====
+            const st = (r.Status_Kehadiran || "").trim().toUpperCase();
+            // if (st === "HADIR") emp.hadir++;
+            if (st === "HADIR") {
+              if (isDoubleShiftCiater(r)) {
+                emp.hadir += 2; // ðŸ”¥ DOUBLE SHIFT CIATER
+              } else {
+                emp.hadir += 1;
+              }
+            }
+            else if (st === "LIBUR") emp.off++;
+            else if (st === "SAKIT") emp.sakit++;
+            else if (st === "IZIN") emp.izin++;
+            else if (st === "ALPA") emp.alpa++;
+            else if (st === "EXTRAOFF" || st === "LIBUR SETELAH MASUK DOBLE SHIFT") emp.eo++;
+            else if (st === "CUTI TAHUNAN" || st === "CUTI ISTIMEWA" || st === "CUTI BERSAMA") emp.cuti++;
+            else if (st === "DINAS LUAR") emp.dinas++;
+
+            // ==== TERLAMBAT - Parse dari Status_Masuk ====
+            // const tlCode = parseTLCode(r.Status_Masuk || r.TL_Code || "");
+            // switch (tlCode) {
+            //   case "TL_1_5_D": emp.tl1_5_izin++; break;
+            //   case "TL_1_5_T": emp.tl1_5_tanpa++; break;
+            //   case "TL_5_10_D": emp.tl5_10_izin++; break;
+            //   case "TL_5_10_T": emp.tl5_10_tanpa++; break;
+            //   case "TL_10_D": emp.tl10_izin++; break;
+            //   case "TL_10_T": emp.tl10_tanpa++; break;
+            // }
+
+            // emp.total_tl_izin = emp.tl1_5_izin + emp.tl5_10_izin + emp.tl10_izin;
+            // emp.total_tl_tanpa = emp.tl1_5_tanpa + emp.tl5_10_tanpa + emp.tl10_tanpa;
+
+            // â”€â”€ TERLAMBAT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // Prioritas 1: user sudah pilih di reasonMap (TL_Code tersimpan)
+            // Prioritas 2: Status_Masuk dari DB sudah ada kode TL
+            // Prioritas 3: auto-detect dari selisih jam (dengan kompensasi pulang)
+
+            const userTLCode = r.TL_Code || ""; // sudah di-resolve dari reasonMap di applyReasonMap
+
+            let tlCode = "";
+            if (userTLCode) {
+              // Prioritas 1: pilihan user
+              tlCode = userTLCode;
+            } else {
+              // Prioritas 2: pakai indikator baris (selaras tampilan modal per tanggal).
+              tlCode = tlCodeFromIndicatorKategori(r);
+
+              // Prioritas 3: parse dari Status_Masuk DB (untuk data legacy yang sudah berkode TL).
+              if (!tlCode) {
+                tlCode = parseTLCode(r.Status_Masuk || "");
+              }
+
+              // Prioritas 4: auto-detect dari jam (fallback terakhir).
+              if (!tlCode) {
+                tlCode = autoDetectTLCode(r);
+              }
+            }
+
+            switch (tlCode) {
+              case "TL_1_5_D":   emp.tl1_5_izin++;   break;
+              case "TL_1_5_T":   emp.tl1_5_tanpa++;  break;
+              case "TL_5_10_D":  emp.tl5_10_izin++;  break;
+              case "TL_5_10_T":  emp.tl5_10_tanpa++; break;
+              case "TL_10_D":    emp.tl10_izin++;    break;
+              case "TL_10_T":    emp.tl10_tanpa++;   break;
+            }
+
+            emp.total_tl_izin  = emp.tl1_5_izin + emp.tl5_10_izin + emp.tl10_izin;
+            emp.total_tl_tanpa = emp.tl1_5_tanpa + emp.tl5_10_tanpa + emp.tl10_tanpa;
+
+            // ==== PULANG AWAL - Parse dari Status_Pulang ====
+            // const paCode = parsePACode(r.Status_Pulang || r.PA_Code || "");
+            // if (paCode === "PA_D") emp.pa_izin++;
+            // else if (paCode === "PA_T") emp.pa_tanpa++;
+            const paCode = parsePACode(r);
+
+            if (paCode === "PA_D") emp.pa_izin++;
+            else if (paCode === "PA_T") emp.pa_tanpa++;
+
+
+
+            // ==== TIDAK POSTING ====
+            if (r.TidakPostingDatang === 1) emp.tidak_posting_datang++;
+            if (r.TidakPostingPulang === 1) emp.tidak_posting_pulang++;
+          });
+
+          Object.values(result).forEach(emp => {
+            emp.total_hari = emp.hadir + emp.off + emp.sakit + emp.izin + emp.alpa + emp.eo + emp.cuti + emp.dinas;
+          });
+
+          return Object.values(result);
+        }
+
+        const grouped = groupAndSumByEmployee(monthlyData);
+
+        function groupByDepartemen(data) {
+          const map = {};
+          data.forEach(emp => {
+            const dept = emp.Departemen || "TANPA DEPARTEMEN";
+            if (!map[dept]) map[dept] = [];
+            map[dept].push(emp);
+          });
+          return map;
+        }
+
+        function sumDepartemen(list) {
+          const total = {
+            hadir: 0, off: 0, sakit: 0, izin: 0, alpa: 0,
+            eo: 0, cuti: 0, dinas: 0, total_hari: 0,
+            tl1_5_izin: 0, tl1_5_tanpa: 0,
+            tl5_10_izin: 0, tl5_10_tanpa: 0,
+            tl10_izin: 0, tl10_tanpa: 0,
+            total_tl_izin: 0, total_tl_tanpa: 0,
+            pa_izin: 0, pa_tanpa: 0,
+            tidak_posting_datang: 0, tidak_posting_pulang: 0
+          };
+          list.forEach(e => {
+            Object.keys(total).forEach(k => {
+              total[k] += e[k] || 0;
+            });
+          });
+          return total;
+        }
+
+        const groupedByDept = groupByDepartemen(grouped);
+        let noGlobal = 1;
+
+        // Object.entries(groupedByDept).forEach(([dept, employees]) => {
+        Object.entries(groupedByDept)
+          .sort(([deptA], [deptB]) =>
+            deptA.localeCompare(deptB, "id-ID")
+          )
+          .forEach(([dept, employees]) => {
+          
+          // ✅ SORT NAMA DALAM DEPT
+          employees.sort((a, b) =>
+            (a.Nama || "").localeCompare(b.Nama || "", "id-ID")
+          );
+
+          let noDept = 1;
+          const subtotal = sumDepartemen(employees);
+
+          employees.forEach(emp => {
+            ws.getCell(`A${currentRow}`).value = noGlobal++;
+            ws.getCell(`B${currentRow}`).value = noDept++;
+            ws.getCell(`C${currentRow}`).value = emp.Nama;
+            ws.getCell(`D${currentRow}`).value = emp.NIK;
+            ws.getCell(`E${currentRow}`).value = emp.Jabatan;
+            ws.getCell(`F${currentRow}`).value = dept;
+
+            ws.getCell(`G${currentRow}`).value = emp.hadir === 0 ? "" : emp.hadir;
+
+            const cellHadir = ws.getCell(`G${currentRow}`);
+            cellHadir.value = emp.hadir === 0 ? "" : emp.hadir;
+
+            if (emp.hasPindahShift) {
+              cellHadir.fill = {
+                type: "pattern",
+                pattern: "solid",
+                fgColor: { argb: "FFFFFF00" }
+              };
+            } else if (emp.hasPrediksi) {
+              cellHadir.fill = {
+                type: "pattern",
+                pattern: "solid",
+                fgColor: { argb: "FFFFFF99" }
+              };
+            } else if (emp.statusKehadiranUpper === "TIDAK HADIR") {
+              cellHadir.fill = {
+                type: "pattern",
+                pattern: "solid",
+                fgColor: { argb: "FFFFFF99" }
+              };
+            }
+
+            ws.getCell(`H${currentRow}`).value = emp.off === 0 ? "" : emp.off;
+            ws.getCell(`I${currentRow}`).value = emp.sakit === 0 ? "" : emp.sakit;
+            ws.getCell(`J${currentRow}`).value = emp.izin === 0 ? "" : emp.izin;
+            ws.getCell(`K${currentRow}`).value = emp.alpa === 0 ? "" : emp.alpa;
+            ws.getCell(`L${currentRow}`).value = emp.eo === 0 ? "" : emp.eo;
+            ws.getCell(`M${currentRow}`).value = emp.cuti === 0 ? "" : emp.cuti;
+            ws.getCell(`N${currentRow}`).value = emp.dinas === 0 ? "" : emp.dinas;
+            ws.getCell(`O${currentRow}`).value = emp.total_hari === 0 ? "" : emp.total_hari;
+
+            ws.getCell(`P${currentRow}`).value = emp.tl1_5_izin === 0 ? "" : emp.tl1_5_izin;
+            ws.getCell(`Q${currentRow}`).value = emp.tl1_5_tanpa === 0 ? "" : emp.tl1_5_tanpa;
+            ws.getCell(`R${currentRow}`).value = emp.tl5_10_izin === 0 ? "" : emp.tl5_10_izin;
+            ws.getCell(`S${currentRow}`).value = emp.tl5_10_tanpa === 0 ? "" : emp.tl5_10_tanpa;
+            ws.getCell(`T${currentRow}`).value = emp.tl10_izin === 0 ? "" : emp.tl10_izin;
+            ws.getCell(`U${currentRow}`).value = emp.tl10_tanpa === 0 ? "" : emp.tl10_tanpa;
+            ws.getCell(`V${currentRow}`).value = emp.total_tl_izin === 0 ? "" : emp.total_tl_izin;
+            ws.getCell(`W${currentRow}`).value = emp.total_tl_tanpa === 0 ? "" : emp.total_tl_tanpa;
+            ws.getCell(`X${currentRow}`).value = emp.pa_izin === 0 ? "" : emp.pa_izin;
+            ws.getCell(`Y${currentRow}`).value = emp.pa_tanpa === 0 ? "" : emp.pa_tanpa;
+            ws.getCell(`Z${currentRow}`).value = emp.tidak_posting_datang === 0 ? "" : emp.tidak_posting_datang;
+            ws.getCell(`AA${currentRow}`).value = emp.tidak_posting_pulang === 0 ? "" : emp.tidak_posting_pulang;
+
+            for (let c = 1; c <= 27; c++) {
+              const col = getColumnLetter(c);
+              ws.getCell(`${col}${currentRow}`).border = { 
+                top: { style: "thin" }, 
+                left: { style: "thin" }, 
+                bottom: { style: "thin" }, 
+                right: { style: "thin" } 
+              };
+              ws.getCell(`${col}${currentRow}`).alignment = { horizontal: "center", vertical: "middle" };
+              ws.getCell(`${col}${currentRow}`).font = { name: "Calibri", size: 9 };
+            }
+            currentRow++;
+          });
+
+          ws.getCell(`C${currentRow}`).value = `TOTAL ${dept}`;
+          ws.mergeCells(`C${currentRow}:F${currentRow}`);
+          ws.getCell(`C${currentRow}`).font = { bold: true };
+
+          ws.getCell(`G${currentRow}`).value = subtotal.hadir;
+          ws.getCell(`H${currentRow}`).value = subtotal.off;
+          ws.getCell(`I${currentRow}`).value = subtotal.sakit;
+          ws.getCell(`J${currentRow}`).value = subtotal.izin;
+          ws.getCell(`K${currentRow}`).value = subtotal.alpa;
+          ws.getCell(`L${currentRow}`).value = subtotal.eo;
+          ws.getCell(`M${currentRow}`).value = subtotal.cuti;
+          ws.getCell(`N${currentRow}`).value = subtotal.dinas;
+          ws.getCell(`O${currentRow}`).value = subtotal.total_hari;
+
+          ws.getCell(`P${currentRow}`).value = subtotal.tl1_5_izin;
+          ws.getCell(`Q${currentRow}`).value = subtotal.tl1_5_tanpa;
+          ws.getCell(`R${currentRow}`).value = subtotal.tl5_10_izin;
+          ws.getCell(`S${currentRow}`).value = subtotal.tl5_10_tanpa;
+          ws.getCell(`T${currentRow}`).value = subtotal.tl10_izin;
+          ws.getCell(`U${currentRow}`).value = subtotal.tl10_tanpa;
+          ws.getCell(`V${currentRow}`).value = subtotal.total_tl_izin;
+          ws.getCell(`W${currentRow}`).value = subtotal.total_tl_tanpa;
+          ws.getCell(`X${currentRow}`).value = subtotal.pa_izin;
+          ws.getCell(`Y${currentRow}`).value = subtotal.pa_tanpa;
+          ws.getCell(`Z${currentRow}`).value = subtotal.tidak_posting_datang;
+          ws.getCell(`AA${currentRow}`).value = subtotal.tidak_posting_pulang;
+
+          for (let c = 1; c <= 27; c++) {
+            const col = getColumnLetter(c);
+            ws.getCell(`${col}${currentRow}`).border = { 
+              top: { style: "thin" }, 
+              left: { style: "thin" }, 
+              bottom: { style: "thin" }, 
+              right: { style: "thin" } 
+            };
+            ws.getCell(`${col}${currentRow}`).alignment = { horizontal: "center", vertical: "middle" };
+            ws.getCell(`${col}${currentRow}`).font = { name: "Calibri", size: 9 };
+          }
+
+          currentRow++;
+          currentRow += 2;
+        });
+      });
+
+      const buffer = await wb.xlsx.writeBuffer();
+      
+      let fileName = "rekap_kehadiran.xlsx";
+
+      if (startDate && endDate) {
+        fileName = `rekap_kehadiran_${formatDateFile(startDate)}_sd_${formatDateFile(endDate)}.xlsx`;
+      } else if (monthKeys.length === 1) {
+        const [year, month] = monthKeys[0].split("-");
+        fileName = `rekap_kehadiran_${MONTH_NAMES[parseInt(month) - 1]}_${year}.xlsx`;
+      } else {
+        fileName = "rekap_kehadiran_multi_bulan.xlsx";
+      }
+
+      saveAs(new Blob([buffer]), fileName);
+      alert("Export Rekap Kehadiran selesai.");
+    } catch (err) {
+      console.error("Export failed:", err);
+      alert("Gagal export: " + (err.message || err));
+    }
+  }
+
+
+  async function exportRekapKehadiranYeartoDate() {
+    try {
+      function applyReasonMap(data, reasonMap) {
+        return data.map((row, idx) => {
+          const rawReason = reasonMap[row.__uid || buildRowUid(row, idx)];
+
+          const reason =
+            typeof rawReason === "string"
+              ? { Status_Kehadiran: rawReason }
+              : (rawReason || {});
+
+          const statusKehadiranFinal =
+            (reason.Status_Kehadiran || row.Status_Kehadiran || "HADIR")
+              .trim()
+              .toUpperCase();
+
+          const isShiftOff = isEmptyTime(row.Jadwal_Masuk);
+
+          const STATUS_BEBAS_SCAN = [
+            "LIBUR",
+            "OFF",
+            "CUTI",
+            "CUTI TAHUNAN",
+            "CUTI ISTIMEWA",
+            "CUTI BERSAMA",
+            "DINAS LUAR",
+            "SAKIT",
+            "IZIN",
+            "ALPA"
+          ];
+
+          const bebasScan =
+            isShiftOff || STATUS_BEBAS_SCAN.includes(statusKehadiranFinal);
+
+          const isHadir = statusKehadiranFinal === "HADIR";
+
+          const tidakScanMasuk =
+            isHadir &&
+            !bebasScan &&
+            isEmptyTime(row.Actual_Masuk);
+
+          const tidakScanPulang =
+            isHadir &&
+            !bebasScan &&
+            isEmptyTime(row.Actual_Pulang);
+
+          return {
+            ...row,
+            Status_Kehadiran: statusKehadiranFinal,
+            TL_Code: reason.TL_Code || "",
+            PA_Code: reason.PA_Code || "",
+            TidakPostingDatang: tidakScanMasuk ? 1 : 0,
+            TidakPostingPulang: tidakScanPulang ? 1 : 0
+          };
+        });
+      }
+
+      // function parseTLCode(statusMasuk) {
+      //   if (!statusMasuk) return "";
+      //   const st = String(statusMasuk).toUpperCase();
+      //   if (st.includes("TL") && st.includes("1") && st.includes("5")) {
+      //     return st.includes("IZIN") || st.includes("D") ? "TL_1_5_D" : "TL_1_5_T";
+      //   }
+      //   if (st.includes("TL") && st.includes("5") && st.includes("10")) {
+      //     return st.includes("IZIN") || st.includes("D") ? "TL_5_10_D" : "TL_5_10_T";
+      //   }
+      //   if (st.includes("TL") && st.includes("10")) {
+      //     return st.includes("IZIN") || st.includes("D") ? "TL_10_D" : "TL_10_T";
+      //   }
+      //   return "";
+      // }
+
+      function parseTLCode(statusMasuk) {
+        if (!statusMasuk) return "";
+        const st = String(statusMasuk).toUpperCase();
+
+        // Ambil angka dari string
+        const match = st.match(/TL\s*(\d+)\s*(\d+)?/);
+        if (!match) return "";
+
+        const start = parseInt(match[1], 10);
+        const end = match[2] ? parseInt(match[2], 10) : null;
+
+        if (start === 1 && end === 5) {
+          return st.includes("IZIN") || st.includes("D") ? "TL_1_5_D" : "TL_1_5_T";
+        }
+        if (start === 5 && end === 10) {
+          return st.includes("IZIN") || st.includes("D") ? "TL_5_10_D" : "TL_5_10_T";
+        }
+        if (start >= 10 || start === 10) {
+          return st.includes("IZIN") || st.includes("D") ? "TL_10_D" : "TL_10_T";
+        }
+
+        return "";
+      }
+
+      // Parse "HH:MM" atau "HH:MM:SS" -> total menit sejak tengah malam
+      function timeToMinutes(timeStr) {
+        if (!timeStr) return null;
+        const str = String(timeStr).trim();
+        const match = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+        if (!match) return null;
+        const h = parseInt(match[1], 10);
+        const m = parseInt(match[2], 10);
+        const s = parseInt(match[3] || "0", 10);
+        if ([h, m, s].some((v) => Number.isNaN(v))) return null;
+        if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) return null;
+        return h * 60 + m + s / 60;
+      }
+
+      function normalizeDayDiff(diff) {
+        let d = diff;
+        if (d > 720) d -= 1440;
+        if (d < -720) d += 1440;
+        return d;
+      }
+
+      function getSelisihMasukMenit(row) {
+        const { jadwalMasuk, actualMasuk } = getEffectiveTimeContext(row);
+        const jadwalMasukMnt = timeToMinutes(jadwalMasuk);
+        const actualMasukMnt = timeToMinutes(actualMasuk);
+        if (jadwalMasukMnt === null || actualMasukMnt === null) return null;
+        return normalizeDayDiff(actualMasukMnt - jadwalMasukMnt);
+      }
+
+      function getSelisihPulangMenit(row) {
+        const { jadwalPulang, actualPulang } = getEffectiveTimeContext(row);
+        const jadwalPulangMnt = timeToMinutes(jadwalPulang);
+        const actualPulangMnt = timeToMinutes(actualPulang);
+        if (jadwalPulangMnt === null || actualPulangMnt === null) return null;
+        return normalizeDayDiff(actualPulangMnt - jadwalPulangMnt);
+      }
+
+      function autoDetectTLCode(row) {
+        const statusKehadiran = String(row.Status_Kehadiran || "").toUpperCase();
+        if (statusKehadiran !== "HADIR") return "";
+
+        const statusMasukRaw = String(row.Status_Masuk || "").toUpperCase();
+        if (statusMasukRaw.includes("TL")) return "";
+
+        // Determine effective times (with prediction support)
+        let effectiveJadwalMasuk = row.Jadwal_Masuk;
+        let effectiveActualMasuk = row.Actual_Masuk;
+        let effectiveJadwalPulang = row.Jadwal_Pulang;
+        let effectiveActualPulang = row.Actual_Pulang;
+
+        // If ada prediksi shift dan prediksi masuk, gunakan untuk menghitung
+        if (row.Prediksi_Shift && row.Prediksi_Actual_Masuk) {
+          effectiveActualMasuk = row.Prediksi_Actual_Masuk;
+          if (row.Prediksi_Actual_Pulang) {
+            effectiveActualPulang = row.Prediksi_Actual_Pulang;
+          }
+        }
+
+        const selisihMasuk = getSelisihMasukMenitWithTimesYTD(effectiveJadwalMasuk, effectiveActualMasuk);
+        const selisihPulang = getSelisihPulangMenitWithTimesYTD(effectiveJadwalPulang, effectiveActualPulang);
+        if (selisihMasuk === null) return "";
+
+        const telatMenit = Math.max(0, selisihMasuk);
+        if (telatMenit <= 0) return "";
+
+        // Selaras indikator: kasus ungu (>2 jam) tidak masuk bucket TL rekap.
+        if (telatMenit > 120) return "";
+
+        // Kompensasi selaras indikator hijau.
+        const kompensasiPulangMenit = Math.ceil(telatMenit / 60) * 60;
+        if (selisihPulang !== null && selisihPulang >= kompensasiPulangMenit) return "";
+
+        if (telatMenit >= 4 && telatMenit < 6) return "TL_1_5_T";
+        if (telatMenit >= 6 && telatMenit <= 10) return "TL_5_10_T";
+        if (telatMenit > 10) return "TL_10_T";
+        return "";
+      }
+
+      // Helper: Calculate selisih masuk dengan waktu spesifik (YTD version)
+      function getSelisihMasukMenitWithTimesYTD(jadwalMasuk, actualMasuk) {
+        const jadwalMasukMnt = timeToMinutes(jadwalMasuk);
+        const actualMasukMnt = timeToMinutes(actualMasuk);
+        if (jadwalMasukMnt === null || actualMasukMnt === null) return null;
+        return normalizeDayDiff(actualMasukMnt - jadwalMasukMnt);
+      }
+
+      // Helper: Calculate selisih pulang dengan waktu spesifik (YTD version)
+      function getSelisihPulangMenitWithTimesYTD(jadwalPulang, actualPulang) {
+        const jadwalPulangMnt = timeToMinutes(jadwalPulang);
+        const actualPulangMnt = timeToMinutes(actualPulang);
+        if (jadwalPulangMnt === null || actualPulangMnt === null) return null;
+        return normalizeDayDiff(actualPulangMnt - jadwalPulangMnt);
+      }
+
+      // function parsePACode(statusPulang) {
+      //   if (!statusPulang) return "";
+      //   const st = String(statusPulang).toUpperCase();
+      //   if (st.includes("PULANG AWAL")) {
+      //     return st.includes("IZIN") || st.includes("D") ? "PA_D" : "PA_T";
+      //   }
+      //   return "";
+      // }
+
+      function parsePACode(row) {
+        // === PRIORITAS 1: USER INPUT (STATE) ===
+        if (row.PA_Code === "PA_D") return "PA_D";
+        if (row.PA_Code === "PA_T") return "PA_T";
+
+        const statusKehadiran = String(row.Status_Kehadiran || "").toUpperCase();
+        if (statusKehadiran !== "HADIR") return "";
+
+        // Untuk pindah shift, jangan pakai status lama DB.
+        if (!isPindahShiftRow(row)) {
+          const st = String(row.Status_Pulang || "").toUpperCase();
+          if (st === "PULANG AWAL DENGAN IZIN") return "PA_D";
+          if (st === "PULANG AWAL TANPA IZIN") return "PA_T";
+        }
+
+        // === AUTO TANPA IZIN jika belum dipilih user ===
+        // Rule: actual pulang < jadwal pulang => PA_T.
+        const toMinutes = (val) => {
+          if (!val) return null;
+          const str = String(val).trim();
+          const match = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+          if (!match) return null;
+          const h = parseInt(match[1], 10);
+          const m = parseInt(match[2], 10);
+          const s = parseInt(match[3] || "0", 10);
+          if ([h, m, s].some((v) => Number.isNaN(v))) return null;
+          return h * 60 + m + s / 60;
+        };
+
+        const normalizeDayDiff = (diff) => {
+          let d = diff;
+          if (d > 720) d -= 1440;
+          if (d < -720) d += 1440;
+          return d;
+        };
+
+        const { jadwalPulang, actualPulang } = getEffectiveTimeContext(row);
+        const jadwalPulangMnt = toMinutes(jadwalPulang);
+        const actualPulangMnt = toMinutes(actualPulang);
+        if (jadwalPulangMnt === null || actualPulangMnt === null) return "";
+
+        const selisihPulang = normalizeDayDiff(actualPulangMnt - jadwalPulangMnt);
+        if (selisihPulang < 0) return "PA_T";
+
+        return "";
+      }
+
+      if (!filteredData || filteredData.length === 0) {
+        alert("Tidak ada data untuk diexport.");
+        return;
+      }
+
+      // Function to get column letter from number (1-based)
+      function getColumnLetter(colNum) {
+        let letter = '';
+        while (colNum > 0) {
+          colNum--;
+          letter = String.fromCharCode(65 + (colNum % 26)) + letter;
+          colNum = Math.floor(colNum / 26);
+        }
+        return letter;
+      }
+
+      const wb = new ExcelJS.Workbook();
+      const appliedData = applyReasonMap(filteredData, reasonMap);
+      const dataByMonth = groupByMonth(appliedData);
+      const monthKeys = Object.keys(dataByMonth).sort();
+
+      const MONTH_NAMES = [
+        "JANUARI", "FEBRUARI", "MARET", "APRIL",
+        "MEI", "JUNI", "JULI", "AGUSTUS",
+        "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"
+      ];
+
+      const ytdAccumulator = {}; // { NIK: { hadir:0, off:0, ... } }
+
+      monthKeys.forEach(monthKey => {
+        const monthlyData = dataByMonth[monthKey];
+        const [year, month] = monthKey.split('-');
+        const monthIdx = parseInt(month, 10) - 1;
+        const sheetName = `${MONTH_NAMES[monthIdx]} ${year}`;
+        const periodText = `PERIODE : ${MONTH_NAMES[monthIdx]} ${year}`;
+
+        // Buat sheet per bulan
+        const ws = wb.addWorksheet(sheetName);
+
+        // Set kolom width (A sampai AW = 49 kolom)
+        ws.columns = Array(49).fill({ width: 12 });
+
+        // Freeze panes: kolom A-F dan baris 1-8
+        ws.views = [
+          {
+            state: "frozen",
+            ySplit: 8,  // Freeze baris 1-8
+            xSplit: 6   // Freeze kolom A-F (6 kolom)
+          }
+        ];
+        ws.getColumn("A").width = 6;
+        ws.getColumn("B").width = 8;
+        ws.getColumn("C").width = 30;
+        ws.getColumn("D").width = 15;
+        ws.getColumn("E").width = 35;
+        ws.getColumn("F").width = 20;
+
+        // ===== ROW 1: TITLE =====
+        ws.mergeCells("A1:AW1");
+        ws.getCell("A1").value = "REKAPITULASI KEHADIRAN KARYAWAN";
+        ws.getCell("A1").font = { name: "Calibri", size: 11, bold: true, italic: true };
+        ws.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getRow(1).height = 25;
+
+        // ===== ROW 2: COMPANY NAME =====
+        ws.mergeCells("A2:AW2");
+        ws.getCell("A2").value = "SARI ATER HOT SPRINGS CIATER";
+        ws.getCell("A2").font = { name: "Calibri", size: 11, bold: true, italic: true };
+        ws.getCell("A2").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getRow(2).height = 25;
+
+        // ===== ROW 3: PERIODE =====
+        ws.mergeCells("A3:AW3");
+        ws.getCell("A3").value = periodText;
+        ws.getCell("A3").font = { name: "Calibri", size: 11, bold: true, italic: true };
+        ws.getCell("A3").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("G5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4472C4" } };
+        ws.getRow(3).height = 25;
+
+        // ===== ROW 4: EMPTY =====
+        ws.mergeCells("A4:AW4");
+        ws.getRow(4).height = 10;
+
+        // ===== ROW 5-8: HEADERS =====
+        // Row 5: Main headers
+        const headerCols = {
+          A: "NO.",
+          B: "NO.",
+          C: "NAMA",
+          D: "NIK",
+          E: "JABATAN",
+          F: "DEPARTEMEN",
+          G: "THIS MONTH"
+        };
+
+        // Merge A5:B8 for NO.
+        ws.mergeCells("A5:B8");
+        ws.getCell("A5").value = "NO.";
+        ws.getCell("A5").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("A5").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("A5").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("A5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        // Merge C5:C8 for NAMA
+        ws.mergeCells("C5:C8");
+        ws.getCell("C5").value = "NAMA";
+        ws.getCell("C5").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("C5").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("C5").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("C5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        // Merge D5:D8 for NIK
+        ws.mergeCells("D5:D8");
+        ws.getCell("D5").value = "NIK";
+        ws.getCell("D5").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("D5").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("D5").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("D5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        // Merge E5:E8 for JABATAN
+        ws.mergeCells("E5:E8");
+        ws.getCell("E5").value = "JABATAN";
+        ws.getCell("E5").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("E5").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("E5").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("E5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        // Merge F5:F8 for DEPARTEMEN
+        ws.mergeCells("F5:F8");
+        ws.getCell("F5").value = "DEPARTEMEN";
+        ws.getCell("F5").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("F5").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("F5").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("F5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+              // Merge G5:AA5 for KEHADIRAN (main header)
+        ws.mergeCells("G5:AA5");
+        ws.getCell("G5").value = "KEHADIRAN";
+        ws.getCell("G5").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("G5").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("G5").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("G5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        // Row 6: Sub-headers (REKAPITULASI, TERLAMBAT, Pulang Awal, TIDAK Scan)
+        // Merge G6:N6 for REKAPITULASI
+        ws.mergeCells("G6:N6");
+        ws.getCell("G6").value = "REKAPITULASI";
+        ws.getCell("G6").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("G6").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("G6").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("G6").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        // Merge O6:W6 for TERLAMBAT (diperbaiki dari P6:W6 ke O6:W6 sesuai kode asli Anda)
+        ws.mergeCells("O6:W6");
+        ws.getCell("O6").value = "TERLAMBAT";
+        ws.getCell("O6").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("O6").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("O6").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("O6").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        // Merge X6:Y6 for Pulang Awal
+        ws.mergeCells("X6:Y6");
+        ws.getCell("X6").value = "Pulang Awal";
+        ws.getCell("X6").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("X6").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("X6").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("X6").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        // Merge Z6:AA6 for TIDAK SCAN
+        ws.mergeCells("Z6:AA6");
+        ws.getCell("Z6").value = "TIDAK SCAN";
+        ws.getCell("Z6").font = { name: "Calibri", size: 9, bold: true, italic: true };
+        ws.getCell("Z6").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("Z6").border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        ws.getCell("Z6").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+
+        // Row 7: Sub-sub-headers (H, OFF, S, I, A, EO, CUTI, DINAS LUAR, TOTAL HARI, 1'-5', 5'-10, ≥10', ∑ Dgn Izin, ∑ Tanpa Izin, Dgn Izin, Tanpa Izin, DATANG, PULANG, TIDAK SUPPORT)
+        const subHeaders7 = [
+          { col: "G", mergeRange: "G7:G8", text: "HADIR" },
+          { col: "H", mergeRange: "H7:H8", text: "OFF" },
+          { col: "I", mergeRange: "I7:I8", text: "SAKIT" },
+          { col: "J", mergeRange: "J7:J8", text: "IZIN" },
+          { col: "K", mergeRange: "K7:K8", text: "ALPA" },
+          { col: "L", mergeRange: "L7:L8", text: "EO (EXTRA OFF)" },
+          { col: "M", mergeRange: "M7:M8", text: "CUTI" },
+          { col: "N", mergeRange: "N7:N8", text: "DINAS LUAR" },
+          { col: "O", mergeRange: "O7:O8", text: "TOTAL HARI" },
+          { col: "P", mergeRange: "P7:Q7", text: "1'-5'" },
+          { col: "R", mergeRange: "R7:S7", text: "5'-10'" },
+          { col: "T", mergeRange: "T7:U7", text: "≥10'" },
+          { col: "V", mergeRange: "V7:V8", text: "∑ Dgn Izin" },
+          { col: "W", mergeRange: "W7:W8", text: "∑ Tanpa Izin" },
+          { col: "X", mergeRange: "X7:X8", text: "Dgn Izin" },
+          { col: "Y", mergeRange: "Y7:Y8", text: "Tanpa Izin" },
+          { col: "Z", mergeRange: "Z7:Z8", text: "DATANG" },
+          { col: "AA", mergeRange: "AA7:AA8", text: "PULANG" }
+        ];
+
+        subHeaders7.forEach(header => {
+          ws.mergeCells(header.mergeRange);
+          ws.getCell(`${header.col}7`).value = header.text;
+          ws.getCell(`${header.col}7`).font = { name: "Calibri", size: 9, bold: true, italic: true };
+          ws.getCell(`${header.col}7`).alignment = { horizontal: "center", vertical: "middle" };
+          ws.getCell(`${header.col}7`).border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+          ws.getCell(`${header.col}7`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+        });
+
+        // Row 8: Sub-sub-sub-headers (untuk kategori dengan 2 sub-kolom)
+        const row8Headers = [
+          { col: "P", text: "Dgn Izin" },
+          { col: "Q", text: "Tanpa Izin" },
+          { col: "R", text: "Dgn Izin" },
+          { col: "S", text: "Tanpa Izin" },
+          { col: "T", text: "Dgn Izin" },
+          { col: "U", text: "Tanpa Izin" }
+        ];
+
+                row8Headers.forEach(header => {
+          ws.getCell(`${header.col}8`).value = header.text;
+          ws.getCell(`${header.col}8`).font = { name: "Calibri", size: 9, bold: true, italic: true };
+          ws.getCell(`${header.col}8`).alignment = { horizontal: "center", vertical: "middle" };
+          ws.getCell(`${header.col}8`).border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+          ws.getCell(`${header.col}8`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+        });
+
+        // ===== YTD MAIN HEADER (ubah menjadi THIS MONTH) =====
+        ws.mergeCells("AC5:AW5");
+        ws.getCell("AC5").value = "YEAR TO DATE";
+        ws.getCell("AC5").font = { name: "Calibri", size: 9, bold: true, italic: true, color: { argb: "FFFFFFFF" } };
+        ws.getCell("AC5").alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell("AC5").border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" }
+        };
+        ws.getCell("AC5").fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFFF0000" }
+        };
+
+        // ===== YTD SUB HEADER (ROW 6) =====
+        ws.mergeCells("AC6:AJ6");
+        ws.getCell("AC6").value = "REKAPITULASI";
+
+        ws.mergeCells("AK6:AS6");
+        ws.getCell("AK6").value = "TERLAMBAT";
+
+        ws.mergeCells("AT6:AU6");
+        ws.getCell("AT6").value = "PULANG AWAL";
+
+        ws.mergeCells("AV6:AW6");
+        ws.getCell("AV6").value = "TIDAK SCAN";
+
+        ["AC6","AK6","AT6","AV6"].forEach(cell => {
+          ws.getCell(cell).font = { name: "Calibri", size: 9, bold: true, italic: true };
+          ws.getCell(cell).alignment = { horizontal: "center", vertical: "middle" };
+          ws.getCell(cell).border = {
+            top: { style: "thin" },
+            left: { style: "thin" },
+            bottom: { style: "thin" },
+            right: { style: "thin" }
+          };
+          ws.getCell(cell).fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFD9D9D9" }
+          };
+        });
+        const ytdSubHeaders = [
+          { col: "AC", merge: "AC7:AC8", text: "HADIR" },
+          { col: "AD", merge: "AD7:AD8", text: "OFF" },
+          { col: "AE", merge: "AE7:AE8", text: "SAKIT" },
+          { col: "AF", merge: "AF7:AF8", text: "IZIN" },
+          { col: "AG", merge: "AG7:AG8", text: "ALPA" },
+          { col: "AH", merge: "AH7:AH8", text: "EO" },
+          { col: "AI", merge: "AI7:AI8", text: "CUTI" },
+          { col: "AJ", merge: "AJ7:AJ8", text: "DINAS LUAR" },
+          { col: "AK", merge: "AK7:AK8", text: "TOTAL HARI" },
+
+          { col: "AL", merge: "AL7:AM7", text: "1'-5'" },
+          { col: "AN", merge: "AN7:AO7", text: "5'-10'" },
+          { col: "AP", merge: "AP7:AQ7", text: "≥10'" },
+
+          { col: "AR", merge: "AR7:AR8", text: "∑ Dgn Izin" },
+          { col: "AS", merge: "AS7:AS8", text: "∑ Tanpa Izin" },
+
+          { col: "AT", merge: "AT7:AT8", text: "Dgn Izin" },
+          { col: "AU", merge: "AU7:AU8", text: "Tanpa Izin" },
+
+          { col: "AV", merge: "AV7:AV8", text: "DATANG" },
+          { col: "AW", merge: "AW7:AW8", text: "PULANG" }
+        ];
+        ytdSubHeaders.forEach(h => {
+          ws.mergeCells(h.merge);
+          ws.getCell(`${h.col}7`).value = h.text;
+          ws.getCell(`${h.col}7`).font = { name: "Calibri", size: 9, bold: true, italic: true };
+          ws.getCell(`${h.col}7`).alignment = { horizontal: "center", vertical: "middle" };
+          ws.getCell(`${h.col}7`).border = {
+            top: { style: "thin" },
+            left: { style: "thin" },
+            bottom: { style: "thin" },
+            right: { style: "thin" }
+          };
+          ws.getCell(`${h.col}7`).fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFD9D9D9" }
+          };
+        });
+
+        // Row 8: Sub-sub-sub-headers (untuk kategori dengan 2 sub-kolom)
+        // Row 8: Sub-sub-sub-headers (untuk kategori dengan 2 sub-kolom)
+        const ytdrow8Headers = [
+          { col: "AL", text: "Dgn Izin" },
+          { col: "AM", text: "Tanpa Izin" },
+          { col: "AN", text: "Dgn Izin" },
+          { col: "AO", text: "Tanpa Izin" },
+          { col: "AP", text: "Dgn Izin" },
+          { col: "AQ", text: "Tanpa Izin" }
+        ];
+
+                ytdrow8Headers.forEach(header => {
+          ws.getCell(`${header.col}8`).value = header.text;
+          ws.getCell(`${header.col}8`).font = { name: "Calibri", size: 9, bold: true, italic: true };
+          ws.getCell(`${header.col}8`).alignment = { horizontal: "center", vertical: "middle" };
+          ws.getCell(`${header.col}8`).border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+          ws.getCell(`${header.col}8`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+        });
+
+        // Ubah header G5 menjadi THIS MONTH
+        ws.getCell("G5").value = "THIS MONTH";
+        ws.getCell("G5").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4472C4" } };
+
+        // ===== FILL DATA ROWS (FIXED, REKAP PER KARYAWAN) =====
+        let currentRow = 9;
+
+        function isDoubleShiftCiater(row) {
+          const kodeShift = String(row.Kode_Shift || "").toUpperCase();
+
+          // Semua kode D* DIJAMIN hanya ada di Ciater (berdasarkan master jadwal)
+          return kodeShift.startsWith("D");
+        }
+
+
+        // --- Group + SUM per Karyawan ---
+        function groupAndSumByEmployee(data) {
+          const result = {};
+          const tlCodeFromIndicatorKategori = (row) => {
+            const kategori = getTLKategoriByIndicator(row);
+            if (kategori === "1_5" || kategori === "1 5") return "TL_1_5_T";
+            if (kategori === "5_10" || kategori === "5 10") return "TL_5_10_T";
+            if (kategori === "10") return "TL_10_T";
+            return "";
+          };
+
+          data.forEach(r => {
+            const nik = r.NIK || r.NIP || r.nip || "";
+              if (!result[nik]) {
+                result[nik] = {
+                  NIK: nik,
+                  Nama: r.Nama || "",
+                  Jabatan: r.Jabatan || "",
+                  Departemen: r.Departemen || "",
+                  hasPindahShift: false,
+                  hadir: 0,
+                  off: 0,
+                  sakit: 0,
+                izin: 0,
+                alpa: 0,
+                eo: 0,
+                cuti: 0,
+                dinas: 0,
+                total_hari: 0,
+                tl1_5_izin: 0,
+                tl1_5_tanpa: 0,
+                tl5_10_izin: 0,
+                tl5_10_tanpa: 0,
+                tl10_izin: 0,
+                tl10_tanpa: 0,
+                pa_izin: 0,
+                pa_tanpa: 0,
+                tidak_posting_datang: 0,
+                tidak_posting_pulang: 0,
+                tidak_support: 0
+              };
+            }
+
+            const emp = result[nik];
+            if (isPindahShiftRow(r)) emp.hasPindahShift = true;
+
+            // ==== STATUS KEHADIRAN ====
+            const st = (r.Status_Kehadiran || "").trim().toUpperCase();
+            // if (st === "HADIR") emp.hadir++;
+            if (st === "HADIR") {
+              if (isDoubleShiftCiater(r)) {
+                emp.hadir += 2; // ðŸ”¥ DOUBLE SHIFT CIATER
+              } else {
+                emp.hadir += 1;
+              }
+            }
+            else if (st === "LIBUR") emp.off++;
+            else if (st === "SAKIT") emp.sakit++;
+            else if (st === "IZIN") emp.izin++;
+            else if (st === "ALPA") emp.alpa++;
+            else if (st === "EXTRAOFF" || st === "LIBUR SETELAH MASUK DOBLE SHIFT") emp.eo++;
+            else if (st === "CUTI TAHUNAN" || st === "CUTI ISTIMEWA" || st === "CUTI BERSAMA") emp.cuti++;
+            else if (st === "DINAS LUAR") emp.dinas++;
+
+            // // ==== TERLAMBAT ====
+            // const tl = r.TL_Code || "";
+            // switch (tl) {
+            //   case "TL_1_5_D": emp.tl1_5_izin++; break;
+            //   case "TL_1_5_T": emp.tl1_5_tanpa++; break;
+            //   case "TL_5_10_D": emp.tl5_10_izin++; break;
+            //   case "TL_5_10_T": emp.tl5_10_tanpa++; break;
+            //   case "TL_10_D": emp.tl10_izin++; break;
+            //   case "TL_10_T": emp.tl10_tanpa++; break;
+            // }
+
+            // emp.total_tl_izin = emp.tl1_5_izin + emp.tl5_10_izin + emp.tl10_izin;
+            // emp.total_tl_tanpa = emp.tl1_5_tanpa + emp.tl5_10_tanpa + emp.tl10_tanpa;
+
+            // // ==== PULANG AWAL ====
+            // if (r.PA_Code === "PA_D") emp.pa_izin++;
+            // else if (r.PA_Code === "PA_T") emp.pa_tanpa++;
+
+            // Prioritas 1: user sudah pilih di reasonMap (TL_Code tersimpan)
+            // Prioritas 2: Status_Masuk dari DB sudah ada kode TL
+            // Prioritas 3: auto-detect dari selisih jam (dengan kompensasi pulang)
+            const userTLCode = r.TL_Code || "";
+            let tlCode = "";
+
+            if (userTLCode) {
+              tlCode = userTLCode;
+            } else {
+              // Prioritas 2: ikuti kategori indikator per baris.
+              tlCode = tlCodeFromIndicatorKategori(r);
+
+              // Prioritas 3: parse Status_Masuk lama yang sudah berisi kode TL.
+              if (!tlCode) {
+                tlCode = parseTLCode(r.Status_Masuk || "");
+              }
+
+              // Prioritas 4: fallback hitung dari jam.
+              if (!tlCode) {
+                tlCode = autoDetectTLCode(r);
+              }
+            }
+
+            switch (tlCode) {
+              case "TL_1_5_D": emp.tl1_5_izin++; break;
+              case "TL_1_5_T": emp.tl1_5_tanpa++; break;
+              case "TL_5_10_D": emp.tl5_10_izin++; break;
+              case "TL_5_10_T": emp.tl5_10_tanpa++; break;
+              case "TL_10_D": emp.tl10_izin++; break;
+              case "TL_10_T": emp.tl10_tanpa++; break;
+            }
+
+            emp.total_tl_izin = emp.tl1_5_izin + emp.tl5_10_izin + emp.tl10_izin;
+            emp.total_tl_tanpa = emp.tl1_5_tanpa + emp.tl5_10_tanpa + emp.tl10_tanpa;
+
+            // ==== PULANG AWAL - Parse dari Status_Pulang ====
+            // const paCode = parsePACode(r.Status_Pulang || r.PA_Code || "");
+            // if (paCode === "PA_D") emp.pa_izin++;
+            // else if (paCode === "PA_T") emp.pa_tanpa++;
+            const paCode = parsePACode(r);
+
+            if (paCode === "PA_D") emp.pa_izin++;
+            else if (paCode === "PA_T") emp.pa_tanpa++;
+
+            // ==== TIDAK POSTING ====
+            if (r.TidakPostingDatang === 1) emp.tidak_posting_datang++;
+            if (r.TidakPostingPulang === 1) emp.tidak_posting_pulang++;
+            if (r.TidakSupport === 1) emp.tidak_support++;
+          });
+
+          Object.values(result).forEach(emp => {
+            emp.total_hari = emp.hadir + emp.off + emp.sakit + emp.izin + emp.alpa + emp.eo + emp.cuti + emp.dinas;
+          });
+
+          return Object.values(result);
+        }
+
+        const grouped = groupAndSumByEmployee(monthlyData);
+
+        grouped.forEach(emp => {
+          if (!ytdAccumulator[emp.NIK]) {
+            ytdAccumulator[emp.NIK] = {
+              hadir: 0, off: 0, sakit: 0, izin: 0, alpa: 0,
+              eo: 0, cuti: 0, dinas: 0, total_hari: 0,
+              tl1_5_izin: 0, tl1_5_tanpa: 0,
+              tl5_10_izin: 0, tl5_10_tanpa: 0,
+              tl10_izin: 0, tl10_tanpa: 0,
+              total_tl_izin: 0, total_tl_tanpa: 0,
+              pa_izin: 0, pa_tanpa: 0,
+              tidak_posting_datang: 0,
+              tidak_posting_pulang: 0
+            };
+          }
+
+          const ytd = ytdAccumulator[emp.NIK];
+
+          Object.keys(ytd).forEach(k => {
+            ytd[k] += emp[k] || 0;
+          });
+        });
+
+
+        function groupByDepartemen(data) {
+          const map = {};
+          data.forEach(emp => {
+            const dept = emp.Departemen || "TANPA DEPARTEMEN";
+            if (!map[dept]) map[dept] = [];
+            map[dept].push(emp);
+          });
+          return map;
+        }
+
+        function sumDepartemen(list) {
+          const total = {
+            hadir: 0, off: 0, sakit: 0, izin: 0, alpa: 0,
+            eo: 0, cuti: 0, dinas: 0, total_hari: 0,
+            tl1_5_izin: 0, tl1_5_tanpa: 0,
+            tl5_10_izin: 0, tl5_10_tanpa: 0,
+            tl10_izin: 0, tl10_tanpa: 0,
+            total_tl_izin: 0, total_tl_tanpa: 0,
+            pa_izin: 0, pa_tanpa: 0,
+            tidak_posting_datang: 0, tidak_posting_pulang: 0
+          };
+          list.forEach(e => {
+            Object.keys(total).forEach(k => {
+              total[k] += e[k] || 0;
+            });
+          });
+          return total;
+        }
+
+        const groupedByDept = groupByDepartemen(grouped);
+        let noGlobal = 1;
+
+        // Object.entries(groupedByDept).forEach(([dept, employees]) => {
+        Object.entries(groupedByDept)
+          .sort(([deptA], [deptB]) =>
+            deptA.localeCompare(deptB, "id-ID")
+          )
+          .forEach(([dept, employees]) => {
+
+            // ✅ SORT NAMA DALAM DEPT
+            employees.sort((a, b) =>
+              (a.Nama || "").localeCompare(b.Nama || "", "id-ID")
+            );
+          let noDept = 1;
+          const subtotal = sumDepartemen(employees);
+
+          // === DATA PER KARYAWAN ===
+          employees.forEach(emp => {
+            ws.getCell(`A${currentRow}`).value = noGlobal++;
+            ws.getCell(`B${currentRow}`).value = noDept++;
+            ws.getCell(`C${currentRow}`).value = emp.Nama;
+            ws.getCell(`D${currentRow}`).value = emp.NIK;
+            ws.getCell(`E${currentRow}`).value = emp.Jabatan;
+            ws.getCell(`F${currentRow}`).value = dept;
+
+            // ================= THIS MONTH (G - AA) =================
+            ws.getCell(`G${currentRow}`).value = emp.hadir === 0 ? "" : emp.hadir;
+            if (emp.hasPindahShift) {
+              ws.getCell(`G${currentRow}`).fill = {
+                type: "pattern",
+                pattern: "solid",
+                fgColor: { argb: "FFFFFF00" }
+              };
+            }
+            ws.getCell(`H${currentRow}`).value = emp.off === 0 ? "" : emp.off;
+            ws.getCell(`I${currentRow}`).value = emp.sakit === 0 ? "" : emp.sakit;
+            ws.getCell(`J${currentRow}`).value = emp.izin === 0 ? "" : emp.izin;
+            ws.getCell(`K${currentRow}`).value = emp.alpa === 0 ? "" : emp.alpa;
+            ws.getCell(`L${currentRow}`).value = emp.eo === 0 ? "" : emp.eo;
+            ws.getCell(`M${currentRow}`).value = emp.cuti === 0 ? "" : emp.cuti;
+            ws.getCell(`N${currentRow}`).value = emp.dinas === 0 ? "" : emp.dinas;
+            ws.getCell(`O${currentRow}`).value = emp.total_hari === 0 ? "" : emp.total_hari;
+
+            ws.getCell(`P${currentRow}`).value = emp.tl1_5_izin === 0 ? "" : emp.tl1_5_izin;
+            ws.getCell(`Q${currentRow}`).value = emp.tl1_5_tanpa === 0 ? "" : emp.tl1_5_tanpa;
+            ws.getCell(`R${currentRow}`).value = emp.tl5_10_izin === 0 ? "" : emp.tl5_10_izin;
+            ws.getCell(`S${currentRow}`).value = emp.tl5_10_tanpa === 0 ? "" : emp.tl5_10_tanpa;
+            ws.getCell(`T${currentRow}`).value = emp.tl10_izin === 0 ? "" : emp.tl10_izin;
+            ws.getCell(`U${currentRow}`).value = emp.tl10_tanpa === 0 ? "" : emp.tl10_tanpa;
+            ws.getCell(`V${currentRow}`).value = emp.total_tl_izin === 0 ? "" : emp.total_tl_izin;
+            ws.getCell(`W${currentRow}`).value = emp.total_tl_tanpa === 0 ? "" : emp.total_tl_tanpa;
+            ws.getCell(`X${currentRow}`).value = emp.pa_izin === 0 ? "" : emp.pa_izin;
+            ws.getCell(`Y${currentRow}`).value = emp.pa_tanpa === 0 ? "" : emp.pa_tanpa;
+            ws.getCell(`Z${currentRow}`).value = emp.tidak_posting_datang === 0 ? "" : emp.tidak_posting_datang;
+            ws.getCell(`AA${currentRow}`).value = emp.tidak_posting_pulang === 0 ? "" : emp.tidak_posting_pulang;
+
+            // ================= YEAR TO DATE (AC - AW) =================
+            const ytd = ytdAccumulator[emp.NIK] || {};
+
+            ws.getCell(`AC${currentRow}`).value = ytd.hadir || 0;
+            ws.getCell(`AD${currentRow}`).value = ytd.off || 0;
+            ws.getCell(`AE${currentRow}`).value = ytd.sakit || 0;
+            ws.getCell(`AF${currentRow}`).value = ytd.izin || 0;
+            ws.getCell(`AG${currentRow}`).value = ytd.alpa || 0;
+            ws.getCell(`AH${currentRow}`).value = ytd.eo || 0;
+            ws.getCell(`AI${currentRow}`).value = ytd.cuti || 0;
+            ws.getCell(`AJ${currentRow}`).value = ytd.dinas || 0;
+            ws.getCell(`AK${currentRow}`).value = ytd.total_hari || 0;
+
+            ws.getCell(`AL${currentRow}`).value = ytd.tl1_5_izin || 0;
+            ws.getCell(`AM${currentRow}`).value = ytd.tl1_5_tanpa || 0;
+            ws.getCell(`AN${currentRow}`).value = ytd.tl5_10_izin || 0;
+            ws.getCell(`AO${currentRow}`).value = ytd.tl5_10_tanpa || 0;
+            ws.getCell(`AP${currentRow}`).value = ytd.tl10_izin || 0;
+            ws.getCell(`AQ${currentRow}`).value = ytd.tl10_tanpa || 0;
+
+            ws.getCell(`AR${currentRow}`).value = ytd.total_tl_izin || 0;
+            ws.getCell(`AS${currentRow}`).value = ytd.total_tl_tanpa || 0;
+            ws.getCell(`AT${currentRow}`).value = ytd.pa_izin || 0;
+            ws.getCell(`AU${currentRow}`).value = ytd.pa_tanpa || 0;
+            ws.getCell(`AV${currentRow}`).value = ytd.tidak_posting_datang || 0;
+            ws.getCell(`AW${currentRow}`).value = ytd.tidak_posting_pulang || 0;
+
+
+            // Borders
+            for (let c = 1; c <= 49; c++) {
+              const col = getColumnLetter(c);
+              ws.getCell(`${col}${currentRow}`).border = { 
+                top: { style: "thin" }, 
+                left: { style: "thin" }, 
+                bottom: { style: "thin" }, 
+                right: { style: "thin" } 
+              };
+              ws.getCell(`${col}${currentRow}`).alignment = { horizontal: "center", vertical: "middle" };
+              ws.getCell(`${col}${currentRow}`).font = { name: "Calibri", size: 9 };
+            }
+            currentRow++;
+          });
+
+                  // === SUBTOTAL DIVISI ===
+          ws.getCell(`C${currentRow}`).value = `TOTAL ${dept}`;
+          ws.mergeCells(`C${currentRow}:F${currentRow}`);
+          ws.getCell(`C${currentRow}`).font = { bold: true };
+
+                    // Tukar subtotal juga
+          // Hitung subtotal YTD untuk dept
+          const ytdSubtotal = {
+            hadir: 0, off: 0, sakit: 0, izin: 0, alpa: 0,
+            eo: 0, cuti: 0, dinas: 0, total_hari: 0,
+            tl1_5_izin: 0, tl1_5_tanpa: 0,
+            tl5_10_izin: 0, tl5_10_tanpa: 0,
+            tl10_izin: 0, tl10_tanpa: 0,
+            total_tl_izin: 0, total_tl_tanpa: 0,
+            pa_izin: 0, pa_tanpa: 0,
+            tidak_posting_datang: 0, tidak_posting_pulang: 0
+          };
+          employees.forEach(emp => {
+            const ytd = ytdAccumulator[emp.NIK] || {};
+            Object.keys(ytdSubtotal).forEach(k => {
+              ytdSubtotal[k] += ytd[k] || 0;
+            });
+          });
+
+          // THIS MONTH subtotal (AC-AW)
+          ws.getCell(`G${currentRow}`).value = subtotal.hadir;
+          ws.getCell(`H${currentRow}`).value = subtotal.off;
+          ws.getCell(`I${currentRow}`).value = subtotal.sakit;
+          ws.getCell(`J${currentRow}`).value = subtotal.izin;
+          ws.getCell(`K${currentRow}`).value = subtotal.alpa;
+          ws.getCell(`L${currentRow}`).value = subtotal.eo;
+          ws.getCell(`M${currentRow}`).value = subtotal.cuti;
+          ws.getCell(`N${currentRow}`).value = subtotal.dinas;
+          ws.getCell(`O${currentRow}`).value = subtotal.total_hari;
+
+          ws.getCell(`P${currentRow}`).value = subtotal.tl1_5_izin;
+          ws.getCell(`Q${currentRow}`).value = subtotal.tl1_5_tanpa;
+          ws.getCell(`R${currentRow}`).value = subtotal.tl5_10_izin;
+          ws.getCell(`S${currentRow}`).value = subtotal.tl5_10_tanpa;
+          ws.getCell(`T${currentRow}`).value = subtotal.tl10_izin;
+          ws.getCell(`U${currentRow}`).value = subtotal.tl10_tanpa;
+          ws.getCell(`V${currentRow}`).value = subtotal.total_tl_izin;
+          ws.getCell(`W${currentRow}`).value = subtotal.total_tl_tanpa;
+          ws.getCell(`X${currentRow}`).value = subtotal.pa_izin;
+          ws.getCell(`Y${currentRow}`).value = subtotal.pa_tanpa;
+          ws.getCell(`Z${currentRow}`).value = subtotal.tidak_posting_datang;
+          ws.getCell(`AA${currentRow}`).value = subtotal.tidak_posting_pulang;
+
+          
+          // YTD subtotal (G-AA)
+          ws.getCell(`AC${currentRow}`).value = ytdSubtotal.hadir;
+          ws.getCell(`AD${currentRow}`).value = ytdSubtotal.off;
+          ws.getCell(`AE${currentRow}`).value = ytdSubtotal.sakit;
+          ws.getCell(`AF${currentRow}`).value = ytdSubtotal.izin;
+          ws.getCell(`AG${currentRow}`).value = ytdSubtotal.alpa;
+          ws.getCell(`AH${currentRow}`).value = ytdSubtotal.eo;
+          ws.getCell(`AI${currentRow}`).value = ytdSubtotal.cuti;
+          ws.getCell(`AJ${currentRow}`).value = ytdSubtotal.dinas;
+          ws.getCell(`AK${currentRow}`).value = ytdSubtotal.total_hari;
+
+          ws.getCell(`AL${currentRow}`).value = ytdSubtotal.tl1_5_izin;
+          ws.getCell(`AM${currentRow}`).value = ytdSubtotal.tl1_5_tanpa;
+          ws.getCell(`AN${currentRow}`).value = ytdSubtotal.tl5_10_izin;
+          ws.getCell(`AO${currentRow}`).value = ytdSubtotal.tl5_10_tanpa;
+          ws.getCell(`AP${currentRow}`).value = ytdSubtotal.tl10_izin;
+          ws.getCell(`AQ${currentRow}`).value = ytdSubtotal.tl10_tanpa;
+          ws.getCell(`AR${currentRow}`).value = ytdSubtotal.total_tl_izin;
+          ws.getCell(`AS${currentRow}`).value = ytdSubtotal.total_tl_tanpa;
+          ws.getCell(`AT${currentRow}`).value = ytdSubtotal.pa_izin;
+          ws.getCell(`AU${currentRow}`).value = ytdSubtotal.pa_tanpa;
+          ws.getCell(`AV${currentRow}`).value = ytdSubtotal.tidak_posting_datang;
+          ws.getCell(`AW${currentRow}`).value = ytdSubtotal.tidak_posting_pulang;
+
+          
+          // Borders untuk subtotal
+          for (let c = 1; c <= 49; c++) {
+            const col = getColumnLetter(c);
+            ws.getCell(`${col}${currentRow}`).border = { 
+              top: { style: "thin" }, 
+              left: { style: "thin" }, 
+              bottom: { style: "thin" }, 
+              right: { style: "thin" } 
+            };
+            ws.getCell(`${col}${currentRow}`).alignment = { horizontal: "center", vertical: "middle" };
+            ws.getCell(`${col}${currentRow}`).font = { name: "Calibri", size: 9 };
+          }
+          currentRow++;
+
+          // === 2 BARIS KOSONG ===
+          currentRow += 2;
+        });
+      });
+
+        
+      // Export buffer
+      const buffer = await wb.xlsx.writeBuffer();
+      // const fileName = monthKeys.length > 1 ? `rekap_kehadiran_multi_bulan.xlsx` : `rekap_kehadiran_${monthNames[monthIdx]}_${year}.xlsx`;
+      
+      let fileName = "rekap_kehadiran.xlsx";
+
+      if (startDate && endDate) {
+        fileName = `rekap_kehadiranYEARTODATE_${formatDateFile(startDate)}_sd_${formatDateFile(endDate)}.xlsx`;
+      } else if (monthKeys.length === 1) {
+        const [year, month] = monthKeys[0].split("-");
+        fileName = `rekap_kehadiranYEARTODATE_${MONTH_NAMES[parseInt(month) - 1]}_${year}.xlsx`;
+      } else {
+        fileName = "rekap_kehadiran_multi_bulan_YEARTODATE.xlsx";
+      }
+
+      saveAs(new Blob([buffer]), fileName);
+      alert("Export Rekap Kehadiran selesai.");
+    } catch (err) {
+      console.error("Export failed:", err);
+      alert("Gagal export: " + (err.message || err));
+    }
+  }
+
+  function parseTimeToMinutes(timeStr) {
+    if (!timeStr) return null;
+
+    const clean = timeStr.trim();
+
+    // cek format minimal "H:M:S"
+    const parts = clean.split(":");
+    if (parts.length < 2) return null;
+
+    const h = parseInt(parts[0], 10) || 0;
+    const m = parseInt(parts[1], 10) || 0;
+    const s = parseInt(parts[2], 10) || 0;
+
+    return h * 60 + m + s / 60;
+  }
+
+  // function diffMinutes(actual, schedule, reverse = false) {
+  //   const a = parseTimeToMinutes(actual);
+  //   const s = parseTimeToMinutes(schedule);
+  //   if (a === null || s === null) return null;
+  //   return reverse ? s - a : a - s;
+  // }
+
+  function diffMinutes(actual, jadwal) {
+    if (!actual || !jadwal) return 0;
+
+    const getTimePart = (val) => {
+      // kalau format datetime â†’ ambil jamnya
+      if (val.includes(" ")) {
+        return val.split(" ")[1];
+      }
+      if (val.includes("T")) {
+        return val.split("T")[1].substring(0, 8);
+      }
+      return val;
+    };
+
+    const parse = (time) =>
+      getTimePart(time)
+        .split(":")
+        .map(Number);
+
+    const [ah, am, as = 0] = parse(actual);
+    const [jh, jm, js = 0] = parse(jadwal);
+
+    const actualSec = ah * 3600 + am * 60 + as;
+    const jadwalSec = jh * 3600 + jm * 60 + js;
+
+    const diff = Math.floor((actualSec - jadwalSec) / 60);
+
+    return diff < 0 ? 0 : diff;
+  }
+
+  function diffMinutesPulang(actual, jadwal) {
+    const a = parseTimeToMinutes(actual);
+    const s = parseTimeToMinutes(jadwal);
+    if (a === null || s === null) return null;
+    return s - a; // pulang cepat = positif
+  }
+
+  
+  // const isTidakHadir = (row) => {
+  //   const s = (row.Status_Kehadiran || "").toUpperCase();
+  //   return ["TIDAK HADIR", "ALPA", "SAKIT", "IZIN", "DINAS LUAR"].includes(s);
+  // };
+  
+  // const isLiburAdaPrediksi = (row) => {
+  //   const libur = LIBUR_SHIFTS.includes((row.Kode_Shift || "").toUpperCase());
+
+  //   const adaPrediksiMasuk = !!row.Prediksi_Actual_Masuk;
+  //   const adaPrediksiPulang = !!row.Prediksi_Actual_Pulang;
+
+  //   return libur && (adaPrediksiMasuk || adaPrediksiPulang);
+  // };
+
+
+
+  // const isHadirBermasalah = (row) => {
+  //   if ((row.Status_Kehadiran || "").toUpperCase() !== "HADIR") return false;
+
+  //   const masuk = row.Status_Masuk || "";
+  //   const pulang = row.Status_Pulang || "";
+
+  //   return (
+  //     masuk.includes("TL") ||
+  //     pulang.includes("Pulang Awal") ||
+  //     masuk.includes("Telat") ||
+  //     pulang.includes("Cepat")
+  //   );
+  // };
+  // const isActualKosong = (row) => {
+  //   if ((row.Status_Kehadiran || "").toUpperCase() !== "HADIR") {
+  //     return false;
+  //   }
+
+  //   const normalize = (val) => {
+  //     if (val === null || val === undefined) return "";
+  //     return String(val).trim();
+  //   };
+
+  //   // âš ï¸ SAMAKAN DENGAN FIELD YANG DIRENDER
+  //   const actualMasuk = normalize(row.Actual_Masuk);
+  //   const actualPulang = normalize(row.Actual_Pulang);
+
+  //   return actualMasuk === "" || actualPulang === "";
+  // };
+
+  // 
+  // CONSTANTS
+  // 
+  // const LIBUR_SHIFTS = ["LIBUR", "OFF", "EO", "EXTRAOFF"];
+
+  const LEGEND_ITEMS = [
+    { bg: "bg-red-500",    hover: "hover:bg-red-600",    label: "Merah",  desc: "Tidak Masuk"            },
+    { bg: "bg-yellow-400", hover: "hover:bg-yellow-500", label: "Kuning", desc: "Kendala / Data Kosong"  },
+    { bg: "bg-orange-500", hover: "hover:bg-orange-600", label: "Orange", desc: "Masuk Telat (<= 2 Jam) / Pulang Cepat" },
+    { bg: "bg-purple-600", hover: "hover:bg-purple-700", label: "Ungu",   desc: "Selisih Masuk > 2 Jam" },
+    { bg: "bg-green-500",  hover: "hover:bg-green-600",  label: "Hijau",  desc: "Normal / Sesuai Jadwal / Kompensasi OK" },
+  ];
+
+  // 
+  // HELPER FUNCTIONS
+  // 
+
+  /** Baris merah â€” karyawan tidak hadir sama sekali */
+  const isTidakHadir = (row) => {
+    const s = (row.Status_Kehadiran || "").toUpperCase();
+    return ["TIDAK HADIR", "ALPA", "SAKIT", "IZIN", "DINAS LUAR"].includes(s);
+  };
+
+  /** Baris kuning â€” shift libur tapi ada prediksi masuk/pulang */
+  const isLiburAdaPrediksi = (row) => {
+    const libur = LIBUR_SHIFTS.includes((row.Kode_Shift || "").toUpperCase());
+    return libur && (!!row.Prediksi_Actual_Masuk || !!row.Prediksi_Actual_Pulang);
+  };
+
+  /** Baris orange â€” hadir, telat <= 2 jam, tetapi kompensasi pulang belum terpenuhi */
+  // const isHadirBermasalah = (row) => {
+  //   if ((row.Status_Kehadiran || "").toUpperCase() !== "HADIR") return false;
+  //   const masuk  = row.Status_Masuk  || "";
+  //   const pulang = row.Status_Pulang || "";
+  //   return (
+  //     masuk.includes("TL")         ||
+  //     pulang.includes("Pulang Awal") ||
+  //     masuk.includes("Telat")       ||
+  //     pulang.includes("Cepat")
+  //   );
+  // };
+  /** Baris kuning â€” hadir tapi salah satu scan kosong */
+  const isActualKosong = (row) => {
+    if ((row.Status_Kehadiran || "").toUpperCase() !== "HADIR") return false;
+    const n = (val) => (val == null ? "" : String(val).trim());
+    const { actualMasuk, actualPulang } = getEffectiveTimeContext(row);
+    return n(actualMasuk) === "" || n(actualPulang) === "";
+  };
+
+  /** Parse waktu "HH:MM" / "HH:MM:SS" / datetime string ("YYYY-MM-DD HH:MM:SS" atau ISO) â†’ total menit */
+  const toMinutes = (t) => {
+    if (!t) return null;
+    const str = String(t).trim();
+
+    // Ambil waktu pertama yang valid agar aman untuk "YYYY-MM-DDTHH:mm:ss.sssZ"
+    const match = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (!match) return null;
+
+    const h = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10);
+    const s = parseInt(match[3] || "0", 10);
+    if ([h, m, s].some((v) => Number.isNaN(v))) return null;
+    if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) return null;
+
+    return h * 60 + m + s / 60;
+  };
+
+  /**
+   * Selisih menit aktual masuk - jadwal masuk.
+   * Positif = telat, negatif = lebih awal.
+   * Dinormalisasi agar kasus lintas tengah malam tetap terbaca benar.
+   */
+  const getSelisihMasukMenit = (row) => {
+    const { jadwalMasuk, actualMasuk } = getEffectiveTimeContext(row);
+    const jadwalMin = toMinutes(jadwalMasuk);
+    const aktualMin = toMinutes(actualMasuk);
+    if (jadwalMin === null || aktualMin === null) return null;
+
+    let diff = aktualMin - jadwalMin;
+    if (diff > 720) diff -= 1440;
+    if (diff < -720) diff += 1440;
+    return diff;
+  };
+
+  /**
+   * Selisih menit aktual pulang - jadwal pulang.
+   * Positif = pulang lebih lama, negatif = pulang lebih cepat.
+   */
+  const getSelisihPulangMenit = (row) => {
+    const { jadwalPulang, actualPulang } = getEffectiveTimeContext(row);
+    const jadwalMin = toMinutes(jadwalPulang);
+    const aktualMin = toMinutes(actualPulang);
+    if (jadwalMin === null || aktualMin === null) return null;
+
+    let diff = aktualMin - jadwalMin;
+    if (diff > 720) diff -= 1440;
+    if (diff < -720) diff += 1440;
+    return diff;
+  };
+
+  /** Telat menit (tidak negatif) */
+  const getTelatMasukMenit = (row) => {
+    const selisihMasuk = getSelisihMasukMenit(row);
+    if (selisihMasuk === null) return null;
+    return Math.max(0, selisihMasuk);
+  };
+
+  /** Aturan kompensasi: telat 1..60 => +1 jam, 61..120 => +2 jam, dst */
+  const getKompensasiPulangMenit = (row) => {
+    const telatMenit = getTelatMasukMenit(row);
+    if (telatMenit === null || telatMenit <= 0) return 0;
+    return Math.ceil(telatMenit / 60) * 60;
+  };
+
+  /**
+   * Kategori TL berbasis indikator efektif (hijau diprioritaskan lebih dulu).
+   * Return: "1_5" | "5_10" | "10" | "".
+   */
+  const getTLKategoriByIndicator = (row) => {
+    if ((row.Status_Kehadiran || "").toUpperCase() !== "HADIR") return "";
+    if (isActualKosong(row)) return "";
+
+    const selisihMasuk = getSelisihMasukMenit(row);
+    if (selisihMasuk === null) return "";
+
+    const telatMenit = Math.max(0, selisihMasuk);
+    if (telatMenit <= 0) return "";
+    if (telatMenit > 120) return "";
+
+    const selisihPulang = getSelisihPulangMenit(row);
+    const kompensasi = getKompensasiPulangMenit(row);
+    if (selisihPulang !== null && selisihPulang >= kompensasi) return "";
+
+    if (telatMenit >= 4 && telatMenit < 6) return "1_5";
+    if (telatMenit >= 6 && telatMenit <= 10) return "5_10";
+    if (telatMenit > 10) return "10";
+    return "";
+  };
+
+  /** Baris hijau â€” sesuai jadwal atau telat tetapi kompensasi pulang terpenuhi */
+  const isHijauSesuaiJadwal = (row) => {
+    if ((row.Status_Kehadiran || "").toUpperCase() !== "HADIR") return false;
+    if (isActualKosong(row)) return false;
+
+    const selisihMasuk = getSelisihMasukMenit(row);
+    const selisihPulang = getSelisihPulangMenit(row);
+    if (selisihMasuk === null || selisihPulang === null) return false;
+
+    const kompensasiPulangMenit = getKompensasiPulangMenit(row);
+    return selisihPulang >= kompensasiPulangMenit;
+  };
+
+  /**
+   * Baris UNGU â€” selisih actual masuk terhadap jadwal masuk lebih dari 2 jam
+   * (baik lebih awal maupun lebih lambat).
+   */
+  const isSelisihBesar = (row) => {
+    if ((row.Status_Kehadiran || "").toUpperCase() !== "HADIR") return false;
+    const selisihMasuk = getSelisihMasukMenit(row);
+    if (selisihMasuk === null) return false;
+    return Math.abs(selisihMasuk) > 120;
+  };
+
+  /** Baris orange â€” telat <= 2 jam namun belum memenuhi kompensasi pulang */
+  const isHadirBermasalah = (row) => {
+    if ((row.Status_Kehadiran || "").toUpperCase() !== "HADIR") return false;
+
+    // Jika ada data waktu valid, prioritaskan hitung aktual agar tidak false-positive.
+    const selisihMasuk = getSelisihMasukMenit(row);
+    if (selisihMasuk !== null) {
+      if (Math.abs(selisihMasuk) > 120) return false; // masuk kategori ungu
+      const selisihPulang = getSelisihPulangMenit(row);
+      if (selisihMasuk <= 0) {
+        return selisihPulang !== null && selisihPulang < 0; // masuk aman tapi pulang cepat
+      }
+      return !isHijauSesuaiJadwal(row); // telat tapi kompensasi belum cukup
+    }
+
+    // Fallback ke status teks jika data waktu tidak bisa dihitung.
+    const masuk = row.Status_Masuk || "";
+    const pulang = row.Status_Pulang || "";
+    return (
+      masuk.includes("TL") ||
+      masuk.includes("Telat") ||
+      pulang.includes("Pulang Awal") ||
+      pulang.includes("Cepat")
+    );
+  };
+
+  /** Hitung selisih menit antara dua waktu string "HH:MM" */
+  // const diffMinutes = (actual, jadwal) => {
+  //   const toMin = (t) => {
+  //     const parts = String(t).split(":");
+  //     return parseInt(parts[0]) * 60 + (parseInt(parts[1]) || 0);
+  //   };
+  //   return toMin(actual) - toMin(jadwal);
+  // };
+
+  // /** Format jam â€” ambil HH:MM dari string datetime atau waktu */
+  // const formatJam = (val) => {
+  //   if (!val) return "";
+  //   const str = String(val);
+  //   const match = str.match(/(\d{2}:\d{2})/);
+  //   return match ? match[1] : str;
+  // };
+
+  // /** Render nilai prediksi dengan probabilitas */
+  // const renderPrediksi = (prediksi, prob) => {
+  //   if (!prediksi) return "";
+  //   const pct = prob ? ` (${Math.round(prob * 100)}%)` : "";
+  //   return `${prediksi}${pct}`;
+  // };
+
+  // 
+  // ROW COLOR LOGIC â€” selaras 1-to-1 dengan legend
+  // 
+  const getRowClass = (row) => {
+    if (isPindahShiftRow(row))
+      // return "bg-[#ffff00] hover:bg-[#f2f200] border-l-4 border-l-yellow-500";
+      return "bg-[#ffff00] hover:bg-[#f2f200] border-l-4 border-l-yellow-500";
+
+    if (isTidakHadir(row))
+      return "bg-red-200 hover:bg-red-300 border-l-4 border-l-red-500";
+
+    if (isLiburAdaPrediksi(row) || isActualKosong(row))
+      return "bg-yellow-200 hover:bg-yellow-300 border-l-4 border-l-yellow-400";
+
+    if (isSelisihBesar(row))
+      return "bg-purple-300 hover:bg-purple-500 border-l-4 border-l-purple-600";
+
+    if (isHijauSesuaiJadwal(row))
+      return "bg-white hover:bg-green-300 border-l-4 border-l-green-500";
+
+    if (isHadirBermasalah(row))
+      return "bg-orange-200 hover:bg-orange-300 border-l-4 border-l-orange-500";
+
+    return "bg-white hover:bg-green-300 border-l-4 border-l-green-500";
+  };
+  // 
+  // HITUNG JUMLAH PER KATEGORI dari data halaman aktif (paginated)
+  // 
+  const countByCategory = (data) => {
+    let merah = 0, kuning = 0, orange = 0, ungu = 0, hijau = 0;
+    data.forEach((row) => {
+      if      (isPindahShiftRow(row))                          kuning++;
+      else if (isTidakHadir(row))                              merah++;
+      else if (isLiburAdaPrediksi(row) || isActualKosong(row)) kuning++;
+      else if (isSelisihBesar(row))                            ungu++;
+      else if (isHijauSesuaiJadwal(row))                       hijau++;
+      else if (isHadirBermasalah(row))                         orange++;
+      else                                                     hijau++;
+    });
+    return { merah, kuning, orange, ungu, hijau };
+  };
+
+  // 
+  // LEGEND COMPONENT â€” sticky, dengan counter per halaman
+  // 
+  function AttendanceLegend({ paginated }) {
+    const counts = countByCategory(paginated);
+    const countMap = {
+      "Merah":  counts.merah,
+      "Kuning": counts.kuning,
+      "Orange": counts.orange,
+      "Ungu":   counts.ungu,
+      "Hijau":  counts.hijau,
+    };
+
+    return (
+      // sticky: tempel di atas, z-30 supaya di atas thead tabel
+      <div className="sticky top-0 z-30 flex flex-wrap items-center gap-2 px-4 py-3 bg-white border border-gray-200 shadow-md">
+        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap mr-1">
+          Keterangan
+        </span>
+        <div className="w-px h-5 bg-gray-200 hidden sm:block mr-1" />
+
+        {LEGEND_ITEMS.map((item) => {
+          const count = countMap[item.label] ?? 0;
+          return (
+            <div
+              key={item.label}
+              className={`
+                inline-flex items-center gap-2 px-3 py-1.5 rounded-lg
+                ${item.bg} ${item.hover} text-white
+                font-semibold text-xs shadow-sm
+                ring-1 ring-inset ring-white/20
+                transition-all duration-150 cursor-default select-none
+              `}
+            >
+              <span className="w-2 h-2 rounded-full bg-white opacity-80 flex-shrink-0" />
+              <span>
+                {item.label}
+                <span className="opacity-60 font-normal mx-1">:</span>
+                <span className="font-normal opacity-90 ">{item.desc}</span>
+              </span>
+              {/* Badge counter per halaman */}
+              <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-black/25 font-bold text-white text-xs">
+                {count}
+              </span>
+            </div>
+          );
+        })}
+
+        {/* Total data halaman ini */}
+        <div className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-lg">
+          <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+          <span className="text-xs font-semibold text-indigo-700">{paginated.length} Data / Halaman</span>
+        </div>
+      </div>
+    );
+  }
+
+
+
+  const dataWithUid = useMemo(() => {
+    return paginated.map((row) => ({
+      ...row,
+      __uid: row.__uid || buildRowUid(row)
+    }));
+  }, [paginated]);
+
+
+
+
+  
+  // const [paginated, setPaginated] = useState([]); // tampilan halaman
+  const [savingCroscek, setSavingCroscek] = useState(false);
+  const [progressCroscek, setProgressCroscek] = useState(0);
+  const [showProgressModalCroscek, setShowProgressModalCroscek] = useState(false);
+  const [progressTextCroscek, setProgressTextCroscek] = useState("");
+
+  
+  const fetchCroscekFinal = async () => {
+    const res = await fetch(`${API}/croscek-karyawan/final`);
+    const json = await res.json();
+
+    if (!res.ok) {
+      throw new Error(json.error || "Gagal fetch croscek final");
+    }
+
+    const withUid = (json.data || []).map(row => ({
+      ...row,
+      __uid: row.__uid || buildRowUid(row)
+    }));
+
+    setRows(withUid);   // ðŸ”¥ ganti data UI dengan data DB
+    setPage(1);
+  };
+
+const buildFinalData = (source) =>
+    source.map((row, idx) => {
+      const rowUid = row.__uid || buildRowUid(row, idx);
+      const reason = reasonMap[rowUid];
+
+      // Determine final TL_Code and PA_Code
+      const finalTLCode = reason?.TL_Code || "";
+      const finalPACode = reason?.PA_Code || "";
+
+      return {
+        ...row,
+
+        Status_Kehadiran:
+          typeof reason === "string"
+            ? reason
+            : reason?.Status_Kehadiran || row.Status_Kehadiran,
+
+        Status_Masuk:
+          finalTLCode
+            ? finalTLCode.replaceAll("_", " ")
+            : row.Status_Masuk,
+
+        Status_Pulang:
+          finalPACode
+            ? finalPACode === "PA_D"
+              ? "Pulang Awal Dengan Izin"
+              : "Pulang Awal Tanpa Izin"
+            : row.Status_Pulang,
+
+        TL_Code: finalTLCode,
+        PA_Code: finalPACode
+      };
+    });
+
+
+  const simpanCroscek = async () => {
+    try {
+      setSavingCroscek(true);
+      setShowProgressModalCroscek(true);
+      setProgressTextCroscek("Menyiapkan data...");
+      setProgressCroscek(10);
+
+      const finalData = buildFinalData(filteredData);
+
+      if (finalData.length === 0) {
+        alert("Tidak ada data untuk disimpan");
+        return;
+      }
+
+      setProgressTextCroscek("Mengirim ke server...");
+      setProgressCroscek(80);
+
+      const res = await fetch(`${API}/croscek-karyawan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(finalData)
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      setProgressCroscek(100);
+      setProgressTextCroscek("Selesai ✅");
+
+      setTimeout(() => {
+        setShowProgressModalCroscek(false);
+        setSavingCroscek(false);
+        alert(`✅ ${json.total} data diproses\nðŸ”„ ${json.updated} data diperbarui`);
+        setReasonMap({});
+      }, 500);
+      await fetchCroscekFinal();
+
+    } catch (err) {
+      console.error(err);
+      setShowProgressModalCroscek(false);
+      setSavingCroscek(false);
+      alert("❌ Gagal menyimpan croscek");
+    }
+  };
+
+  useEffect(() => {
+    fetchCroscekFinal();
+  }, []);
+
+
+
+  // toggle menu tambah dan kosongkan data jadwal karyawan
+  const [showActionMenu, setShowActionMenu] = useState(false);  
+
+
+  // === UPDATED Export Rekap Perhari dengan filter shift E1, E2, E3, 1, 1A ===
+  async function exportFilteredDatabyshift() {
+    try {
+      if (!filteredData || filteredData.length === 0) {
+        alert("Tidak ada data untuk diexport.");
+        return;
+      }
+
+      // Filter hanya shift E1, E2, E3, 1, dan 1A
+      const allowedShifts = ['E1', 'E2', 'E3', '1', '1A'];
+      const dataWithIndex = filteredData
+        .filter(r => allowedShifts.includes(r.Kode_Shift))
+        .map((r, idx) => ({ ...r, _idx: idx }));
+
+      if (dataWithIndex.length === 0) {
+        alert("Tidak ada data dengan shift E1, E2, E3, 1, atau 1A.");
+        return;
+      }
+
+      // Fungsi helper untuk menghitung selisih waktu dalam detik
+      const calculateSecondsDiff = (scheduled, actual) => {
+        if (!scheduled || !actual) return null;
+        try {
+          const parseTime = (timeStr) => {
+            const parts = timeStr.split(':').map(Number);
+            const h = parts[0] || 0;
+            const m = parts[1] || 0;
+            const s = parts[2] || 0;
+            return h * 3600 + m * 60 + s;
+          };
+          
+          const schedSeconds = parseTime(scheduled);
+          const actualSeconds = parseTime(actual);
+          
+          return actualSeconds - schedSeconds;
+        } catch (e) {
+          return null;
+        }
+      };
+
+      // Fungsi untuk format durasi (jam:menit:detik)
+      const formatDuration = (seconds) => {
+        if (seconds == null || seconds <= 0) return "";
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+      };
+
+      // Pisahkan data TIDAK HADIR dan HADIR
+      const filteredTidakHadir = dataWithIndex.filter(row => {
+        const status = getFinalStatusKehadiran(row);
+        return ["ALPA", "SAKIT", "IZIN", "TIDAK HADIR", "DINAS LUAR"].includes(status);
+      });
+
+      const filteredHadir = dataWithIndex.filter(row => {
+        const status = getFinalStatusKehadiran(row);
+        return !["ALPA", "SAKIT", "IZIN", "TIDAK HADIR", "DINAS LUAR"].includes(status);
+      });
+
+      // Filter terlambat (hanya yang hadir terlambat atau pulang cepat)
+      const filteredTerlambat = filteredHadir.filter(row => {
+        const masuk = (row.Status_Masuk || "").toUpperCase();
+        const pulang = (row.Status_Pulang || "").toUpperCase();
+        const tlCode = reasonMap[row.__uid]?.TL_Code || "";
+        
+        // Cek terlambat masuk
+        const isTelat = masuk.includes("TELAT") || masuk.includes("TERLAMBAT") || 
+                        masuk.includes("TL") || tlCode.startsWith("TL_");
+        
+        // Cek pulang cepat
+        const isPulangCepat = pulang.includes("PULANG CEPAT") || pulang.includes("PULANG TERLALU CEPAT");
+        
+        return isTelat || isPulangCepat;
+      });
+
+      const getReason = (row) => reasonMap?.[row.__uid] || row.Status_Kehadiran || "";
+      const getNik = (r) => (r.NIP || r.nip || r.NIK || r.id_karyawan || "") + "";
+
+      const wb = new ExcelJS.Workbook();
+
+      // === SHEET 1: DATA TIDAK HADIR ===
+      if (filteredTidakHadir.length > 0) {
+        const ws1 = wb.addWorksheet("Data Tidak Hadir");
+        
+        ws1.columns = [
+          { key: "A", width: 6 }, { key: "B", width: 30 }, { key: "C", width: 18 },
+          { key: "D", width: 20 }, { key: "E", width: 18 }, { key: "F", width: 12 },
+          { key: "G", width: 12 }, { key: "H", width: 12 }, { key: "I", width: 12 },
+          { key: "J", width: 18 }
+        ];
+
+        // Header
+        try {
+          const base64 = await imageToBase64(logoCompany);
+          const imageId = wb.addImage({ base64, extension: "jpg" });
+          ws1.mergeCells("A1:A2");
+          ws1.addImage(imageId, { tl: { col: 0.2, row: 0.2 }, ext: { width: 40, height: 40 } });
+        } catch (e) { console.warn("Gagal load logo:", e); }
+
+        ws1.mergeCells("B1:J1");
+        ws1.getCell("B1").value = { richText: [
+          { text: "Sari Ater ", font: { name: "Times New Roman", size: 9, color: { argb: "FF23FF23" }, underline: true } },
+          { text: "Hot Spring Ciater", font: { name: "Mistral", size: 9, color: { argb: "FFFF0000" }, italic: true, underline: true } }
+        ]};
+
+        ws1.mergeCells("B2:J2");
+        ws1.getCell("B2").value = "Human Resources Department";
+        ws1.getCell("B2").font = { name: "Arial", size: 8, bold: true };
+
+        ws1.mergeCells("A3:J3");
+        ws1.getCell("A3").value = "REKAPITULASI KARYAWAN TIDAK HADIR";
+        ws1.getCell("A3").font = { name: "Times New Roman", size: 9, bold: true, italic: true };
+        ws1.getCell("A3").alignment = { vertical: "middle", horizontal: "center" };
+
+        ws1.mergeCells("A4:J4");
+        const periodeText = startDate && endDate ? `Periode: ${startDate} s/d ${endDate}` : "Semua Periode";
+        ws1.getCell("A4").value = periodeText;
+        ws1.getCell("A4").font = { name: "Times New Roman", size: 9, bold: true };
+        ws1.getCell("A4").alignment = { vertical: "middle", horizontal: "center" };
+
+        let curRow = 6;
+
+        // Group by shift
+        const groupedTidakHadir = {};
+        for (const r of filteredTidakHadir) {
+          const key = r.Kode_Shift ?? "UNSPEC";
+          if (!groupedTidakHadir[key]) groupedTidakHadir[key] = [];
+          groupedTidakHadir[key].push(r);
+        }
+
+        const shifts = Object.keys(groupedTidakHadir).sort();
+
+        for (const shift of shifts) {
+          // Shift header
+          ws1.mergeCells(`A${curRow}:H${curRow}`);
+          ws1.getCell(`A${curRow}`).value = `Shift: ${shift}`;
+          ws1.getCell(`A${curRow}`).font = { name: "Times New Roman", size: 9, bold: true };
+          ws1.getCell(`A${curRow}`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+          ws1.getCell(`A${curRow}`).border = { top: {style: "thin"}, left: {style: "thin"}, bottom: {style: "thin"}, right: {style: "thin"} };
+          curRow++;
+
+          // Column headers
+          const headers = ["No", "Nama", "NIK", "Jabatan", "Dept", "Shift", "Tanggal", "Keterangan"];
+          for (let i = 0; i < headers.length; i++) {
+            const col = String.fromCharCode(65 + i);
+            ws1.getCell(`${col}${curRow}`).value = headers[i];
+            ws1.getCell(`${col}${curRow}`).font = { name: "Times New Roman", size: 9, bold: true };
+            ws1.getCell(`${col}${curRow}`).alignment = { horizontal: "center", vertical: "middle" };
+            ws1.getCell(`${col}${curRow}`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+            ws1.getCell(`${col}${curRow}`).border = { top: {style: "thin"}, left: {style: "thin"}, bottom: {style: "thin"}, right: {style: "thin"} };
+          }
+          curRow++;
+
+          // Data rows
+          const rows = groupedTidakHadir[shift];
+          for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            const finalStatus = getFinalStatusKehadiran(r);
+            
+            const vals = [
+              i + 1,
+              r.Nama ?? "",
+              getNik(r),
+              r.Jabatan ?? "",
+              r.Departemen ?? "",
+              r.Kode_Shift ?? "",
+              r.Tanggal ?? "",
+              finalStatus  // Hanya satu kolom keterangan
+            ];
+
+            for (let c = 0; c < vals.length; c++) {
+              const col = String.fromCharCode(65 + c);
+              ws1.getCell(`${col}${curRow}`).value = vals[c];
+              ws1.getCell(`${col}${curRow}`).font = { name: "Times New Roman", size: 9 };
+              ws1.getCell(`${col}${curRow}`).alignment = { horizontal: "center", vertical: "middle" };
+              ws1.getCell(`${col}${curRow}`).border = { top: {style: "thin"}, left: {style: "thin"}, bottom: {style: "thin"}, right: {style: "thin"} };
+            }
+            curRow++;
+          }
+          curRow += 2;
+        }
+      }
+
+      // === SHEET 2: DATA HADIR (termasuk yang terlambat) ===
+      if (filteredHadir.length > 0) {
+        const ws2 = wb.addWorksheet("Data Hadir");
+        
+        ws2.columns = [
+          { key: "A", width: 6 }, { key: "B", width: 30 }, { key: "C", width: 18 },
+          { key: "D", width: 20 }, { key: "E", width: 18 }, { key: "F", width: 12 },
+          { key: "G", width: 12 }, { key: "H", width: 12 }, { key: "I", width: 12 },
+          { key: "J", width: 12 }, { key: "K", width: 12 }, { key: "L", width: 20 },
+          { key: "M", width: 15 }
+        ];
+
+        // Freeze kolom A-E (freeze panes di kolom F)
+        ws2.views = [
+          { state: 'frozen', xSplit: 5, ySplit: 0 }
+        ];
+
+        // Header
+        try {
+          const base64 = await imageToBase64(logoCompany);
+          const imageId = wb.addImage({ base64, extension: "jpg" });
+          ws2.mergeCells("A1:A2");
+          ws2.addImage(imageId, { tl: { col: 0.2, row: 0.2 }, ext: { width: 40, height: 40 } });
+        } catch (e) { console.warn("Gagal load logo:", e); }
+
+        ws2.mergeCells("B1:M1");
+        ws2.getCell("B1").value = { richText: [
+          { text: "Sari Ater ", font: { name: "Times New Roman", size: 9, color: { argb: "FF23FF23" }, underline: true } },
+          { text: "Hot Spring Ciater", font: { name: "Mistral", size: 9, color: { argb: "FFFF0000" }, italic: true, underline: true } }
+        ]};
+
+        ws2.mergeCells("B2:M2");
+        ws2.getCell("B2").value = "Human Resources Department";
+        ws2.getCell("B2").font = { name: "Arial", size: 8, bold: true };
+
+        ws2.mergeCells("A3:M3");
+        ws2.getCell("A3").value = "REKAPITULASI KARYAWAN HADIR";
+        ws2.getCell("A3").font = { name: "Times New Roman", size: 9, bold: true, italic: true };
+        ws2.getCell("A3").alignment = { vertical: "middle", horizontal: "center" };
+
+        ws2.mergeCells("A4:M4");
+        const periodeText2 = startDate && endDate ? `Periode: ${startDate} s/d ${endDate}` : "Semua Periode";
+        ws2.getCell("A4").value = periodeText2;
+        ws2.getCell("A4").font = { name: "Times New Roman", size: 9, bold: true };
+        ws2.getCell("A4").alignment = { vertical: "middle", horizontal: "center" };
+
+        let curRow = 6;
+
+        // Group by shift
+        const groupedHadir = {};
+        for (const r of filteredHadir) {
+          const key = r.Kode_Shift ?? "UNSPEC";
+          if (!groupedHadir[key]) groupedHadir[key] = [];
+          groupedHadir[key].push(r);
+        }
+
+        const shifts = Object.keys(groupedHadir).sort();
+
+        for (const shift of shifts) {
+          // Shift header
+          ws2.mergeCells(`A${curRow}:L${curRow}`);
+          ws2.getCell(`A${curRow}`).value = `Shift: ${shift}`;
+          ws2.getCell(`A${curRow}`).font = { name: "Times New Roman", size: 9, bold: true };
+          ws2.getCell(`A${curRow}`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+          ws2.getCell(`A${curRow}`).border = { top: {style: "thin"}, left: {style: "thin"}, bottom: {style: "thin"}, right: {style: "thin"} };
+          curRow++;
+
+          // Column headers
+          const headers = ["No", "Nama", "NIK", "Jabatan", "Dept", "Shift", "Tanggal", 
+                          "Jadwal Masuk", "Jadwal Pulang", "Actual Masuk", "Actual Pulang", 
+                          "Durasi Terlambat Masuk"];
+          // const headers = ["No", "Nama", "NIK", "Jabatan", "Dept", "Shift", "Tanggal", 
+          //                 "Jadwal Masuk", "Jadwal Pulang", "Actual Masuk", "Actual Pulang", 
+          //                 "Durasi Terlambat Masuk", "Pulang Cepat"];
+          for (let i = 0; i < headers.length; i++) {
+            const col = String.fromCharCode(65 + i);
+            ws2.getCell(`${col}${curRow}`).value = headers[i];
+            ws2.getCell(`${col}${curRow}`).font = { name: "Times New Roman", size: 9, bold: true };
+            ws2.getCell(`${col}${curRow}`).alignment = { horizontal: "center", vertical: "middle" };
+            ws2.getCell(`${col}${curRow}`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
+            ws2.getCell(`${col}${curRow}`).border = { top: {style: "thin"}, left: {style: "thin"}, bottom: {style: "thin"}, right: {style: "thin"} };
+          }
+          curRow++;
+
+          // Data rows
+          const rows = groupedHadir[shift];
+          for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            
+            const jadwalMasuk = formatTime(r.Jadwal_Masuk || r.Scheduled_Start);
+            const jadwalPulang = formatTime(r.Jadwal_Pulang || r.Scheduled_End);
+            const actualMasuk = formatTime(r.Actual_Masuk || r.Aktual_Masuk);
+            const actualPulang = formatTime(r.Actual_Pulang || r.Aktual_Pulang);
+            
+            // Hitung selisih masuk
+            // TELAT jika actual > jadwal (datang lebih lambat dari jadwal)
+            // TEPAT WAKTU jika actual <= jadwal (datang sebelum/tepat jadwal)
+            let terlambatMasuk = "";
+            let statusMasuk = ""; // untuk warna
+            if (jadwalMasuk && actualMasuk) {
+              const diffMasuk = calculateSecondsDiff(jadwalMasuk, actualMasuk);
+              if (diffMasuk > 0) {
+                // Actual > Jadwal = TELAT
+                terlambatMasuk = formatDuration(diffMasuk);
+                statusMasuk = "TELAT";
+              } else if (diffMasuk <= 0) {
+                // Actual <= Jadwal = TEPAT WAKTU
+                terlambatMasuk = "";
+                statusMasuk = "TEPAT";
+              }
+            }
+            
+            // Hitung selisih pulang
+            // PULANG CEPAT jika actual < jadwal (pulang sebelum jadwal)
+            // TEPAT WAKTU jika actual >= jadwal (pulang setelah/tepat jadwal)
+            let pulangCepat = "";
+            let statusPulang = ""; // untuk warna
+            if (jadwalPulang && actualPulang) {
+              const diffPulang = calculateSecondsDiff(jadwalPulang, actualPulang);
+              if (diffPulang < 0) {
+                // Actual < Jadwal = PULANG CEPAT
+                pulangCepat = formatDuration(Math.abs(diffPulang));
+                statusPulang = "CEPAT";
+              } else if (diffPulang >= 0) {
+                // Actual >= Jadwal = TEPAT WAKTU
+                pulangCepat = "";
+                statusPulang = "TEPAT";
+              }
+            }
+            
+            const vals = [
+              i + 1,
+              r.Nama ?? "",
+              getNik(r),
+              r.Jabatan ?? "",
+              r.Departemen ?? "",
+              r.Kode_Shift ?? "",
+              r.Tanggal ?? "",
+              jadwalMasuk,
+              jadwalPulang,
+              actualMasuk,
+              actualPulang,
+              terlambatMasuk,
+              // pulangCepat
+            ];
+
+            for (let c = 0; c < vals.length; c++) {
+              const col = String.fromCharCode(65 + c);
+              ws2.getCell(`${col}${curRow}`).value = vals[c];
+              ws2.getCell(`${col}${curRow}`).font = { name: "Times New Roman", size: 9 };
+              ws2.getCell(`${col}${curRow}`).alignment = { horizontal: "center", vertical: "middle" };
+              ws2.getCell(`${col}${curRow}`).border = { top: {style: "thin"}, left: {style: "thin"}, bottom: {style: "thin"}, right: {style: "thin"} };
+              
+              // Highlight berdasarkan status
+              if (c === 11) { // Kolom Terlambat Masuk
+                if (statusMasuk === "TELAT") {
+                  ws2.getCell(`${col}${curRow}`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFCCCC" } };
+                  ws2.getCell(`${col}${curRow}`).font = { name: "Times New Roman", size: 9, bold: true, color: { argb: "FFFF0000" } };
+                } else if (statusMasuk === "TEPAT") {
+                  ws2.getCell(`${col}${curRow}`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCCFFCC" } };
+                  ws2.getCell(`${col}${curRow}`).font = { name: "Times New Roman", size: 9, bold: true, color: { argb: "FF008000" } };
+                }
+              }
+              
+              // if (c === 12) { // Kolom Pulang Cepat
+              //   if (statusPulang === "CEPAT") {
+              //     ws2.getCell(`${col}${curRow}`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFCCCC" } };
+              //     ws2.getCell(`${col}${curRow}`).font = { name: "Times New Roman", size: 9, bold: true, color: { argb: "FFFF0000" } };
+              //   } else if (statusPulang === "TEPAT") {
+              //     ws2.getCell(`${col}${curRow}`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCCFFCC" } };
+              //     ws2.getCell(`${col}${curRow}`).font = { name: "Times New Roman", size: 9, bold: true, color: { argb: "FF008000" } };
+              //   }
+              // }
+            }
+            curRow++;
+          }
+          curRow += 2;
+        }
+      }
+
+      // Write workbook
+      const buffer = await wb.xlsx.writeBuffer();
+      const filename = startDate && endDate 
+        ? `rekap_harian_${startDate}_to_${endDate}.xlsx`
+        : `rekap_harian_all.xlsx`;
+      saveAs(new Blob([buffer]), filename);
+      alert("Export selesai! Data dibagi menjadi 2 sheet: Tidak Hadir dan Hadir.");
+    } catch (err) {
+      console.error("Export failed:", err);
+      alert("Gagal export: " + (err.message || err));
+    }
+  }
+
+const LIBUR_SHIFTS = ['CT','CTT','EO','OF1','CTB','X'];
+const hasPrediksiShiftValue = (prediksiShift) => {
+  if (prediksiShift === null || prediksiShift === undefined) return false;
+  const normalized = String(prediksiShift).trim().toUpperCase();
+  return normalized !== "" && normalized !== "NULL" && normalized !== "0" && normalized !== "FALSE";
+};
+
+const formatPrediksiDateTime = (value) => {
+  if (!value) return null;
+  const str = String(value).trim();
+  if (!str) return null;
+
+  const isoWithSec = str.match(/(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/);
+  if (isoWithSec) return `${isoWithSec[1]} ${isoWithSec[2]}`;
+
+  const isoNoSec = str.match(/(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(?!:)/);
+  if (isoNoSec) return `${isoNoSec[1]} ${isoNoSec[2]}:00`;
+
+  const rfcMatch = str.match(/^[A-Za-z]{3},\s+(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})\s+(\d{2}:\d{2}:\d{2})/);
+  if (rfcMatch) {
+    const monthMap = {
+      Jan: "01", Feb: "02", Mar: "03", Apr: "04",
+      May: "05", Jun: "06", Jul: "07", Aug: "08",
+      Sep: "09", Oct: "10", Nov: "11", Dec: "12",
+    };
+    const day = String(rfcMatch[1]).padStart(2, "0");
+    const month = monthMap[rfcMatch[2]];
+    const year = rfcMatch[3];
+    const time = rfcMatch[4];
+    if (month) return `${year}-${month}-${day} ${time}`;
+  }
+
+  const parsed = new Date(str);
+  if (!Number.isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, "0");
+    const d = String(parsed.getDate()).padStart(2, "0");
+    const hh = String(parsed.getHours()).padStart(2, "0");
+    const mm = String(parsed.getMinutes()).padStart(2, "0");
+    const ss = String(parsed.getSeconds()).padStart(2, "0");
+    return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+  }
+
+  return null;
+};
+
+const normalizeShiftCode = (value) => String(value || "").trim().toUpperCase();
+
+const getScheduleByShiftCode = (shiftCode) => {
+  const code = normalizeShiftCode(shiftCode);
+  if (!code) return null;
+  const found = shiftScheduleMap[code];
+  if (!found) return null;
+  if (!found.jam_masuk || !found.jam_pulang) return null;
+  return {
+    shiftCode: code,
+    jadwalMasuk: found.jam_masuk,
+    jadwalPulang: found.jam_pulang,
+  };
+};
+
+const normalizeDayDiffMinutes = (diff) => {
+  let d = diff;
+  if (d > 720) d -= 1440;
+  if (d < -720) d += 1440;
+  return d;
+};
+
+const hasValidPrediksiActualPair = (row) =>
+  !isEmptyTime(row?.Prediksi_Actual_Masuk) &&
+  !isEmptyTime(row?.Prediksi_Actual_Pulang) &&
+  String(row?.Prediksi_Actual_Masuk || "").trim() !==
+    String(row?.Prediksi_Actual_Pulang || "").trim();
+
+const inferPindahShiftFromActual = (row) => {
+  const currentShift = normalizeShiftCode(row?.Kode_Shift);
+  const jadwalMasukMin = toMinutes(row?.Jadwal_Masuk);
+  const jadwalPulangMin = toMinutes(row?.Jadwal_Pulang);
+  const actualMasukBase = hasValidPrediksiActualPair(row)
+    ? row?.Prediksi_Actual_Masuk
+    : row?.Actual_Masuk;
+  const actualPulangBase = hasValidPrediksiActualPair(row)
+    ? row?.Prediksi_Actual_Pulang
+    : row?.Actual_Pulang;
+  const actualMasukMin = toMinutes(actualMasukBase);
+  const actualPulangMin = toMinutes(actualPulangBase);
+
+  if (
+    jadwalMasukMin === null ||
+    jadwalPulangMin === null ||
+    actualMasukMin === null ||
+    actualPulangMin === null
+  ) {
+    return null;
+  }
+
+  const scoreCurrent =
+    Math.abs(normalizeDayDiffMinutes(actualMasukMin - jadwalMasukMin)) +
+    Math.abs(normalizeDayDiffMinutes(actualPulangMin - jadwalPulangMin));
+
+  let best = null;
+
+  Object.entries(shiftScheduleMap || {}).forEach(([shiftCode, schedule]) => {
+    const code = normalizeShiftCode(shiftCode);
+    if (!code || code === currentShift) return;
+    if (!schedule?.jam_masuk || !schedule?.jam_pulang) return;
+
+    const candidateMasukMin = toMinutes(schedule.jam_masuk);
+    const candidatePulangMin = toMinutes(schedule.jam_pulang);
+    if (candidateMasukMin === null || candidatePulangMin === null) return;
+
+    const diffMasuk = normalizeDayDiffMinutes(actualMasukMin - candidateMasukMin);
+    const diffPulang = normalizeDayDiffMinutes(actualPulangMin - candidatePulangMin);
+
+    // Hindari false-positive: kandidat shift harus cukup dekat dengan scan aktual.
+    if (Math.abs(diffMasuk) > 30 || Math.abs(diffPulang) > 30) return;
+
+    const score = Math.abs(diffMasuk) + Math.abs(diffPulang);
+    const improvement = scoreCurrent - score;
+
+    // Wajib jauh lebih baik dari jadwal existing.
+    if (improvement < 40) return;
+
+    if (!best || score < best.score) {
+      best = {
+        shiftCode: code,
+        jadwalMasuk: schedule.jam_masuk,
+        jadwalPulang: schedule.jam_pulang,
+        score,
+      };
+    }
+  });
+
+  return best;
+};
+
+const getEffectiveTimeContext = (row) => {
+  const currentShift = normalizeShiftCode(row?.Kode_Shift);
+  const predShift = normalizeShiftCode(row?.Prediksi_Shift);
+  const hasPrediksiShift = hasPrediksiShiftValue(row?.Prediksi_Shift);
+  const isPrediksiPindahShift =
+    hasPrediksiShift && !!currentShift && predShift !== currentShift;
+
+  const hasPrediksiActual = hasValidPrediksiActualPair(row);
+
+  let jadwalMasuk = row?.Jadwal_Masuk || null;
+  let jadwalPulang = row?.Jadwal_Pulang || null;
+  let actualMasuk = row?.Actual_Masuk || null;
+  let actualPulang = row?.Actual_Pulang || null;
+  let shiftCode = row?.Kode_Shift || null;
+  let isPindahShift = false;
+
+  if (isPrediksiPindahShift) {
+    const predictedSchedule = getScheduleByShiftCode(predShift);
+    if (predictedSchedule) {
+      jadwalMasuk = predictedSchedule.jadwalMasuk;
+      jadwalPulang = predictedSchedule.jadwalPulang;
+      shiftCode = predictedSchedule.shiftCode;
+    } else {
+      shiftCode = predShift || shiftCode;
+    }
+
+    if (hasPrediksiActual) {
+      actualMasuk = row.Prediksi_Actual_Masuk;
+      actualPulang = row.Prediksi_Actual_Pulang;
+    }
+
+    isPindahShift = true;
+  } else {
+    const inferred = inferPindahShiftFromActual(row);
+    if (inferred) {
+      jadwalMasuk = inferred.jadwalMasuk;
+      jadwalPulang = inferred.jadwalPulang;
+      shiftCode = inferred.shiftCode;
+      if (hasPrediksiActual) {
+        actualMasuk = row.Prediksi_Actual_Masuk;
+        actualPulang = row.Prediksi_Actual_Pulang;
+      }
+      isPindahShift = true;
+    }
+  }
+
+  return {
+    jadwalMasuk,
+    jadwalPulang,
+    actualMasuk,
+    actualPulang,
+    shiftCode,
+    isPindahShift,
+  };
+};
+
+const isPindahShiftRow = (row) => getEffectiveTimeContext(row).isPindahShift;
+
+const canShowPrediksiActualTimes = (row) => {
+  if (!hasValidPrediksiActualPair(row)) return false;
+  if (!hasPrediksiShiftValue(row.Prediksi_Shift) && !isPindahShiftRow(row)) return false;
+
+  const predMasuk = formatPrediksiDateTime(row.Prediksi_Actual_Masuk);
+  const predPulang = formatPrediksiDateTime(row.Prediksi_Actual_Pulang);
+
+  // Wajib ada dua-duanya dan nilainya berbeda.
+  if (!predMasuk || !predPulang) return false;
+  return predMasuk !== predPulang;
+};
+
+const getActualCellDisplay = (row, type) => {
+  const isMasuk = type === "masuk";
+  const actualValue = isMasuk ? row.Actual_Masuk : row.Actual_Pulang;
+
+  // Jika prediksi valid & berbeda, pakai kolom prediksi untuk KEDUA kolom aktual.
+  if (canShowPrediksiActualTimes(row)) {
+    const prediksiMasuk = formatPrediksiDateTime(row.Prediksi_Actual_Masuk);
+    const prediksiPulang = formatPrediksiDateTime(row.Prediksi_Actual_Pulang);
+    const prediksiTime = isMasuk ? prediksiMasuk : prediksiPulang;
+
+    if (prediksiTime) {
+      return {
+        text: `${isMasuk ? "Prediksi Cek In" : "Prediksi Cek Out"} ${prediksiTime}`,
+        isPrediksi: true,
+      };
+    }
+  }
+
+  if (!isEmptyTime(actualValue)) {
+    return {
+      text: formatJam(actualValue) || "-",
+      isPrediksi: false,
+    };
+  }
+
+  if (!hasPrediksiShiftValue(row.Prediksi_Shift)) {
+    return { text: "-", isPrediksi: false };
+  }
+
+  // Tampilkan prediksi hanya jika Prediksi_Actual_Masuk dan Prediksi_Actual_Pulang valid dan berbeda.
+  if (!canShowPrediksiActualTimes(row)) {
+    return { text: "-", isPrediksi: false };
+  }
+
+  const prediksiValue = isMasuk ? row.Prediksi_Actual_Masuk : row.Prediksi_Actual_Pulang;
+  const prediksiTime = formatPrediksiDateTime(prediksiValue);
+  if (!prediksiTime) {
+    return { text: "-", isPrediksi: false };
+  }
+
+  return {
+    text: `${isMasuk ? "Prediksi Cek In" : "Prediksi Cek Out"} ${prediksiTime}`,
+    isPrediksi: true,
+  };
+};
+
+// =========================
+// GLOBAL HELPER (SHARED)
+// =========================
+const calculateDays = (start, end) =>
+  Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1;
+
+const calculateStats = (arr) => {
+  let libur = 0,
+      sakit = 0,
+      izin = 0,
+      alpa = 0,
+      eo = 0,
+      cuti = 0,
+      dinasLuar = 0;
+
+  arr.forEach(r => {
+    const s = (r.Status_Kehadiran || "").toUpperCase();
+
+    if (s.includes("LIBUR")) libur++;
+    else if (s === "SAKIT") sakit++;
+    else if (s === "IZIN") izin++;
+    else if (s === "ALPA" || s === "TIDAK HADIR") alpa++;
+    else if (s === "EO" || s === "EXTRAOFF" || s === "LIBUR SETELAH MASUK DOBLE SHIFT") eo++;
+    else if (
+      s === "CUTI TAHUNAN" ||
+      s === "CUTI ISTIMEWA" ||
+      s === "CUTI BERSAMA"
+    ) cuti++;
+    else if (s === "DINAS LUAR" || s === "DL" || s.includes("DINAS")) dinasLuar++;
+  });
+
+  return { libur, sakit, izin, alpa, eo, cuti, dinasLuar };
+};
+
+const formatTanggalIndoFull = (date) => {
+  const bulan = [
+    "Januari","Februari","Maret","April","Mei","Juni",
+    "Juli","Agustus","September","Oktober","November","Desember"
+  ];
+  return `${date.getDate()} ${bulan[date.getMonth()]} ${date.getFullYear()}`;
+};
+
+
+// =========================
+// EXPORT EXCEL
+// =========================
+const exportRekapService = async () => {
+  try {
+    // =========================
+    // FILTER DATA (AS IS)
+    // =========================
+    let filtered = [...filteredData];
+
+    if (startDate && endDate) {
+      filtered = filtered.filter(row => {
+        const tgl = row.Tanggal;
+        return tgl >= startDate && tgl <= endDate;
+      });
+    }
+
+    if (filtered.length === 0) {
+      alert("Tidak ada data untuk di-export!");
+      return;
+    }
+
+    // =========================
+    // HELPER
+    // =========================
+    const calculateDays = (start, end) =>
+      Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1;
+
+    const totalDays = calculateDays(startDate, endDate);
+
+    const formatTanggalIndo = (dateStr) => {
+      const bulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+      const d = new Date(dateStr);
+      return `${d.getDate()} ${bulan[d.getMonth()]} ${d.getFullYear()}`;
+    };
+
+    const periodeText = `${formatTanggalIndo(startDate)} s.d ${formatTanggalIndo(endDate)}`;
+
+    const today = new Date();
+    const tanggalPembuatan = `Ciater, ${today.getDate()} ${formatTanggalIndo(today).split(" ")[1]} ${today.getFullYear()}`;
+
+    // =========================
+    // GROUP DATA (AS IS)
+    // =========================
+    const groupByDept = {};
+    filtered.forEach(row => {
+      const dept = row.Departemen || "UNKNOWN";
+      const nama = row.Nama || "UNKNOWN";
+
+      if (!groupByDept[dept]) groupByDept[dept] = {};
+      if (!groupByDept[dept][nama]) {
+        groupByDept[dept][nama] = {
+          Nama: nama,
+          Jabatan: row.Jabatan || "",
+          NIK: row.NIK || "",
+          data: []
+        };
+      }
+      groupByDept[dept][nama].data.push(row);
+    });
+
+    // const calculateStats = (arr) => {
+    //   let libur=0,sakit=0,izin=0,alpa=0,eo=0,cuti=0,dinasLuar = 0;
+    //   arr.forEach(r=>{
+    //     const s=(r.Status_Kehadiran||"").toUpperCase();
+    //     if(s.includes("LIBUR"))libur++;
+    //     else if(s==="SAKIT")sakit++;
+    //     else if(s==="IZIN")izin++;
+    //     else if(s==="ALPA")alpa++;
+    //     else if(s==="EO"||s==="EXTRAOFF"|| s === "LIBUR SETELAH MASUK DOBLE SHIFT")eo++;
+    //     else if(s=== "CUTI TAHUNAN" || s === "CUTI ISTIMEWA" || s === "CUTI BERSAMA")cuti++;
+    //     else if (s === "DINAS LUAR" || s === "DL" || s.includes("DINAS")) dinasLuar++;
+    //   });
+    //   return {libur,sakit,izin,alpa,eo,cuti,dinasLuar};
+    // };
+
+    // =========================
+    // EXCELJS
+    // =========================
+    const wb = new ExcelJS.Workbook();
+
+    for (const dept of Object.keys(groupByDept).sort()) {
+      const ws = wb.addWorksheet(dept.substring(0,31), {
+        pageSetup:{orientation:"landscape"}
+      });
+
+      // TITLE
+      ws.mergeCells("A1:M1");
+      ws.getCell("A1").value = "REKAP TUNJANGAN SERVICE";
+      ws.getCell("A1").font = {name:"Arial",size:11,bold:true};
+      ws.getCell("A1").alignment={horizontal:"center",vertical:"middle"};
+
+      ws.mergeCells("A2:M2");
+      ws.getCell("A2").value = periodeText;
+      ws.getCell("A2").alignment={horizontal:"center"};
+
+      ws.mergeCells("A3:M3");
+      ws.getCell("A3").value = `Departemen : ${dept}`;
+      ws.getCell("A3").font={bold:true};
+
+      // HEADER
+      const header = ws.addRow([
+        "NO","NAMA","JABATAN","NO ID",
+        "JML\nHARI","JML\nLIBUR","JML HK",
+        "SAKIT","IJIN","ALPA","EO","CUTI","JML\nSERVICE"
+      ]);
+
+      header.eachCell(c=>{
+        c.font={name:"Arial",size:11,bold:true};
+        c.alignment={horizontal:"center",vertical:"middle",wrapText:true};
+        c.border={top:{style:"thin"},bottom:{style:"thin"},left:{style:"thin"},right:{style:"thin"}};
+      });
+
+      const karyawanList = Object.values(groupByDept[dept]).sort((a,b)=>a.Nama.localeCompare(b.Nama));
+
+      let totalLibur=0,totalHK=0,totalSakit=0,totalIzin=0,totalAlpa=0,totalEO=0,totalCuti=0,totalService=0;
+
+      karyawanList.forEach((k,i)=>{
+        const st=calculateStats(k.data);
+        const hk = (totalDays - st.libur) + st.dinasLuar;
+        const service=hk-st.sakit-st.izin-st.alpa;
+
+        totalLibur+=st.libur;
+        totalHK+=hk;
+        totalSakit+=st.sakit;
+        totalIzin+=st.izin;
+        totalAlpa+=st.alpa;
+        totalEO+=st.eo;
+        totalCuti+=st.cuti;
+        totalService+=service;
+
+        const r=ws.addRow([
+          i+1,k.Nama,k.Jabatan,k.NIK,
+          totalDays,st.libur,hk,
+          st.sakit,st.izin,st.alpa,st.eo,st.cuti,service
+        ]);
+
+        r.eachCell((c,col)=>{
+          c.alignment={horizontal:"center",vertical:"middle"};
+          c.border={top:{style:"thin"},bottom:{style:"thin"},left:{style:"thin"},right:{style:"thin"}};
+          if(col===13)c.font={bold:true};
+        });
+      });
+
+      const totalRow=ws.addRow([
+        "TOTAL","","","",
+        totalDays*karyawanList.length,
+        totalLibur,totalHK,totalSakit,totalIzin,totalAlpa,totalEO,totalCuti,totalService
+      ]);
+
+      ws.mergeCells(`A${totalRow.number}:D${totalRow.number}`);
+      totalRow.eachCell(c=>{
+        c.font={bold:true};
+        c.alignment={horizontal:"center"};
+        c.border={top:{style:"thin"},bottom:{style:"thin"},left:{style:"thin"},right:{style:"thin"}};
+      });
+
+      ws.addRow([]);
+
+      const base = ws.lastRow.number + 1;
+
+      ws.mergeCells(`A${base}:B${base}`);
+      ws.getCell(`A${base}`).value = `Ciater, ${formatTanggalIndoFull(today)}`;
+      ws.getCell(`A${base}`).alignment = { vertical: "middle" };
+
+
+      ws.mergeCells(`C${base}:G${base}`);
+      ws.getCell(`C${base}`).value = "Approved By,";
+      ws.getCell(`C${base}`).alignment = { horizontal: "center" };
+
+      ws.mergeCells(`H${base}:M${base}`);
+      ws.getCell(`H${base}`).value = "Approved By,";
+      ws.getCell(`H${base}`).alignment = { horizontal: "center" };
+
+      ws.mergeCells(`A${base+1}:B${base+1}`);
+      ws.getCell(`A${base+1}`).value = "Time Keeper Staff";
+
+      ws.mergeCells(`C${base+1}:G${base+1}`);
+      ws.getCell(`C${base+1}`).value = "Head Of Department";
+      ws.getCell(`C${base+1}`).alignment = { horizontal: "center" };
+
+      ws.mergeCells(`H${base+1}:M${base+1}`);
+      ws.getCell(`H${base+1}`).value = "HR Manager";
+      ws.getCell(`H${base+1}`).alignment = { horizontal: "center" };
+
+      ws.mergeCells(`A${base+4}:B${base+4}`);
+      ws.getCell(`A${base+4}`).value = "â€¦.........................";
+      ws.getCell(`A${base+4}`).font = { underline: true };
+
+      ws.mergeCells(`C${base+4}:G${base+4}`);
+      ws.getCell(`C${base+4}`).value = "â€¦â€¦â€¦â€¦â€¦â€¦â€¦â€¦â€¦â€¦â€¦â€¦.";
+      ws.getCell(`C${base+4}`).font = { underline: true };
+      ws.getCell(`C${base+4}`).alignment = { horizontal: "center" };
+
+      ws.mergeCells(`H${base+4}:M${base+4}`);
+      ws.getCell(`H${base+4}`).value = "Maman Somantri";
+      ws.getCell(`H${base+4}`).alignment = { horizontal: "center" };
+
+      ws.getColumn("B").width = 30;
+      ws.getColumn("C").width = 30;
+      ws.getColumn("M").width = 10;
+      ws.getColumn("D").width = 10;
+      ws.getColumn("H").width = 8;
+      ws.getColumn("I").width = 8;
+      ws.getColumn("J").width = 8;
+      ws.getColumn("K").width = 8;
+      ws.getColumn("L").width = 8;
+    }
+
+    const buffer = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `Rekap_Service_${startDate}_${endDate}.xlsx`);
+    alert("Export berhasil!");
+
+  } catch (e) {
+    console.error(e);
+    alert("Export gagal: " + e.message);
+  }
+};
+
+// =========================
+// PREVIEW STATE
+// =========================
+const [showPreviewRekap, setShowPreviewRekap] = useState(false);
+const [rekapServicePreview, setRekapServicePreview] = useState({});
+const [activeDept, setActiveDept] = useState("");
+
+// =========================
+// BUILD PREVIEW (100% SAMA DENGAN EXCEL)
+// =========================
+const buildRekapServicePreview = () => {
+  const result = {};
+  let filtered = [...filteredData];
+
+  if (startDate && endDate) {
+    filtered = filtered.filter(row => {
+      const tgl = row.Tanggal;
+      return tgl >= startDate && tgl <= endDate;
+    });
+  }
+
+  if (!filtered.length) {
+    alert("Tidak ada data untuk direkap");
+    return null;
+  }
+
+  const totalDays = calculateDays(startDate, endDate);
+
+  const groupByDept = {};
+  filtered.forEach(row => {
+    const dept = row.Departemen || "UNKNOWN";
+    const nama = row.Nama || "UNKNOWN";
+
+    if (!groupByDept[dept]) groupByDept[dept] = {};
+    if (!groupByDept[dept][nama]) {
+      groupByDept[dept][nama] = {
+        Nama: nama,
+        Jabatan: row.Jabatan,
+        NIK: row.NIK,
+        data: []
+      };
+    }
+    groupByDept[dept][nama].data.push(row);
+  });
+
+  Object.keys(groupByDept).forEach(dept => {
+    let no = 1;
+    const rows = [];
+
+    Object.values(groupByDept[dept]).forEach(k => {
+      const st = calculateStats(k.data);
+      const hk = (totalDays - st.libur) + st.dinasLuar;
+      const service = hk - st.sakit - st.izin - st.alpa;
+
+      rows.push({
+        no: no++,
+        nama: k.Nama,
+        jabatan: k.Jabatan,
+        nik: k.NIK,
+        totalHari: totalDays,
+        libur: st.libur,
+        hk,
+        sakit: st.sakit,
+        izin: st.izin,
+        alpa: st.alpa,
+        eo: st.eo,
+        cuti: st.cuti,
+        service
+      });
+    });
+
+    result[dept] = rows;
+  });
+
+  return result;
+};
+
+const [previewUangMakan, setPreviewUangMakan] = useState([]);
+const [showPreviewUangMakan, setShowPreviewUangMakan] = useState(false);
+
+async function exportRekapUangMakan(data, startDate, endDate) {
+  try {
+    if (!data || data.length === 0) {
+      alert("Tidak ada data untuk di-export.");
+      return;
+    }
+
+    const MONTHS = [
+      "JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI",
+      "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"
+    ];
+
+    const formatIndo = (date) => {
+      const d = new Date(date);
+      return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+    };
+
+    const periodeText = `PERIODE : ${formatIndo(startDate)} S.D ${formatIndo(endDate)}`;
+    const sheetName = `${formatIndo(startDate)} - ${formatIndo(endDate)}`.substring(0, 31);
+
+    // GROUP BY DEPT
+    const byDept = {};
+    data.forEach(e => {
+      if (!byDept[e.dept]) byDept[e.dept] = [];
+      byDept[e.dept].push(e);
+    });
+
+    // EXCEL
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(sheetName, {
+      pageSetup: { orientation: "landscape" }
+    });
+
+    ws.columns = [
+      { width: 6 },  // A - NO global
+      { width: 6 },  // B - NO per dept
+      { width: 30 }, // C - NAMA
+      { width: 16 }, // D - NIK
+      { width: 25 }, // E - JABATAN
+      { width: 18 }, // F - DEPT
+      { width: 8 },  // G - H
+      { width: 8 },  // H - OFF
+      { width: 8 },  // I - S
+      { width: 8 },  // J - I
+      { width: 8 },  // K - A
+      { width: 8 },  // L - EO
+      { width: 8 },  // M - CUTI
+      { width: 10 }, // N - TGS LUAR
+      { width: 12 }  // O - TOT. KERJA
+    ];
+
+    // ===== BARIS 1: TITLE =====
+    ws.mergeCells("B1:O1");
+    const cellB1 = ws.getCell("B1");
+    cellB1.value = "REKAPITULASI KEHADIRAN KARYAWAN";
+    cellB1.font = { bold: true, size: 14, italic: true };
+    cellB1.alignment = { horizontal: "center", vertical: "middle" };
+
+    // ===== BARIS 2: COMPANY =====
+    ws.mergeCells("B2:O2");
+    const cellB2 = ws.getCell("B2");
+    cellB2.value = "SARI ATER HOT SPRINGS CIATER";
+    cellB2.font = { bold: true, size: 12, italic: true };
+    cellB2.alignment = { horizontal: "center", vertical: "middle" };
+
+    // ===== BARIS 3: PERIODE =====
+    ws.mergeCells("A3:O3");
+    const cellA3 = ws.getCell("A3");
+    cellA3.value = periodeText;
+    cellA3.font = { bold: true, italic: true };
+    cellA3.alignment = { horizontal: "center", vertical: "middle" };
+
+    // ===== BARIS 4: KOSONG =====
+    ws.addRow([]);
+
+    // ===== BARIS 5-7: HEADER DENGAN MERGE =====
+    // Merge untuk kolom NO (A-B dari baris 5-7)
+    ws.mergeCells("A5:B7");
+    ws.getCell("A5").value = "NO.";
+    
+    // Merge untuk kolom NAMA (C dari baris 5-7)
+    ws.mergeCells("C5:C7");
+    ws.getCell("C5").value = "NAMA";
+    
+    // Merge untuk kolom NIK (D dari baris 5-7)
+    ws.mergeCells("D5:D7");
+    ws.getCell("D5").value = "NIK";
+    
+    // Merge untuk kolom JABATAN (E dari baris 5-7)
+    ws.mergeCells("E5:E7");
+    ws.getCell("E5").value = "JABATAN";
+    
+    // Merge untuk kolom DEPT (F dari baris 5-7)
+    ws.mergeCells("F5:F7");
+    ws.getCell("F5").value = "DEPT";
+    
+    // Merge untuk KEHADIRAN (G-O di baris 5)
+    ws.mergeCells("G5:O5");
+    ws.getCell("G5").value = "KEHADIRAN";
+    
+    // Merge untuk REKAPITULASI (G-O di baris 6)
+    ws.mergeCells("G6:N6");
+    ws.getCell("G6").value = "REKAPITULASI";
+    
+    // ===== BARIS 7: Sub-header (H, OFF, S, I, A, EO, CUTI, TGS LUAR, TOT. KERJA) =====
+    ws.getCell("G7").value = "H";
+    ws.getCell("H7").value = "OFF";
+    ws.getCell("I7").value = "S";
+    ws.getCell("J7").value = "I";
+    ws.getCell("K7").value = "A";
+    ws.getCell("L7").value = "EO";
+    ws.getCell("M7").value = "CUTI";
+    ws.getCell("N7").value = "TGS LUAR";
+    ws.mergeCells("O6:O7");
+    ws.getCell("O7").value = "TOT. KERJA";
+
+    // Style untuk semua header cells (baris 5, 6, 7)
+    ["A5", "C5", "D5", "E5", "F5", "G5", "G6", "G7", "H7", "I7", "J7", "K7", "L7", "M7", "N7", "O7"].forEach(addr => {
+      const cell = ws.getCell(addr);
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFD3D3D3" }
+      };
+      cell.border = {
+        top: { style: "thin" },
+        bottom: { style: "thin" },
+        left: { style: "thin" },
+        right: { style: "thin" }
+      };
+    });
+
+    // ===== BARIS 8: KOSONG =====
+    // ws.addRow([]);
+
+    ws.views = [{ state: "frozen", ySplit: 7 }];
+
+    // ===== DATA =====
+    let globalNo = 1;
+
+    Object.keys(byDept).sort().forEach(dept => {
+      const list = byDept[dept];
+      let subtotal = { H: 0, OFF: 0, S: 0, I: 0, A: 0, EO: 0, CUTI: 0, TGS: 0, TOTAL: 0 };
+
+      list.forEach((e, i) => {
+        const dataRow = ws.addRow([
+          globalNo++,
+          i + 1,
+          e.nama,
+          e.nik,
+          e.jabatan,
+          dept,
+          e.H,
+          e.OFF,
+          e.S,
+          e.I,
+          e.A,
+          e.EO,
+          e.CUTI,
+          e.TGS,
+          e.TOTAL
+        ]);
+
+        // Style untuk data
+        dataRow.eachCell((cell, colNumber) => {
+          cell.border = {
+            top: { style: "thin" },
+            bottom: { style: "thin" },
+            left: { style: "thin" },
+            right: { style: "thin" }
+          };
+          
+          // Align center untuk kolom angka
+          if (colNumber === 1 || colNumber === 2 || colNumber >= 7) {
+            cell.alignment = { horizontal: "center", vertical: "middle" };
+          } else {
+            cell.alignment = { vertical: "middle" };
+          }
+
+          // Bold untuk angka-angka kehadiran
+          if (colNumber >= 7) {
+            cell.font = { bold: true };
+          }
+        });
+
+        Object.keys(subtotal).forEach(k => subtotal[k] += e[k]);
+      });
+
+      // SUBTOTAL per Departemen
+      const subtotalRow = ws.addRow([
+        "", "", "", "", "", "",
+        subtotal.H,
+        subtotal.OFF,
+        subtotal.S,
+        subtotal.I,
+        subtotal.A,
+        subtotal.EO,
+        subtotal.CUTI,
+        subtotal.TGS,
+        subtotal.TOTAL
+      ]);
+
+      subtotalRow.eachCell((cell, colNumber) => {
+        cell.font = { bold: true };
+        cell.alignment = { horizontal: "center", vertical: "middle" };
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFFFEB3B" }
+        };
+        cell.border = {
+          top: { style: "thin" },
+          bottom: { style: "thin" },
+          left: { style: "thin" },
+          right: { style: "thin" }
+        };
+      });
+
+      ws.addRow([]);
+    });
+
+    // ===== FOOTER TTD =====
+    ws.addRow([]);
+    ws.addRow([]);
+
+    const today = new Date();
+    const tanggalIndo = formatIndo(today);
+
+    // Tanggal
+    const tanggalRow = ws.addRow(["Ciater, " + tanggalIndo]);
+    ws.mergeCells(`A${tanggalRow.number}:C${tanggalRow.number}`);
+    tanggalRow.getCell(1).alignment = { horizontal: "left" };
+
+    // ws.addRow([]); // Baris kosong
+
+    // Jabatan - PERBAIKAN DI SINI
+    const jabatanRow = ws.addRow([
+      "", "", "Human Resources Dept.", "", "", "", "", "Menyetujui,"
+    ]);
+    ws.mergeCells(`C${jabatanRow.number}:D${jabatanRow.number}`);
+    ws.mergeCells(`H${jabatanRow.number}:L${jabatanRow.number}`);
+    
+    jabatanRow.getCell(3).font = { bold: true };
+    jabatanRow.getCell(3).alignment = { horizontal: "center" };
+    jabatanRow.getCell(8).font = { bold: true }; // UBAH: dari kolom 10 ke 8
+    jabatanRow.getCell(8).alignment = { horizontal: "center" };
+
+    // Spasi untuk tanda tangan
+    ws.addRow([]);
+    ws.addRow([]);
+    ws.addRow([]);
+
+    // Nama TTD - PERBAIKAN DI SINI
+    const namaRow = ws.addRow([
+      "", "", "Aris Mulyadi", "", "", "", "", "Maman Somantri"
+    ]);
+    ws.mergeCells(`C${namaRow.number}:D${namaRow.number}`);
+    ws.mergeCells(`H${namaRow.number}:L${namaRow.number}`);
+    
+    namaRow.getCell(3).font = { bold: true, underline: true };
+    namaRow.getCell(3).alignment = { horizontal: "center" };
+    namaRow.getCell(8).font = { bold: true, underline: true }; // UBAH: dari kolom 9 ke 8
+    namaRow.getCell(8).alignment = { horizontal: "center" };
+
+    // Posisi TTD - PERBAIKAN DI SINI
+    const posisiRow = ws.addRow([
+      "", "", "Time Keeper Staff", "", "", "", "", "HR Manager"
+    ]);
+    ws.mergeCells(`C${posisiRow.number}:D${posisiRow.number}`);
+    ws.mergeCells(`H${posisiRow.number}:L${posisiRow.number}`);
+    
+    posisiRow.getCell(3).alignment = { horizontal: "center" };
+    posisiRow.getCell(8).alignment = { horizontal: "center" }; // UBAH: dari kolom 9 ke 8
+
+    // SAVE
+    const buffer = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `Rekap_Uang_Makan_${startDate}_sd_${endDate}.xlsx`);
+    alert("Export Excel berhasil!");
+
+  } catch (e) {
+    console.error("Error export:", e);
+    alert("Export Excel gagal: " + e.message);
+  }
+}
+function formatTanggalIndonesia(date = new Date()) {
+  const bulan = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  ];
+
+  return `Ciater, ${date.getDate()} ${bulan[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function buildRekapUangMakanData({
+  filteredData,
+  reasonMap,
+  startDate,
+  endDate
+}) {
+  // =========================
+  // APPLY STATUS FINAL
+  // =========================
+  const applied = filteredData.map(r => {
+    const reason = reasonMap[r.__uid];
+    const status =
+      typeof reason === "string"
+        ? reason
+        : reason?.Status_Kehadiran || r.Status_Kehadiran || "HADIR";
+
+    return {
+      ...r,
+      Status_Kehadiran: String(status).toUpperCase().trim()
+    };
+  });
+
+  // =========================
+  // FILTER PERIODE
+  // =========================
+  const ranged = applied.filter(r => {
+    const t = new Date(r.Tanggal);
+    return t >= new Date(startDate) && t <= new Date(endDate);
+  });
+
+  // =========================
+  // GROUP PER KARYAWAN
+  // =========================
+  const map = {};
+
+  ranged.forEach(r => {
+    const nik = r.NIK || r.No_ID || r["NO ID"] || r.Nama;
+
+    if (!map[nik]) {
+      map[nik] = {
+        nama: r.Nama,
+        nik,
+        jabatan: r.Jabatan,
+        dept: r.Departemen,
+        H: 0,
+        OFF: 0,
+        S: 0,
+        I: 0,
+        A: 0,
+        EO: 0,
+        CUTI: 0,
+        TGS: 0
+      };
+    }
+
+    const s = r.Status_Kehadiran;
+    if (s === "HADIR") map[nik].H++;
+    else if (s === "OFF" || s === "LIBUR") map[nik].OFF++;
+    else if (s === "SAKIT") map[nik].S++;
+    else if (s === "IZIN") map[nik].I++;
+    else if (s === "ALPA" || s === "TIDAK HADIR") map[nik].A++;
+    else if (s === "EO" || s === "EXTRAOFF" || s === "LIBUR SETELAH MASUK DOBLE SHIFT") map[nik].EO++;
+    else if (s === "CUTI TAHUNAN" ||
+      s === "CUTI ISTIMEWA" ||
+      s === "CUTI BERSAMA") map[nik].CUTI++;
+    else if (s === "DINAS LUAR" || s === "DL" || s.includes("DINAS")) map[nik].TGS++;
+  });
+
+  // =========================
+  // HITUNG TOTAL & SORT
+  // =========================
+  const result = Object.values(map).map(e => ({
+    ...e,
+    TOTAL: e.H + e.OFF + e.S + e.I + e.A + e.EO + e.CUTI + e.TGS
+  }));
+
+  // SORT berdasarkan DEPT (ascending) kemudian NAMA (ascending)
+  result.sort((a, b) => {
+    // Sort by department first
+    const deptCompare = (a.dept || "").localeCompare(b.dept || "");
+    if (deptCompare !== 0) return deptCompare;
+    
+    // Then sort by name
+    return (a.nama || "").localeCompare(b.nama || "");
+  });
+
+  return result;
+}
+
+// PREVIEW MODAL
+{showPreviewUangMakan && (
+  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+    <div className="bg-white w-[90%] h-[85%] rounded-xl flex flex-col">
+
+      {/* HEADER */}
+      <div className="p-4 border-b flex justify-between">
+        <h2 className="font-bold text-lg">
+          Preview Rekap Uang Makan
+        </h2>
+        <button onClick={() => setShowPreviewUangMakan(false)}>✕</button>
+      </div>
+
+      {/* CONTENT */}
+      <div className="flex-1 overflow-auto p-6">
+        <div className="text-center font-bold text-lg">
+          REKAPITULASI UANG MAKAN KARYAWAN
+        </div>
+        <div className="text-center font-bold mb-4">
+          PERIODE {startDate} s.d {endDate}
+        </div>
+
+        <div className="max-h-[650px] overflow-auto border rounded">
+          <table className="min-w-full text-sm border-collapse">
+            <thead className="bg-gray-100 font-bold text-center sticky top-0 z-10">
+              <tr>
+                {["NO","NAMA","JABATAN","DEPT","H","OFF","S","I","A","EO","CUTI","TGS","TOTAL"].map(h => (
+                  <th key={h} className="border p-2 sticky top-0 bg-gray-100">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {previewUangMakan.map((r, i) => (
+                <tr key={i} className="text-center hover:bg-gray-50">
+                  <td className="border p-1">{i+1}</td>
+                  <td className="border p-1 text-left">{r.nama}</td>
+                  <td className="border p-1">{r.jabatan}</td>
+                  <td className="border p-1">{r.dept}</td>
+                  <td className="border p-1 font-bold">{r.H}</td>
+                  <td className="border p-1 font-bold">{r.OFF}</td>
+                  <td className="border p-1 font-bold">{r.S}</td>
+                  <td className="border p-1 font-bold">{r.I}</td>
+                  <td className="border p-1 font-bold">{r.A}</td>
+                  <td className="border p-1 font-bold">{r.EO}</td>
+                  <td className="border p-1 font-bold">{r.CUTI}</td>
+                  <td className="border p-1 font-bold">{r.TGS}</td>
+                  <td className="border p-1 font-bold">{r.TOTAL}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* FOOTER */}
+      <div className="p-4 border-t flex justify-end">
+        <button
+          onClick={() =>
+            exportRekapUangMakan(
+              previewUangMakan,
+              startDate,
+              endDate
+            )
+          }
+          className="px-4 py-2 bg-blue-600 text-white rounded"
+        >
+          Download Excel
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
+
+
+
+
+
+// State untuk HOD Modal
+const [isHodModalOpen, setIsHodModalOpen] = useState(false);
+const [hodStartDate, setHodStartDate] = useState('');
+const [hodEndDate, setHodEndDate] = useState('');
+const [karyawanOptions, setKaryawanOptions] = useState([]);
+const [selectedKaryawan, setSelectedKaryawan] = useState('');
+const [hodTableData, setHodTableData] = useState([]);
+const [hodSelectedIds, setHodSelectedIds] = useState(new Set());
+const [loadingHod, setLoadingHod] = useState(false);
+// Tambahkan state ini di bagian atas component
+const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+const [searchKaryawan, setSearchKaryawan] = useState('');
+const [filteredKaryawan, setFilteredKaryawan] = useState([]);
+// Filter karyawan berdasarkan search
+useEffect(() => {
+  if (searchKaryawan) {
+    const filtered = karyawanOptions.filter(item =>
+      item.label.toLowerCase().includes(searchKaryawan.toLowerCase())
+    );
+    setFilteredKaryawan(filtered);
+  } else {
+    setFilteredKaryawan(karyawanOptions);
+  }
+}, [searchKaryawan, karyawanOptions]);
+// Close dropdown saat klik di luar
+useEffect(() => {
+  const handleClickOutside = (event) => {
+    if (isDropdownOpen && !event.target.closest('.searchable-select')) {
+      setIsDropdownOpen(false);
+      setSearchKaryawan('');
+    }
+  };
+
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => document.removeEventListener('mousedown', handleClickOutside);
+}, [isDropdownOpen]);
+// =====================
+// OPEN MODAL HOD
+// =====================
+const openHodModal = () => {
+  setIsHodModalOpen(true);
+  loadKaryawanSelect();
+};
+
+const closeHodModal = () => {
+  setIsHodModalOpen(false);
+};
+
+const pickFirstNonEmpty = (...values) => {
+  for (const val of values) {
+    if (val === null || val === undefined) continue;
+    const s = String(val).trim();
+    if (s !== "") return s;
+  }
+  return "";
+};
+
+const normalizeHodDateToISO = (value) => {
+  if (!value) return "";
+  const str = String(value).trim();
+  if (!str) return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+  if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
+    const [d, m, y] = str.split("-");
+    return `${y}-${m}-${d}`;
+  }
+
+  const parsed = new Date(str);
+  if (!Number.isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, "0");
+    const d = String(parsed.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  return "";
+};
+
+const formatHodDateDisplay = (value) => {
+  const iso = normalizeHodDateToISO(value);
+  if (!iso) return value || "";
+  const [y, m, d] = iso.split("-");
+  return `${d}-${m}-${y}`;
+};
+
+const normalizeHodApiRow = (row, forcedIdAbsen = "") => {
+  const tanggalRaw = pickFirstNonEmpty(row?.tanggal, row?.Tanggal);
+  const tanggalISO = normalizeHodDateToISO(tanggalRaw);
+
+  return {
+    id_absen: pickFirstNonEmpty(row?.id_absen, row?.ID_Absen, forcedIdAbsen),
+    tanggal: formatHodDateDisplay(tanggalRaw),
+    tanggal_iso: tanggalISO,
+    nama: pickFirstNonEmpty(row?.nama, row?.Nama),
+    jabatan: pickFirstNonEmpty(row?.jabatan, row?.Jabatan),
+    departemen: pickFirstNonEmpty(row?.departemen, row?.Departemen),
+    shift: pickFirstNonEmpty(row?.shift, row?.Kode_Shift),
+    check_in: pickFirstNonEmpty(row?.check_in, row?.Actual_Masuk),
+    check_out: pickFirstNonEmpty(row?.check_out, row?.Actual_Pulang),
+    status_kehadiran: pickFirstNonEmpty(row?.status_kehadiran, row?.Status_Kehadiran),
+  };
+};
+
+// =====================
+// RESET HOD DATA
+// =====================
+const resetHodData = () => {
+  if (window.confirm("Apakah Anda yakin ingin mereset semua data? Data yang sudah dipilih akan hilang.")) {
+    setHodTableData([]);
+    setHodSelectedIds(new Set());
+    setSelectedKaryawan('');
+    setHodStartDate('');
+    setHodEndDate('');
+  }
+};
+
+// =====================
+// LOAD KARYAWAN SELECT
+// =====================
+const loadKaryawanSelect = async () => {
+  try {
+    const res = await fetch(`${API}/karyawan-select`);
+    const data = await res.json();
+    setKaryawanOptions(data);
+  } catch (error) {
+    console.error("Error loading karyawan:", error);
+    alert("❌ Gagal memuat data karyawan!");
+  }
+};
+
+// =====================
+// ADD HOD DATA
+// =====================
+const addHodData = async (id_absen) => {
+  if (!id_absen) {
+    alert("❌ Silakan pilih karyawan terlebih dahulu!");
+    return;
+  }
+
+  // Validasi tanggal
+  if (!hodStartDate || !hodEndDate) {
+    alert("❌ Mohon isi Tanggal Mulai dan Tanggal Selesai terlebih dahulu!");
+    return;
+  }
+
+  const start = new Date(hodStartDate);
+  const end = new Date(hodEndDate);
+
+  if (start > end) {
+    alert("❌ Tanggal Mulai tidak boleh lebih besar dari Tanggal Selesai!");
+    return;
+  }
+
+  // Cek apakah karyawan sudah dipilih
+  if (hodSelectedIds.has(id_absen)) {
+    alert("âš ï¸ Karyawan ini sudah dipilih!");
+    setSelectedKaryawan('');
+    return;
+  }
+
+  setLoadingHod(true);
+  try {
+    const res = await fetch(
+      `${API}/rekap-hod?id_absen=${id_absen}&start_date=${hodStartDate}&end_date=${hodEndDate}`
+    );
+    
+    if (!res.ok) {
+      throw new Error('Gagal mengambil data');
+    }
+    
+    const data = await res.json();
+
+    if (data.length === 0) {
+      alert("âš ï¸ Tidak ada data untuk karyawan ini pada periode yang dipilih!");
+      setSelectedKaryawan('');
+      setLoadingHod(false);
+      return;
+    }
+
+    const normalizedData = (Array.isArray(data) ? data : [])
+      .map((item) => normalizeHodApiRow(item, id_absen))
+      .filter((item) => item.tanggal_iso);
+
+    if (normalizedData.length === 0) {
+      alert("⚠️ Data HOD diterima, tetapi format tanggal tidak valid.");
+      setSelectedKaryawan('');
+      setLoadingHod(false);
+      return;
+    }
+
+    setHodSelectedIds(prev => new Set([...prev, id_absen]));
+    setHodTableData(prev => [...prev, ...normalizedData]);
+    setSelectedKaryawan('');
+    
+    // Success notification
+    const karyawan = karyawanOptions.find(k => k.value === id_absen);
+    alert(`✅ Data ${karyawan?.label} berhasil ditambahkan! (${normalizedData.length} record)`);
+    
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    alert("❌ Gagal memuat data karyawan! Silakan coba lagi.");
+  } finally {
+    setLoadingHod(false);
+  }
+};
+
+// =====================
+// REMOVE ROW
+// =====================
+const removeHodRow = (index) => {
+  if (!window.confirm("Apakah Anda yakin ingin menghapus data ini?")) {
+    return;
+  }
+
+  const newData = [...hodTableData];
+  const removedItem = newData[index];
+  newData.splice(index, 1);
+  setHodTableData(newData);
+
+  // Cek apakah masih ada data dengan id_absen yang sama
+  const stillExists = newData.some(item => item.id_absen === removedItem.id_absen);
+  if (!stillExists) {
+    setHodSelectedIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(removedItem.id_absen);
+      return newSet;
+    });
+  }
+};
+
+// =====================
+// REMOVE KARYAWAN (Hapus semua data karyawan tertentu)
+// =====================
+const removeKaryawan = (id_absen) => {
+  const karyawan = karyawanOptions.find(k => k.value === id_absen);
+  
+  if (!window.confirm(`Apakah Anda yakin ingin menghapus semua data ${karyawan?.label}?`)) {
+    return;
+  }
+
+  const newData = hodTableData.filter(item => item.id_absen !== id_absen);
+  setHodTableData(newData);
+  
+  setHodSelectedIds(prev => {
+    const newSet = new Set(prev);
+    newSet.delete(id_absen);
+    return newSet;
+  });
+};
+
+// =====================
+// CLEAR ALL DATA
+// =====================
+const clearAllHodData = () => {
+  if (!window.confirm("Apakah Anda yakin ingin menghapus SEMUA data?")) {
+    return;
+  }
+  
+  setHodTableData([]);
+  setHodSelectedIds(new Set());
+  setSelectedKaryawan('');
+};
+
+// =====================
+// DOWNLOAD EXCEL
+// =====================
+const downloadHodExcel = async () => {
+  // Validasi data
+  if (hodTableData.length === 0) {
+    alert("❌ Tidak ada data untuk diexport! Silakan pilih karyawan terlebih dahulu.");
+    return;
+  }
+
+  if (!hodStartDate || !hodEndDate) {
+    alert("❌ Tanggal tidak valid!");
+    return;
+  }
+
+  try {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Rekap HOD");
+    
+    // Format waktu jadi HH:mm:ss
+    const formatTime = (value) => {
+      if (!value || value === "-" || value === null) return "-";
+
+      // Kalau sudah format HH:mm:ss, langsung return
+      if (/^\d{2}:\d{2}:\d{2}$/.test(value)) {
+        return value;
+      }
+
+      const d = new Date(value);
+      if (isNaN(d)) return value;
+
+      return d.toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      });
+    };
+
+    // ========================================
+    // STEP 1: PERSIAPAN DATA
+    // ========================================
+    
+    // Generate array tanggal dari startDate ke endDate
+    const dates = [];
+    const currentDate = new Date(hodStartDate);
+    const endDateObj = new Date(hodEndDate);
+    
+    while (currentDate <= endDateObj) {
+      dates.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Group data by karyawan
+    const karyawanMap = new Map();
+    hodTableData.forEach(item => {
+      const key = `${item.id_absen || ""}-${item.nama}-${item.jabatan}-${item.departemen}`;
+      if (!karyawanMap.has(key)) {
+        karyawanMap.set(key, {
+          id_absen: item.id_absen || "",
+          nama: item.nama,
+          jabatan: item.jabatan,
+          departemen: item.departemen,
+          data: {}
+        });
+      }
+      const tanggalKey = item.tanggal_iso || normalizeHodDateToISO(item.tanggal);
+      if (!tanggalKey) return;
+      
+      // ✅ AMBIL SHIFT DAN STATUS KEHADIRAN
+      const shiftRaw = (item.shift || "").toUpperCase().trim();
+      const statusKehadiran = (item.status_kehadiran || "").trim();
+
+      // ✅ MAPPING KODE SHIFT KE STATUS UNTUK DITAMPILKAN
+      const getDisplayStatus = (shift, statusKehadiran) => {
+        // Cek kode shift dulu
+        if (shift === "X") return "OFF";
+        if (shift === "EO" || shift === "OF1") return "Extraoff";
+        if (shift === "CTT") return "Cuti Tahunan";
+        if (shift === "CT") return "Cuti Istimewa";
+        if (shift === "CTB") return "Cuti Bersama";
+        if (shift === "DL") return "Izin Dinas Luar";
+        
+        // Kalau shift bukan kode khusus, cek status kehadiran
+        if (statusKehadiran) {
+          const s = statusKehadiran.toUpperCase();
+          if (s === "LIBUR") return "OFF";
+          if (s === "EXTRAOFF") return "Extraoff";
+          if (s.includes("CUTI TAHUNAN")) return "Cuti Tahunan";
+          if (s.includes("CUTI ISTIMEWA")) return "Cuti Istimewa";
+          if (s.includes("CUTI BERSAMA")) return "Cuti Bersama";
+          if (s.includes("CUTI")) return "Cuti";
+          if (s.includes("SAKIT")) return "Izin Sakit";
+          if (s.includes("IZIN")) return "Izin";
+          if (s.includes("DINAS")) return "Izin Dinas Luar";
+          if (s === "ALPA" || s === "TIDAK HADIR") return "Alpa";
+        }
+        
+        return null; // Hadir normal
+      };
+
+      const finalStatus = getDisplayStatus(shiftRaw, statusKehadiran);
+
+      // ✅ DEBUGGING - log semua data
+      console.log(`Processing: ${item.nama} - ${tanggalKey}`, {
+        shift: shiftRaw,
+        statusKehadiran: statusKehadiran,
+        finalStatus: finalStatus
+      });
+
+      karyawanMap.get(key).data[tanggalKey] = {
+        shift: item.shift || '-',
+        check_in: formatTime(item.check_in),
+        check_out: formatTime(item.check_out),
+        status: finalStatus,
+        status_kehadiran: statusKehadiran
+      };
+    });
+
+    const karyawanList = Array.from(karyawanMap.values());
+    const totalColumns = 4 + (dates.length * 3);
+
+    // ========================================
+    // STEP 2: BARIS 1-3 - TITLE
+    // ========================================
+    
+    const lastColIndex = totalColumns;
+
+    // Logo + header (sama style)
+    try {
+      const base64 = await imageToBase64(logoCompany);
+      const imageId = wb.addImage({ base64, extension: "jpg" });
+      ws.mergeCells("A1:A2");
+      ws.addImage(imageId, { tl: { col: 0, row: 0 }, ext: { width: 40, height: 40 } });
+      ws.getRow(1).height = 18;
+      ws.getRow(2).height = 18;
+    } catch (e) { 
+      console.warn("Gagal load logo:", e); 
+    }
+
+    ws.mergeCells(1, 2, 1, lastColIndex);
+    ws.getCell("B1").value = { 
+      richText: [
+        { text: "Sari Ater ", font: { name: "Times New Roman", size: 9, color: { argb: "FF23FF23" }, underline: true } },
+        { text: "Hot Spring Ciater", font: { name: "Mistral", size: 9, color: { argb: "FFFF0000" }, italic: true, underline: true } }
+      ]
+    };
+    ws.getCell("B1").alignment = { vertical: "left", horizontal: "left" };
+
+    ws.mergeCells(2, 2, 2, lastColIndex);
+    ws.getCell("B2").value = "Human Resources Department";
+    ws.getCell("B2").font = { name: "Arial", size: 8, bold: true };
+    ws.getCell("B2").alignment = { vertical: "left", horizontal: "left" };
+
+    // Row 3: Title "REKAPITULASI HARIAN HOD"
+    ws.mergeCells(3, 1, 3, lastColIndex);
+    ws.getCell('A3').value = 'REKAPITULASI HARIAN HOD';
+    ws.getCell('A3').font = { name: "Times New Roman", bold: true, size: 16, italic: true };
+    ws.getCell('A3').alignment = { vertical: 'middle', horizontal: 'center' };
+    ws.getCell('A3').fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD9D9D9' }
+    };
+    ws.getRow(3).height = 30;
+
+    // ========================================
+    // STEP 3: BARIS 4-6 - HEADERS
+    // ========================================
+
+    // Set column widths
+    ws.getColumn(1).width = 6;
+    ws.getColumn(2).width = 25;
+    ws.getColumn(3).width = 20;
+    ws.getColumn(4).width = 15;
+
+    for (let i = 0; i < dates.length; i++) {
+      const startCol = 5 + (i * 3);
+      ws.getColumn(startCol).width = 12;
+      ws.getColumn(startCol + 1).width = 10;
+      ws.getColumn(startCol + 2).width = 10;
+    }
+
+    // Row 4: Header pertama
+    ws.mergeCells('A4:A6');
+    ws.getCell('A4').value = 'No';
+    ws.getCell('A4').font = { name: "Times New Roman", bold: true, size: 11, italic: true };
+    ws.getCell('A4').alignment = { vertical: 'middle', horizontal: 'center' };
+    ws.getCell('A4').fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD9D9D9' }
+    };
+
+    ws.mergeCells('B4:B6');
+    ws.getCell('B4').value = 'Nama Karyawan';
+    ws.getCell('B4').font = { name: "Times New Roman", bold: true, size: 11, italic: true };
+    ws.getCell('B4').alignment = { vertical: 'middle', horizontal: 'center' };
+    ws.getCell('B4').fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD9D9D9' }
+    };
+
+    ws.mergeCells('C4:C6');
+    ws.getCell('C4').value = 'Jabatan';
+    ws.getCell('C4').font = { name: "Times New Roman", bold: true, size: 11, italic: true };
+    ws.getCell('C4').alignment = { vertical: 'middle', horizontal: 'center' };
+    ws.getCell('C4').fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD9D9D9' }
+    };
+
+    ws.mergeCells('D4:D6');
+    ws.getCell('D4').value = 'Dept';
+    ws.getCell('D4').font = { name: "Times New Roman", bold: true, size: 11, italic: true };
+    ws.getCell('D4').alignment = { vertical: 'middle', horizontal: 'center' };
+    ws.getCell('D4').fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD9D9D9' }
+    };
+
+    const firstDateCol = 'E';
+    ws.mergeCells(4, 5, 4, lastColIndex);
+    ws.getCell(`${firstDateCol}4`).value = 'Tanggal';
+    ws.getCell(`${firstDateCol}4`).font = { name: "Times New Roman", bold: true, size: 11, italic: true };
+    ws.getCell(`${firstDateCol}4`).alignment = { vertical: 'middle', horizontal: 'center' };
+    ws.getCell(`${firstDateCol}4`).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD9D9D9' }
+    };
+
+    // Row 5: Tanggal spesifik
+    dates.forEach((date, index) => {
+      const startCol = 5 + (index * 3);
+      const endCol = startCol + 2;
+
+      ws.mergeCells(5, startCol, 5, endCol);
+      
+      const formattedDate = date.toLocaleDateString('id-ID', { 
+        day: '2-digit', 
+        month: 'long', 
+        year: 'numeric' 
+      });
+      
+      ws.getCell(5, startCol).value = formattedDate;
+      ws.getCell(5, startCol).font = { name: "Times New Roman", bold: true, size: 10, italic: true };
+      ws.getCell(5, startCol).alignment = { vertical: 'middle', horizontal: 'center' };
+      ws.getCell(5, startCol).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD9D9D9' }
+      };
+    });
+
+    // Row 6: Header detail
+    dates.forEach((date, index) => {
+      const startCol = 5 + (index * 3);
+      
+      ws.getCell(6, startCol).value = 'Jadwal';
+      ws.getCell(6, startCol).font = { name: "Times New Roman", bold: true, size: 10, italic: true };
+      ws.getCell(6, startCol).alignment = { vertical: 'middle', horizontal: 'center' };
+      ws.getCell(6, startCol).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD9D9D9' }
+      };
+      
+      ws.getCell(6, startCol + 1).value = 'Cek In';
+      ws.getCell(6, startCol + 1).font = { name: "Times New Roman", bold: true, size: 10, italic: true };
+      ws.getCell(6, startCol + 1).alignment = { vertical: 'middle', horizontal: 'center' };
+      ws.getCell(6, startCol + 1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD9D9D9' }
+      };
+      
+      ws.getCell(6, startCol + 2).value = 'Cek Out';
+      ws.getCell(6, startCol + 2).font = { name: "Times New Roman", bold: true, size: 10, italic: true };
+      ws.getCell(6, startCol + 2).alignment = { vertical: 'middle', horizontal: 'center' };
+      ws.getCell(6, startCol + 2).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD9D9D9' }
+      };
+    });
+
+    ws.getRow(4).height = 25;
+    ws.getRow(5).height = 25;
+    ws.getRow(6).height = 25;
+
+    // ========================================
+    // STEP 4: DATA ROWS
+    // ========================================
+
+    const mergedCells = new Set();
+
+    let currentRow = 7;
+    karyawanList.forEach((karyawan, index) => {
+      const row = ws.getRow(currentRow);
+      
+      row.getCell(1).value = index + 1;
+      row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+      
+      row.getCell(2).value = karyawan.nama;
+      row.getCell(2).alignment = { vertical: 'middle', horizontal: 'left' };
+      row.getCell(2).font = { name: "Times New Roman", italic: true };
+      
+      row.getCell(3).value = karyawan.jabatan;
+      row.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
+      row.getCell(3).font = { name: "Times New Roman", italic: true };
+      
+      row.getCell(4).value = karyawan.departemen;
+      row.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
+      row.getCell(4).font = { name: "Times New Roman", italic: true };
+      
+      // Data per tanggal
+      dates.forEach((date, dateIndex) => {
+        const dateKey = date.toISOString().split('T')[0];
+        const data = karyawan.data[dateKey] || { shift: '-', check_in: '-', check_out: '-', status: null };
+
+        const startCol = 5 + (dateIndex * 3);
+
+        // ✅ DEBUGGING LEBIH DETAIL
+        if (data.status) {
+          console.log(`✅ DETECTED STATUS at Row ${currentRow}, Col ${startCol}:`, {
+            nama: karyawan.nama,
+            tanggal: dateKey,
+            status: data.status,
+            shift: data.shift
+          });
+        }
+
+        // ===============================
+        // JIKA STATUS KEHADIRAN KHUSUS
+        // ===============================
+        if (data.status) {
+          const colStart = startCol;
+          const colEnd = startCol + 2;
+
+          // ✅ MERGE DULU SEBELUM SET VALUE
+          const key = `${currentRow}-${colStart}-${colEnd}`;
+          if (!mergedCells.has(key)) {
+            ws.mergeCells(currentRow, colStart, currentRow, colEnd);
+            mergedCells.add(key);
+            console.log(`✅ Merged cells: Row ${currentRow}, Col ${colStart} to ${colEnd}`);
+          }
+
+          // ✅ SET VALUE SETELAH MERGE
+          const cell = row.getCell(colStart);
+          cell.value = data.status;
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+          cell.font = { name: "Times New Roman", italic: true, bold: true };
+          
+          console.log(`✅ Set value "${data.status}" at Row ${currentRow}, Col ${colStart}`);
+        }
+        // ===============================
+        // JIKA HADIR NORMAL
+        // ===============================
+        else {
+          row.getCell(startCol).value = data.shift;
+          row.getCell(startCol).alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell(startCol).font = { name: "Times New Roman", italic: true };
+
+          row.getCell(startCol + 1).value = data.check_in;
+          row.getCell(startCol + 1).alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell(startCol + 1).font = { name: "Times New Roman", italic: true };
+
+          row.getCell(startCol + 2).value = data.check_out;
+          row.getCell(startCol + 2).alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell(startCol + 2).font = { name: "Times New Roman", italic: true };
+        }
+      });
+      
+      row.height = 22;
+      currentRow++;
+    });
+
+    // ========================================
+    // STEP 5: BORDERS & FOOTER
+    // ========================================
+
+    for (let rowNum = 3; rowNum < currentRow; rowNum++) {
+      const row = ws.getRow(rowNum);
+      for (let colNum = 1; colNum <= totalColumns; colNum++) {
+        const cell = row.getCell(colNum);
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+      }
+    }
+
+    const footerRow = currentRow + 2;
+    ws.mergeCells(footerRow, 1, footerRow, lastColIndex);
+    ws.getCell(`A${footerRow}`).value = `Total Karyawan: ${karyawanList.length} | Periode: ${formatDate(hodStartDate)} s/d ${formatDate(hodEndDate)} | Dicetak: ${new Date().toLocaleString('id-ID')}`;
+    ws.getCell(`A${footerRow}`).font = { italic: true, size: 9, color: { argb: 'FF6B7280' } };
+    ws.getCell(`A${footerRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // ========================================
+    // STEP 6: SAVE FILE
+    // ========================================
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const fileName = `Rekapitulasi_HOD_${hodStartDate}_to_${hodEndDate}.xlsx`;
+    saveAs(new Blob([buffer]), fileName);
+    
+    alert(`✅ File berhasil didownload!\n📊 Total: ${karyawanList.length} karyawan\n📅 Periode: ${dates.length} hari`);
+    
+  } catch (error) {
+    console.error("Error downloading Excel:", error);
+    alert("❌ Gagal mendownload file Excel! Error: " + error.message);
+  }
+};
+
+// Helper function untuk format tanggal
+const formatDate = (dateString) => {
+  const options = { day: '2-digit', month: 'long', year: 'numeric' };
+  return new Date(dateString).toLocaleDateString('id-ID', options);
+};
+
+
+
+
+
+  // -----------------------------------------
+  // RENDER
+  // -----------------------------------------
+  return (
+    <div className="w-full bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+        {/* HEADER */}
+          <div className="relative bg-gradient-to-br from-white via-gray-50 to-blue-50 p-5 md:p-7 rounded-3xl shadow-2xl hover:shadow-3xl flex flex-col md:flex-row md:items-center gap-5 m-6 overflow-hidden transition-all duration-300 ease-in-out hover:scale-[1.02] border border-gray-100 group"
+            style={{
+              backgroundImage: 'url(https://png.pngtree.com/thumb_back/fh260/background/20241008/pngtree-breathtaking-panoramic-view-of-a-summer-landscape-featuring-majestic-waterfalls-charming-image_16334134.jpg)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundAttachment: 'fixed'
+            }}>
+            
+            {/* Dark Overlay untuk Text Readability */}
+            <div className="absolute inset-0 bg-black/40 rounded-3xl group-hover:bg-black/35 transition-all duration-300 pointer-events-none" />
+
+            {/* Orbital Ring Layer 1 - Outer */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] border-2 border-transparent rounded-full opacity-0 group-hover:opacity-40 transition-opacity duration-500"
+            style={{
+              borderImage: 'linear-gradient(45deg, #06b6d4, #3b82f6, #a855f7) 1',
+              animation: 'orbitRotate 20s linear infinite',
+              boxShadow: '0 0 40px rgba(6, 182, 212, 0.3), inset 0 0 40px rgba(59, 130, 246, 0.2)'
+            }}/>
+            </div>
+
+            {/* Orbital Ring Layer 2 - Middle */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] h-[95%] border border-transparent rounded-full opacity-0 group-hover:opacity-30 transition-opacity duration-500"
+            style={{
+              borderImage: 'linear-gradient(225deg, #a855f7, #06b6d4, #3b82f6) 1',
+              animation: 'orbitRotate 30s linear infinite reverse',
+              boxShadow: '0 0 30px rgba(168, 85, 247, 0.25)'
+            }}/>
+            </div>
+
+            {/* Energy Wave Layer - Animated Gradient */}
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-500"
+              style={{
+            background: 'linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.15), transparent)',
+            animation: 'energyWave 4s ease-in-out infinite',
+            backdropFilter: 'blur(0px)'
+              }}/>
+
+            {/* Particle Glow Points */}
+            <div className="absolute inset-0 pointer-events-none">
+              {/* Particle 1 */}
+              <div className="absolute w-2 h-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+            style={{
+              background: 'radial-gradient(circle, #06b6d4, transparent)',
+              boxShadow: '0 0 20px #06b6d4, 0 0 40px rgba(6, 182, 212, 0.6)',
+              animation: 'particleOrbit 12s linear infinite',
+              top: '50%',
+              left: '50%',
+              transformOrigin: '0 -60px'
+            }}/>
+              
+              {/* Particle 2 */}
+              <div className="absolute w-1.5 h-1.5 rounded-full opacity-0 group-hover:opacity-80 transition-opacity duration-500"
+            style={{
+              background: 'radial-gradient(circle, #3b82f6, transparent)',
+              boxShadow: '0 0 15px #3b82f6, 0 0 30px rgba(59, 130, 246, 0.5)',
+              animation: 'particleOrbit 15s linear infinite reverse',
+              animationDelay: '3s',
+              top: '50%',
+              left: '50%',
+              transformOrigin: '0 -45px'
+            }}/>
+              
+              {/* Particle 3 */}
+              <div className="absolute w-1 h-1 rounded-full opacity-0 group-hover:opacity-70 transition-opacity duration-500"
+            style={{
+              background: 'radial-gradient(circle, #a855f7, transparent)',
+              boxShadow: '0 0 12px #a855f7, 0 0 25px rgba(168, 85, 247, 0.4)',
+              animation: 'particleOrbit 18s linear infinite',
+              animationDelay: '6s',
+              top: '50%',
+              left: '50%',
+              transformOrigin: '0 -75px'
+            }}/>
+            </div>
+
+            {/* Glow Aura Background */}
+            <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-50 transition-opacity duration-700"
+              style={{
+            background: 'radial-gradient(ellipse 80% 40% at 50% 50%, rgba(6, 182, 212, 0.1), rgba(168, 85, 247, 0.05), transparent)',
+            animation: 'glowPulse 4s ease-in-out infinite'
+              }}/>
+
+            {/* Logo dengan hover effect dan glow */}
+            <img 
+              src={sariAter} 
+              className="w-20 md:w-28 relative z-10 transition-all duration-500 ease-out hover:scale-110 hover:rotate-6 drop-shadow-lg group-hover:drop-shadow-[0_0_20px_rgba(6,182,212,0.6)]" 
+              style={{
+            animation: 'logoFloat 3s ease-in-out infinite'
+              }}
+              alt="logo" 
+            />
+            
+            {/* Text Content */}
+            <div className="relative z-10">
+              <h1 className="text-3xl font-bold text-white drop-shadow-lg hover:text-cyan-200 transition-all duration-500"
+            style={{
+              textShadow: '2px 2px 8px rgba(0, 0, 0, 0.7), 0 0 20px rgba(6, 182, 212, 0.3)',
+              animation: 'titleShimmer 3s ease-in-out infinite'
+            }}>
+            Croscek Kehadiran
+              </h1>
+              <p className="text-gray-100 mt-1 drop-shadow-md hover:text-cyan-100 transition-colors duration-300"
+            style={{
+              textShadow: '1px 1px 4px rgba(0, 0, 0, 0.8)',
+              animation: 'descriptionSlide 3s ease-in-out infinite'
+            }}>
+            Upload jadwal & kehadiran, lalu lakukan proses croscek untuk validasi data.
+              </p>
+            </div>
+
+            {/* CSS Animations */}
+            <style>{`
+              @keyframes orbitRotate {
+            from {
+              transform: rotate(0deg);
+            }
+            to {
+              transform: rotate(360deg);
+            }
+              }
+
+              @keyframes particleOrbit {
+            from {
+              transform: translate(0, 0) rotate(0deg);
+            }
+            to {
+              transform: translate(0, 0) rotate(360deg);
+            }
+              }
+
+              @keyframes energyWave {
+            0% {
+              transform: translateX(-100%);
+              opacity: 0;
+            }
+            50% {
+              opacity: 1;
+            }
+            100% {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+              }
+
+              @keyframes glowPulse {
+            0%, 100% {
+              opacity: 0.3;
+              transform: scale(1);
+            }
+            50% {
+              opacity: 0.6;
+              transform: scale(1.1);
+            }
+              }
+
+              @keyframes logoFloat {
+            0%, 100% {
+              transform: translateY(0px);
+            }
+            50% {
+              transform: translateY(-8px);
+            }
+              }
+
+              @keyframes titleShimmer {
+            0%, 100% {
+              backgroundPosition: 0% 50%;
+            }
+            50% {
+              backgroundPosition: 100% 50%;
+            }
+              }
+
+              @keyframes descriptionSlide {
+            0%, 100% {
+              opacity: 0.7;
+              transform: translateX(0);
+            }
+            50% {
+              opacity: 1;
+              transform: translateX(4px);
+            }
+              }
+
+              .shadow-3xl {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 
+                0 10px 20px -8px rgba(59, 130, 246, 0.15);
+              }
+
+              .group:hover .shadow-3xl {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3),
+                0 10px 20px -8px rgba(6, 182, 212, 0.3),
+                0 0 60px rgba(6, 182, 212, 0.2),
+                inset 0 0 40px rgba(59, 130, 246, 0.05);
+              }
+            `}</style>
+          </div>
+
+          {/* UPLOAD JADWAL */}
+      <div className="mt-6 mx-6 flex flex-col md:flex-row gap-4">
+        <label className="block w-full border-2 border-dashed border-blue-400 hover:border-blue-600 hover:bg-blue-50 cursor-pointer rounded-2xl p-10 text-center transition duration-300">
+          <UploadCloud size={45} className="text-blue-600 mx-auto" />
+          <p className="text-gray-700 font-semibold mt-3">Upload File Jadwal</p>
+          <p className="text-xs text-gray-500 mt-1">Format: Excel (.xlsx, .xls)</p>
+          <input type="file" onChange={handleUploadJadwal} accept=".xlsx,.xls" className="hidden" />
+        </label>
+        <div className="flex flex-col gap-3">
+          <select
+            value={selectedMonth}
+            onChange={handleMonthChange}
+            className="border-2 border-gray-300 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+          >
+            <option value={0}>Januari</option>
+            <option value={1}>Februari</option>
+            <option value={2}>Maret</option>
+            <option value={3}>April</option>
+            <option value={4}>Mei</option>
+            <option value={5}>Juni</option>
+            <option value={6}>Juli</option>
+            <option value={7}>Agustus</option>
+            <option value={8}>September</option>
+            <option value={9}>Oktober</option>
+            <option value={10}>November</option>
+            <option value={11}>Desember</option>
+          </select>
+          <button
+            onClick={exportTemplateJadwal}
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl text-sm md:text-base font-semibold transition duration-300 transform hover:scale-105"
+          >
+            <Download size={20} />
+            Download Template Excel
+          </button>
+        </div>
+      </div>
+
+      {loadingJadwal && (
+        <div className="mt-6 mx-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-lg flex items-center gap-3">
+          <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+          <p className="text-blue-700 font-medium">Memproses file jadwal...</p>
+        </div>
+      )}
+
+      {jadwalPreview && (
+        <div className="bg-white mt-6 mx-6 p-6 rounded-2xl shadow-lg border-t-4 border-blue-500">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-bold flex items-center gap-2 text-gray-800">
+              <div className="p-2 bg-blue-100 rounded-lg"><FileSpreadsheet className="text-blue-700" size={24} /></div>
+              Preview Jadwal
+            </h2>
+            <button
+              onClick={saveJadwal}
+              disabled={savingJadwal}
+              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-2 rounded-xl shadow-md hover:shadow-lg font-semibold transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {savingJadwal ? "Menyimpan..." : "✓ Simpan Jadwal"}
+            </button>
+          </div>
+          <div
+            className="overflow-auto max-h-[500px] border-2 border-gray-200 rounded-xl p-4 text-xs bg-gray-50 hover:bg-white transition duration-200"
+            dangerouslySetInnerHTML={{ __html: jadwalPreview }}
+          />
+        </div>
+      )}
+
+      {/* TABEL CRUD JADWAL KARYAWAN */}
+      <div className="bg-white mt-10 mx-6 p-6 rounded-2xl shadow-lg border-t-4 border-green-500">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+          <h2 className="text-xl font-bold text-gray-800">📅 Data Jadwal Karyawan</h2>
+          <select
+            value={
+              selectedMonthJadwal && selectedYearJadwal
+                ? `${selectedMonthJadwal}-${selectedYearJadwal}`
+                : ""
+            }
+            onChange={(e) => {
+              if (!e.target.value) return;
+              const [bulan, tahun] = e.target.value.split("-").map(Number);
+              setSelectedMonthJadwal(bulan);
+              setSelectedYearJadwal(tahun);
+            }}
+            className="border-2 border-gray-300 rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition duration-200"
+          >
+            {availablePeriodsJadwal.length > 0 ? (
+              availablePeriodsJadwal.map((period, index) => (
+                <option key={index} value={`${period.bulan}-${period.tahun}`}>
+                  {new Date(0, period.bulan - 1).toLocaleString("id-ID", {
+                    month: "long",
+                  })}{" "}
+                  {period.tahun}
+                </option>
+              ))
+            ) : (
+              <option value="" disabled>Tidak ada periode tersedia</option>
+            )}
+          </select>
+          <div className="flex items-center gap-3 relative flex-wrap">
+            <input
+              type="text"
+              placeholder="🔍 Cari data jadwal..."
+              className="border-2 border-gray-300 px-4 py-2 rounded-xl text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition duration-200"
+              value={searchJadwal}
+              onChange={(e) => {
+                setSearchJadwal(e.target.value);
+                setPageJadwal(1);
+              }}
+            />
+            <select
+              value={rowsPerPageJadwal}
+              onChange={(e) => {
+                const val = e.target.value;
+                setRowsPerPageJadwal(val === "ALL" ? "ALL" : Number(val));
+                setPageJadwal(1);
+              }}
+              className="border-2 border-gray-300 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition duration-200"
+            >
+              <option value={5}>5 Baris</option>
+              <option value={10}>10 Baris</option>
+              <option value={25}>25 Baris</option>
+              <option value={50}>50 Baris</option>
+              <option value="ALL">Semua</option>
+            </select>
+            <div className="relative">
+              <button
+                onClick={() => setShowActionMenu(prev => !prev)}
+                className="p-2 rounded-xl hover:bg-gray-100 border-2 border-gray-300 font-bold transition duration-200 hover:border-gray-400"
+              >
+                ⋮
+              </button>
+              {showActionMenu && (
+                <div className="absolute right-0 top-12 w-48 bg-white border-2 border-gray-200 rounded-xl shadow-xl z-50">
+                  <button
+                    onClick={() => {
+                      setShowModalTambah(true);
+                      setShowActionMenu(false);
+                    }}
+                    className="w-full px-4 py-3 text-left text-sm hover:bg-green-50 flex items-center gap-2 font-medium text-gray-700 border-b border-gray-100 transition duration-200"
+                  >
+                  ➕ Tambah Jadwal
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleDeleteJadwalPeriod();
+                      setShowActionMenu(false);
+                    }}
+                    disabled={!selectedMonthJadwal || !selectedYearJadwal}
+                    className="w-full px-4 py-3 text-left text-sm hover:bg-orange-50 text-orange-600 flex items-center gap-2 font-medium border-b border-gray-100 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Hapus Periode Terpilih
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleKosongkanJadwal();
+                      setShowActionMenu(false);
+                    }}
+                    className="w-full px-4 py-3 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-2 font-medium transition duration-200"
+                  >
+                    Kosongkan Jadwal
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border-2 border-gray-200">
+          <table className="min-w-full text-xs md:text-sm">
+            <thead className="bg-gradient-to-r from-green-500 to-green-600 text-white sticky top-0 z-20">
+              <tr>
+                <th className="p-3 text-left font-semibold">No</th>
+                {colsJadwal.map(c => (
+                  <th key={c} className="p-3 text-left font-semibold">{c.replace("_", " ").toUpperCase()}</th>
+                ))}
+                <th className="p-3 text-center font-semibold">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedJadwal.map((item, index) => (
+                <tr key={item.no} className="border-b border-gray-200 hover:bg-green-50 transition duration-200 hover:shadow-sm">
+                  <td className="p-3 text-center font-semibold text-gray-700">
+                    {isAllRows
+                      ? index + 1
+                      : (pageJadwal - 1) * rowsPerPageJadwal + index + 1}
+                  </td>
+                  {colsJadwal.map(col => (
+                    <td className="p-3 text-gray-700" key={col}>
+                      {editingId === item.no ? (
+                        col === "kode_shift" ? (
+                          <select
+                            className="border-2 border-yellow-400 px-2 py-1 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-yellow-300"
+                            value={item[col] || ""}
+                            onChange={e => handleEditChange(item.no, col, e.target.value)}
+                          >
+                            <option value="">Pilih Shift</option>
+                            {kodeShiftOptions.map(k => (
+                              <option key={k} value={k}>{k}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type={col === "tanggal" ? "date" : "text"}
+                            className="border-2 border-yellow-400 px-2 py-1 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-yellow-300"
+                            value={item[col] || ""}
+                            onChange={e => handleEditChange(item.no, col, e.target.value)}
+                            disabled={col === "nik" || col === "nama"}
+                          />
+                        )
+                      ) : item[col]}
+                    </td>
+                  ))}
+                  <td className="p-3 flex gap-2 justify-center flex-wrap">
+                    {editingId === item.no ? (
+                      <button
+                        onClick={() => handleUpdate(item.no)}
+                        disabled={loadingCRUD}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg font-semibold transition duration-200 shadow-md hover:shadow-lg"
+                      >
+                        ✓ Update
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setEditingId(item.no)}
+                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-lg font-semibold transition duration-200 shadow-md hover:shadow-lg"
+                      >
+                        ✏️ Edit
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(item.no)}
+                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg flex items-center gap-1 font-semibold transition duration-200 shadow-md hover:shadow-lg"
+                    >
+                      <Trash2 size={14} /> Hapus
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {filteredJadwal.length === 0 && (
+                <tr>
+                  <td className="border p-4 text-center text-gray-500 font-medium" colSpan={colsJadwal.length + 2}>
+                    📭 Tidak ada data ditemukan
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {!isAllRows && totalPagesJadwal > 1 && (
+          <div className="grid grid-cols-3 items-center mt-6 text-sm">
+            <div className="text-gray-700 font-medium">
+              Menampilkan {(pageJadwal - 1) * rowsPerPageJadwal + 1}–
+              {Math.min(pageJadwal * rowsPerPageJadwal, filteredJadwal.length)} dari {filteredJadwal.length}
+            </div>
+            <div className="flex justify-center gap-2">
+              <button
+                className="px-3 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 font-semibold transition duration-200"
+                onClick={() => setPageJadwal(1)}
+                disabled={pageJadwal === 1}
+              >
+                ⏮
+              </button>
+              <button
+                className="px-3 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 font-semibold transition duration-200"
+                onClick={() => setPageJadwal(p => Math.max(p - 1, 1))}
+                disabled={pageJadwal === 1}
+              >
+                ◀ Prev
+              </button>
+              <span className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-bold">
+                {pageJadwal} / {totalPagesJadwal}
+              </span>
+              <button
+                className="px-3 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 font-semibold transition duration-200"
+                onClick={() => setPageJadwal(p => Math.min(p + 1, totalPagesJadwal))}
+                disabled={pageJadwal === totalPagesJadwal}
+              >
+                Next ▶
+              </button>
+              <button
+                className="px-3 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 font-semibold transition duration-200"
+                onClick={() => setPageJadwal(totalPagesJadwal)}
+                disabled={pageJadwal === totalPagesJadwal}
+              >
+                ⏭
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* MODAL TAMBAH JADWAL KARYAWAN */}
+      {showModalTambah && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white p-8 rounded-2xl w-full max-w-md shadow-2xl border-t-4 border-green-500 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <h3 className="text-2xl font-bold mb-6 text-gray-800">âž• Tambah Jadwal Karyawan</h3>
+
+            <div className="relative w-full mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Nama Karyawan</label>
+              <input
+                type="text"
+                className="nama-input w-full border-2 border-gray-300 rounded-xl p-3 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition duration-200"
+                placeholder="Ketik nama..."
+                value={newData.nama}
+                onChange={(e) => {
+                  setNewData({ ...newData, nama: e.target.value });
+                  setShowNamaDropdown(true);
+                }}
+                onFocus={() => setShowNamaDropdown(true)}
+              />
+
+              {showNamaDropdown && (
+                <div className="nama-dropdown absolute z-50 bg-white border-2 border-green-400 rounded-xl shadow-lg max-h-72 overflow-y-auto w-full mt-1">
+                  {uniqueKaryawan
+                    .filter(k =>
+                      k.nama?.toLowerCase().includes(newData.nama.toLowerCase())
+                    )
+                    .sort((a, b) => a.nama.localeCompare(b.nama))
+                    .map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 hover:bg-green-100 cursor-pointer border-b border-gray-100 transition duration-150"
+                        onClick={() => {
+                          setNewData({ ...newData, nama: item.nama, nik: item.nik });
+                          setShowNamaDropdown(false);
+                        }}
+                      >
+                        <div className="font-semibold text-gray-800">{item.nama}</div>
+                        <div className="text-xs text-gray-500">{item.nik}</div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {newData.nama && (
+              <p className="text-sm text-green-600 mb-4 p-2 bg-green-50 rounded-lg font-medium">
+                ✓ Dipilih: <b>{newData.nama}</b>
+              </p>
+            )}
+
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Tanggal</label>
+              <input
+                type="date"
+                className="border-2 border-gray-300 rounded-xl px-4 py-3 w-full focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition duration-200"
+                value={newData.tanggal}
+                onChange={(e) => setNewData({ ...newData, tanggal: e.target.value })}
+              />
+            </div>
+
+            <div className="relative mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Kode Shift</label>
+              <input
+                type="text"
+                placeholder="Cari kode shift..."
+                value={newData.kode_shift}
+                onFocus={() => setShowShiftDropdown(true)}
+                onChange={(e) => setSearchShift(e.target.value)}
+                className="border-2 border-gray-300 w-full p-3 rounded-xl shift-input focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition duration-200"
+              />
+
+              <div className={`absolute z-50 bg-white border-2 border-green-400 rounded-xl mt-1 w-full max-h-48 overflow-y-auto shadow-lg shift-dropdown ${showShiftDropdown ? '' : 'hidden'}`}>
+                {filteredShiftOptions
+                  .filter(s => s.toLowerCase().includes(searchShift.toLowerCase()))
+                  .map(s => (
+                    <div
+                      key={s}
+                      onClick={() => {
+                        setNewData({ ...newData, kode_shift: s });
+                        setShowShiftDropdown(false);
+                        setSearchShift("");
+                      }}
+                      className="p-3 hover:bg-green-100 cursor-pointer border-b border-gray-100 transition duration-150"
+                    >
+                      {s}
+                    </div>
+                  ))}
+                {filteredShiftOptions.filter(s =>
+                  s.toLowerCase().includes(searchShift.toLowerCase())
+                ).length === 0 && (
+                  <div className="p-3 text-center text-gray-500">Shift tidak ditemukan</div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                className="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-xl font-semibold transition duration-200 shadow-md hover:shadow-lg"
+                onClick={() => setShowModalTambah(false)}
+              >
+                ✕ Batal
+              </button>
+              <button
+                className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl font-semibold transition duration-200 shadow-md hover:shadow-lg disabled:opacity-50"
+                onClick={handleCreate}
+                disabled={loadingCRUD}
+              >
+                ✓ Simpan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UPLOAD KEHADIRAN */}
+      <div className="mt-10 mx-6 flex flex-col md:flex-row gap-4">
+        <label className="block w-full border-2 border-dashed border-emerald-400 hover:border-emerald-600 hover:bg-emerald-50 cursor-pointer rounded-2xl p-10 text-center transition duration-300">
+          <UploadCloud size={45} className="text-emerald-600 mx-auto" />
+          <p className="text-gray-700 font-semibold mt-3">Upload File Kehadiran</p>
+          <p className="text-xs text-gray-500 mt-1">Format: Excel (.xlsx, .xls)</p>
+          <input type="file" onChange={handleUploadKehadiran} accept=".xlsx,.xls" className="hidden" />
+        </label>
+        <div className="flex flex-col gap-3">
+          <select
+            value={
+              selectedMonthKehadiran && selectedYearKehadiran
+                ? `${selectedMonthKehadiran}-${selectedYearKehadiran}`
+                : ""
+            }
+            onChange={(e) => {
+              if (!e.target.value) return;
+              const [bulan, tahun] = e.target.value.split("-").map(Number);
+              setSelectedMonthKehadiran(bulan);
+              setSelectedYearKehadiran(tahun);
+            }}
+            className="border-2 border-gray-300 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition duration-200"
+            disabled={loadingPeriods}
+          >
+            {availablePeriods.length > 0 ? (
+              availablePeriods.map((period, index) => (
+                <option
+                  key={index}
+                  value={`${period.bulan}-${period.tahun}`}
+                >
+                  {new Date(0, period.bulan - 1).toLocaleString("id-ID", {
+                    month: "long",
+                  })}{" "}
+                  {period.tahun}
+                </option>
+              ))
+            ) : (
+              <option value="" disabled>Tidak ada data periode</option>
+            )}
+          </select>
+
+          <button
+            onClick={exportTemplateKehadiran}
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl text-sm md:text-base font-semibold transition duration-300 transform hover:scale-105"
+          >
+            <Download size={20} />
+            Download Template Excel
+          </button>
+
+          <button
+            onClick={handleDeleteKehadiranPeriod}
+            disabled={availablePeriods.length === 0 || !selectedMonthKehadiran || !selectedYearKehadiran}
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl text-sm md:text-base font-semibold transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            🗑 Hapus Data Periode
+          </button>
+        </div>
+      </div>
+
+      {loadingKehadiran && (
+        <div className="mt-6 mx-6 p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-lg flex items-center gap-3">
+          <div className="animate-spin h-5 w-5 border-2 border-emerald-500 border-t-transparent rounded-full"></div>
+          <p className="text-emerald-700 font-medium">Memproses file kehadiran...</p>
+        </div>
+      )}
+
+      {kehadiranPreview && (
+        <div className="bg-white mt-6 mx-6 p-6 rounded-2xl shadow-lg border-t-4 border-emerald-500">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-bold flex items-center gap-2 text-gray-800">
+              <div className="p-2 bg-emerald-100 rounded-lg"><FileSpreadsheet className="text-emerald-700" size={24} /></div>
+              Preview Kehadiran
+            </h2>
+            <button
+              onClick={saveKehadiran}
+              disabled={savingKehadiran}
+              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-2 rounded-xl shadow-md hover:shadow-lg font-semibold transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {savingKehadiran ? "Menyimpan..." : "✓ Simpan Kehadiran"}
+            </button>
+          </div>
+          <div
+            className="overflow-auto max-h-[500px] border-2 border-gray-200 rounded-xl p-4 text-xs bg-gray-50 hover:bg-white transition duration-200"
+            dangerouslySetInnerHTML={{ __html: kehadiranPreview }}
+          />
+        </div>
+      )}
+
+      {/* PROSES CROSCEK */}
+      <div className="mt-10 mx-6 text-center mb-8">
+        <button
+          disabled={processing}
+          onClick={prosesCroscek}
+          className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl flex items-center mx-auto gap-3 font-bold transition duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
+        >
+          <span>🔄 Proses Croscek</span>
+          <ArrowRight size={22} />
+        </button>
+      </div>
+
+      {/* MODAL PROGRESS BAR */}
+      {showProgressModal && (
+        <>
+          <style>
+            {`
+              @keyframes spinSlow {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+
+              @keyframes shimmer {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(100%); }
+              }
+
+              @keyframes pulseSoft {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+              }
+
+              @keyframes bounceDot {
+                0%, 80%, 100% { transform: translateY(0); }
+                40% { transform: translateY(-4px); }
+              }
+            `}
+          </style>
+
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex justify-center items-center z-50">
+            <div className="bg-white p-8 rounded-2xl w-[420px] text-center shadow-2xl border border-gray-200 relative overflow-hidden">
+
+              {/* Glow Border */}
+              <div className="absolute inset-0 rounded-2xl border-2 border-transparent bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-500 opacity-30 animate-pulse pointer-events-none"></div>
+
+              {/* Icon Loader */}
+              <div className="relative flex justify-center mb-4">
+                <div
+                  className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center"
+                  style={{ animation: "spinSlow 3s linear infinite" }}
+                >
+                  <svg
+                    className="w-8 h-8 text-purple-600"
+                    style={{ animation: "pulseSoft 1.5s ease-in-out infinite" }}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" />
+                    <circle cx="12" cy="12" r="9" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Title */}
+              <h3 className="text-xl font-bold text-gray-800 mb-1">
+                Memproses Croscek
+              </h3>
+
+              {/* Animated Text */}
+              <p className="text-gray-500 mb-6 font-medium">
+                Mengambil data dari database
+                <span
+                  className="inline-block ml-1"
+                  style={{ animation: "bounceDot 1.4s infinite" }}
+                >
+                  .
+                </span>
+                <span
+                  className="inline-block"
+                  style={{ animation: "bounceDot 1.4s infinite 0.2s" }}
+                >
+                  .
+                </span>
+                <span
+                  className="inline-block"
+                  style={{ animation: "bounceDot 1.4s infinite 0.4s" }}
+                >
+                  .
+                </span>
+              </p>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-200 rounded-full h-4 mb-3 overflow-hidden relative">
+                <div
+                  className="h-4 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-500 transition-all duration-500 ease-out shadow-lg"
+                  style={{ width: `${progress}%` }}
+                ></div>
+
+                {/* Shimmer Effect */}
+                <div
+                  className="absolute inset-0 bg-white/20"
+                  style={{ animation: "shimmer 2s linear infinite" }}
+                ></div>
+              </div>
+
+              {/* Percentage */}
+              <p className="text-sm font-semibold text-purple-600 tracking-wide">
+                {progress}% selesai
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+
+
+      {/* MODAL PROGRESS BAR CROSCEK */}
+      {showProgressModalCroscek && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999]">
+          <div className="bg-white w-96 p-8 rounded-2xl shadow-2xl border-t-4 border-green-500 animate-in fade-in scale-in duration-300">
+            <h2 className="text-xl font-bold mb-4 text-center text-gray-800">ðŸ’¾ Menyimpan Croscek</h2>
+            <div className="w-full bg-gray-200 rounded-full h-5 overflow-hidden border-2 border-gray-300 mb-4">
+              <div
+                className="bg-gradient-to-r from-green-500 to-green-600 h-5 transition-all duration-300"
+                style={{ width: `${progressCroscek}%` }}
+              />
+            </div>
+            <p className="text-sm text-center font-semibold text-gray-700">
+              {progressTextCroscek}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PREVIEW CROSCEK */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 p-4 flex items-center justify-center">
+          <div className="bg-white w-full max-w-[95vw] h-[92vh] rounded-2xl shadow-2xl flex flex-col border-t-4 border-purple-500 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            
+            {/* HEADER */}
+            <div className="p-6 border-b-2 border-gray-200 flex justify-between items-center bg-gradient-to-r from-gray-50 to-white">
+              <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <span className="text-purple-600">📊</span> Hasil Croscek Kehadiran
+              </h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-2 hover:bg-red-100 rounded-full transition duration-200"
+              >
+                <X size={28} className="text-red-500" />
+              </button>
+            </div>
+
+            {/* FILTER SECTION */}
+            <div className="p-5 border-b-2 border-gray-200 bg-gray-50 flex flex-wrap items-center gap-3">
+              <Search size={20} className="text-gray-600" />
+              <input
+                type="text"
+                placeholder="🔍 Cari nama / tanggal..."
+                className="border-2 border-gray-300 p-3 rounded-xl flex-1 min-w-[200px] focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition duration-200 font-medium"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+              />
+              <div className="flex items-center gap-2 bg-white border-2 border-gray-300 rounded-xl px-3 py-2">
+                <label className="font-semibold text-sm text-gray-700 whitespace-nowrap">Dari:</label>
+                <input
+                  type="date"
+                  className="border-0 focus:outline-none focus:ring-0 p-1 text-sm"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              </div>
+              <div className="flex items-center gap-2 bg-white border-2 border-gray-300 rounded-xl px-3 py-2">
+                <label className="font-semibold text-sm text-gray-700 whitespace-nowrap">Hingga:</label>
+                <input
+                  type="date"
+                  className="border-0 focus:outline-none focus:ring-0 p-1 text-sm"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              </div>
+            </div>
+
+                <AttendanceLegend paginated={paginated} />
+            {/* TABLE CONTAINER */}
+            <div className="overflow-auto flex-1 p-4">
+              {/* â”€â”€ Legend â€” sticky di dalam overflow container â”€â”€ */}
+              {/* <div className="sticky top-0 z-30 mb-3">
+              </div> */}
+              <div className="rounded-xl border-2 border-gray-200 overflow-hidden">
+                <table className="min-w-full text-sm bg-white">
+                  <thead className="bg-gradient-to-r from-purple-600 to-purple-700 text-white sticky top-0 z-20">
+                  {/* <thead className="bg-gradient-to-r from-purple-600 to-purple-700 text-white sticky top-[10px] z-20"> */}
+                    <tr>
+                      <th className="p-3 text-left font-semibold whitespace-nowrap">👤 Nama</th>
+                      <th className="p-3 text-left font-semibold whitespace-nowrap">📅 Tanggal</th>
+                      <th className="p-3 text-left font-semibold whitespace-nowrap">⏰ Shift</th>
+                      <th className="p-3 text-left font-semibold whitespace-nowrap">🔄 Prediksi Shift</th>
+                      <th className="p-3 text-left font-semibold whitespace-nowrap">💼 Jabatan</th>
+                      <th className="p-3 text-left font-semibold whitespace-nowrap">🏢 Departemen</th>
+                      <th className="p-3 text-center font-semibold whitespace-nowrap">📥 Jadwal Masuk</th>
+                      <th className="p-3 text-center font-semibold whitespace-nowrap">📤 Jadwal Pulang</th>
+                      <th className="p-3 text-center font-semibold whitespace-nowrap">✅ Aktual Masuk</th>
+                      <th className="p-3 text-center font-semibold whitespace-nowrap">✅ Aktual Pulang</th>
+                      <th className="p-3 text-center font-semibold whitespace-nowrap">📍 Status Kehadiran</th>
+                      <th className="p-3 text-center font-semibold whitespace-nowrap">⏱ Status Masuk</th>
+                      <th className="p-3 text-center font-semibold whitespace-nowrap">⏱ Status Pulang</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginated.map((row, i) => (
+                      // <tr
+                      //   key={i}
+                      //   className={`border-b border-gray-200 transition duration-200 ${
+                      //     isTidakHadir(row)
+                      //       ? "bg-red-200 hover:bg-red-300"
+                      //       : !isTidakHadir(row) &&
+                      //         (isHadirBermasalah(row) || isActualKosong(row))
+                      //       ? "bg-yellow-200 hover:bg-yellow-300"
+                      //       : "hover:bg-gray-100"
+                      //   }`}
+                      // >
+                      // <tr
+                      //   key={i}
+                      //   className={`border-b border-gray-200 transition duration-200 ${
+                      //     isTidakHadir(row)
+                      //       ? "bg-red-200 hover:bg-red-300"
+                      //       : isLiburAdaPrediksi(row)
+                      //       ? "bg-yellow-200 hover:bg-yellow-300"
+                      //       : isHadirBermasalah(row) || isActualKosong(row)
+                      //       ? "bg-yellow-200 hover:bg-yellow-300"
+                      //       : "hover:bg-gray-100"
+                      //   }`}
+                      // >
+                      <tr
+                        key={i}
+                        className={`border-b border-gray-200 transition duration-200 ${getRowClass(row)}`}
+                      >
+                        <td className="p-3 font-semibold text-gray-800 whitespace-nowrap">{row.Nama}</td>
+                        <td className="p-3 whitespace-nowrap"><span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-lg text-xs font-semibold">{row.Tanggal}</span></td>
+                        <td className="p-3"><span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-lg text-xs font-semibold">{row.Kode_Shift}</span></td>
+                        <td className="p-3 text-center">
+                          {!hasPrediksiShiftValue(row.Prediksi_Shift) ? (
+                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded-lg text-xs font-semibold">✓ OK</span>
+                          ) : (
+                            <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-lg text-xs font-semibold">
+                              ⚠️ {row.Prediksi_Shift}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-gray-700">{row.Jabatan}</td>
+                        <td className="p-3 text-gray-700">{row.Departemen}</td>
+                        <td className="p-3 text-center text-gray-700 font-medium">{row.Jadwal_Masuk}</td>
+                        <td className="p-3 text-center text-gray-700 font-medium">{row.Jadwal_Pulang}</td>
+                        <td className="p-3 whitespace-nowrap text-center">
+                          {(() => {
+                            const display = getActualCellDisplay(row, "masuk");
+                            if (display.isPrediksi) {
+                              return (
+                                <span className="px-2 py-1 bg-green-100 text-green-800 rounded-lg text-xs font-bold">
+                                  {display.text}
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="font-semibold text-gray-800">{display.text}</span>
+                            );
+                          })()}
+                        </td>
+                        <td className="p-3 whitespace-nowrap text-center">
+                          {(() => {
+                            const display = getActualCellDisplay(row, "pulang");
+                            if (display.isPrediksi) {
+                              return (
+                                <span className="px-2 py-1 bg-green-100 text-green-800 rounded-lg text-xs font-bold">
+                                  {display.text}
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="font-semibold text-gray-800">{display.text}</span>
+                            );
+                          })()}
+                        </td>
+                        <td className="p-3 text-center">
+                          {row.Status_Kehadiran !== "Tidak Hadir" && row.Status_Kehadiran !== "ALPA" && row.Status_Kehadiran !== "SAKIT" && row.Status_Kehadiran !== "IZIN" && row.Status_Kehadiran !== "DINAS LUAR" && row.Status_Kehadiran !== "CUTI ISTIMEWA" && row.Status_Kehadiran !== "CUTI BERSAMA" && row.Status_Kehadiran !== "CUTI TAHUNAN" && row.Status_Kehadiran !== "EXTRAOFF" && row.Status_Kehadiran !== "LIBUR SETELAH MASUK DOBLE SHIFT" ? (
+                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded-lg text-xs font-semibold">{row.Status_Kehadiran}</span>
+                          ) : (
+                            <select
+                              className="border-2 border-yellow-400 p-2 rounded-lg bg-yellow-50 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-yellow-300"
+                              value={reasonMap[row.__uid] || row.Status_Kehadiran || ""}
+                              onChange={(e) => setReasonMap({ ...reasonMap, [row.__uid]: e.target.value })}
+                            >
+                              <option value="">Pilih</option>
+                              <option value="ALPA">ALPA</option>
+                              <option value="SAKIT">SAKIT</option>
+                              <option value="IZIN">IZIN</option>
+                              <option value="DINAS LUAR">DINAS LUAR</option>
+                              <option value="CUTI ISTIMEWA">CT</option>
+                              <option value="CUTI BERSAMA">CTB</option>
+                              <option value="CUTI TAHUNAN">CTT</option>
+                              <option value="EXTRAOFF">EO</option>
+                              <option value="LIBUR SETELAH MASUK DOBLE SHIFT">OF1</option>
+                            </select>
+                          )}
+                        </td>
+                        <td className="p-3 whitespace-nowrap text-center">
+                          {row.Status_Masuk !== "Masuk Telat" && row.Status_Masuk !== "TL 1 5 D" && row.Status_Masuk !== "TL 1 5 T" && row.Status_Masuk !== "TL 5 10 D" && row.Status_Masuk !== "TL 5 10 T" && row.Status_Masuk !== "TL 10 D" && row.Status_Masuk !== "TL 10 T" ? (
+                            <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${
+                              row.Status_Masuk === "Tidak Scan Masuk" 
+                                ? "bg-red-100 text-red-800" 
+                                : row.Status_Masuk === "Masuk Tepat Waktu"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}>
+                              {row.Status_Masuk === "Tidak Scan Masuk" ? "âŒ Tidak Scan" : row.Status_Masuk || 'Tidak Scan Masuk'}
+                            </span>
+                          ) : ((() => {
+                            const { jadwalMasuk, actualMasuk } = getEffectiveTimeContext(row);
+                            const kategori = getTLKategoriByIndicator(row);
+
+                            if (!actualMasuk) return <span className="px-2 py-1 bg-red-100 text-red-800 rounded-lg text-xs font-semibold">âŒ Tidak Scan</span>;
+                            if (!jadwalMasuk) return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-lg text-xs font-semibold">âœ“ Tepat Waktu</span>;
+                            if (!kategori) return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-lg text-xs font-semibold">âœ“ Tepat Waktu</span>;
+
+                            const saved = reasonMap[row.__uid]?.TL_Code || "";
+
+                            if (saved) {
+                              return <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-lg text-xs font-semibold">â± {saved.replaceAll("_", " ")}</span>;
+                            }
+
+                            return (
+                              <select
+                                className="border-2 border-yellow-400 p-2 rounded-lg bg-yellow-50 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-yellow-300"
+                                value={(() => {
+                                  if (isPindahShiftRow(row)) return "";
+                                  const dbValue = row.Status_Masuk || "";
+                                  if (dbValue === "TL 1 5 D") return "TL_1_5_D";
+                                  if (dbValue === "TL 1 5 T") return "TL_1_5_T";
+                                  if (dbValue === "TL 5 10 D") return "TL_5_10_D";
+                                  if (dbValue === "TL 5 10 T") return "TL_5_10_T";
+                                  if (dbValue === "TL 10 D") return "TL_10_D";
+                                  if (dbValue === "TL 10 T") return "TL_10_T";
+                                  return "";
+                                })()}
+                                onChange={(e) =>
+                                  setReasonMap({
+                                    ...reasonMap,
+                                    [row.__uid]: {
+                                      ...(reasonMap[row.__uid] || {}),
+                                      TL_Code: e.target.value
+                                    }
+                                  })
+                                }
+                              >
+                                <option value="">Pilih</option>
+                                {(kategori === "1_5" || kategori === "1 5") && (
+                                  <>
+                                    <option value="TL_1_5_D">1—5 Menit — Izin</option>
+                                    <option value="TL_1_5_T">1—5 Menit — Tanpa Izin</option>
+                                  </>
+                                )}
+                                {(kategori === "5_10" || kategori === "5 10") && (
+                                  <>
+                                    <option value="TL_5_10_D">5—10 Menit — Izin</option>
+                                    <option value="TL_5_10_T">5—10 Menit — Tanpa Izin</option>
+                                  </>
+                                )}
+                                {kategori === "10" && (
+                                  <>
+                                    <option value="TL_10_D">≥10 Menit — Izin</option>
+                                    <option value="TL_10_T">≥10 Menit — Tanpa Izin</option>
+                                  </>
+                                )}
+                              </select>
+                            );
+                          })())}
+                        </td>
+                        <td className="p-3 whitespace-nowrap text-center">
+                          {row.Status_Pulang !== "Pulang Terlalu Cepat" && row.Status_Pulang !== "Pulang Awal Dengan Izin" && row.Status_Pulang !== "Pulang Awal Tanpa Izin" ? (
+                            <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${
+                              row.Status_Pulang === "Tidak scan pulang" 
+                                ? "bg-red-100 text-red-800" 
+                                : row.Status_Pulang === "Pulang Tepat Waktu"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}>
+                              {row.Status_Pulang === "Tidak Scan Pulang" ? "âŒ Tidak Scan" : row.Status_Pulang || 'Tidak Scan Pulang'}
+                            </span>
+                          ) : (() => {
+                            const status = row.Status_Pulang || "";
+                            const saved = reasonMap[row.__uid]?.PA_Code;
+
+                            if (saved) {
+                              return <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-lg text-xs font-semibold">{saved === "PA_D" ? "ðŸ”” Awal+Izin" : "ðŸ”” Awal TanpaIzin"}</span>;
+                            }
+
+                            const valueFromDb = (() => {
+                              if (status === "Pulang Awal Dengan Izin") return "PA_D";
+                              if (status === "Pulang Awal Tanpa Izin") return "PA_T";
+                              return "";
+                            })();
+
+                            return (
+                              <select
+                                className="border-2 border-yellow-400 p-2 rounded-lg bg-yellow-50 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-yellow-300"
+                                value={valueFromDb}
+                                onChange={(e) =>
+                                  setReasonMap({
+                                    ...reasonMap,
+                                    [row.__uid]: {
+                                      ...(reasonMap[row.__uid] || {}),
+                                      PA_Code: e.target.value
+                                    }
+                                  })
+                                }
+                              >
+                                <option value="">Pilih</option>
+                                <option value="PA_D">Awal — Izin</option>
+                                <option value="PA_T">Awal — Tanpa Izin</option>
+                              </select>
+                            );
+                          })()}
+                        </td>
+                      </tr>
+                    ))}
+
+                    {paginated.length === 0 && (
+                      <tr>
+                        <td colSpan="13" className="text-center p-8 text-gray-500 font-semibold">
+                          📭­ Tidak ada data
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* FOOTER */}
+            <div className="p-5 border-t-2 border-gray-200 bg-gradient-to-r from-gray-50 to-white flex flex-wrap justify-between items-center gap-4">
+              {/* Grup tombol kiri */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={exportFilteredData}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                >
+                  <FileSpreadsheet size={16} /> Export Excel
+                </button>
+
+                <button
+                  onClick={exportRekapPerhari}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                >
+                  <FileSpreadsheet size={16} /> Rekap Harian
+                </button>
+
+                <button
+                  onClick={exportRekapKehadiran}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                >
+                  <FileSpreadsheet size={16} /> Rekap Periode
+                </button>
+
+                <button
+                  onClick={exportRekapKehadiranYeartoDate}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                >
+                  <FileSpreadsheet size={16} /> Rekap YTD
+                </button>
+
+                <button
+                  onClick={exportFilteredDatabyshift}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-emerald-700 to-emerald-800 hover:from-emerald-800 hover:to-emerald-900 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                >
+                  <FileSpreadsheet size={16} /> Export Shift
+                </button>
+
+                <button
+                  onClick={() => {
+                    const data = buildRekapServicePreview();
+                    if (!data) return;
+                    setRekapServicePreview(data);
+                    setActiveDept(Object.keys(data)[0]);
+                    setShowPreviewRekap(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                  >
+                    <FileSpreadsheet size={16} /> Rekap Service
+                  </button>
+                  
+                  <button
+                    onClick={openHodModal}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                  >
+                    <FileSpreadsheet size={16} /> Rekap Harian HOD
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const hasil = buildRekapUangMakanData({
+                        filteredData,
+                        reasonMap,
+                        startDate,
+                        endDate
+                      });
+                      setPreviewUangMakan(hasil);
+                      setShowPreviewUangMakan(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                  >
+                    <FileSpreadsheet size={16} /> Rekap Uang Makan
+                  </button>
+
+                <span className="h-8 w-px bg-gray-300 mx-2" />
+
+                <button
+                  onClick={simpanCroscek}
+                  className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105 border-2 border-green-700"
+                >
+                  💾 Simpan Croscek
+                </button>
+              </div>
+
+              {/* Navigasi halaman */}
+              <div className="flex items-center gap-3">
+                <button
+                  disabled={page === 1}
+                  onClick={() => setPage(page - 1)}
+                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg font-semibold transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ◀ Prev
+                </button>
+
+                <span className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-bold">
+                  {page} / {totalPages}
+                </span>
+
+                <button
+                  disabled={page === totalPages}
+                  onClick={() => setPage(page + 1)}
+                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg font-semibold transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Next ▶
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PREVIEW REKAP SERVICE */}
+      {showPreviewRekap && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-[95vw] h-[90vh] rounded-2xl shadow-2xl flex flex-col border-t-4 border-indigo-500">
+
+            {/* HEADER */}
+            <div className="p-6 border-b-2 border-gray-200 flex justify-between items-center bg-gradient-to-r from-indigo-50 to-white">
+              <h2 className="font-bold text-2xl text-indigo-800 flex items-center gap-2">
+                <span>📊</span> Preview Rekap Service
+              </h2>
+              <button onClick={() => setShowPreviewRekap(false)} className="p-2 hover:bg-red-100 rounded-full transition duration-200">
+                <X size={28} className="text-red-500" />
+              </button>
+            </div>
+
+            {/* TAB SHEET */}
+            <div className="flex gap-2 p-4 border-b-2 border-gray-200 bg-gray-50 overflow-x-auto">
+              {Object.keys(rekapServicePreview).map(dept => (
+                <button
+                  key={dept}
+                  onClick={() => setActiveDept(dept)}
+                  className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition duration-200 ${
+                    activeDept === dept
+                      ? "bg-indigo-600 text-white shadow-md"
+                      : "bg-white text-gray-700 border-2 border-gray-300 hover:border-indigo-400"
+                  }`}
+                >
+                  {dept}
+                </button>
+              ))}
+            </div>
+
+            {/* CONTENT */}
+            <div className="flex-1 overflow-auto p-6">
+              <div className="text-center font-bold text-xl text-gray-800 mb-2">
+                📊 REKAPITULASI LAYANAN
+              </div>
+              <div className="text-center font-semibold mb-6 text-gray-600">
+                PERIODE {startDate} s/d {endDate}
+              </div>
+
+              {/* TABLE PREVIEW */}
+              <div className="max-h-[600px] overflow-auto border-2 border-gray-200 rounded-xl">
+                <table className="min-w-full text-sm border-collapse bg-white">
+                  <thead className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white sticky top-0 z-10">
+                    <tr>
+                      <th className="border p-3 text-left font-semibold">NO</th>
+                      <th className="border p-3 text-left font-semibold">NAMA</th>
+                      <th className="border p-3 text-left font-semibold">JABATAN</th>
+                      <th className="border p-3 text-left font-semibold">NIK</th>
+                      <th className="border p-3 text-center font-semibold">JML HARI</th>
+                      <th className="border p-3 text-center font-semibold">LIBUR</th>
+                      <th className="border p-3 text-center font-semibold">HK</th>
+                      <th className="border p-3 text-center font-semibold">SAKIT</th>
+                      <th className="border p-3 text-center font-semibold">IZIN</th>
+                      <th className="border p-3 text-center font-semibold">ALPA</th>
+                      <th className="border p-3 text-center font-semibold">EO</th>
+                      <th className="border p-3 text-center font-semibold">CUTI</th>
+                      <th className="border p-3 text-center font-semibold">SERVICE</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {rekapServicePreview[activeDept]?.map((r, idx) => (
+                      <tr key={r.no} className={`border-b border-gray-200 transition duration-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-indigo-100`}>
+                        <td className="border p-3 text-center font-semibold text-gray-800">{r.no}</td>
+                        <td className="border p-3 text-gray-800 font-medium">{r.nama}</td>
+                        <td className="border p-3 text-gray-700">{r.jabatan}</td>
+                        <td className="border p-3 text-gray-700 font-mono">{r.nik}</td>
+                        <td className="border p-3 text-center font-bold text-gray-800">{r.totalHari}</td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-red-100 text-red-800 rounded-lg text-xs">{r.libur}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-green-100 text-green-800 rounded-lg text-xs">{r.hk}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-lg text-xs">{r.sakit}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-xs">{r.izin}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-red-100 text-red-800 rounded-lg text-xs">{r.alpa}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-lg text-xs">{r.eo}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-lg text-xs">{r.cuti}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-lg">{r.service}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* FOOTER */}
+            <div className="p-6 border-t-2 border-gray-200 bg-gradient-to-r from-gray-50 to-white flex justify-end gap-3">
+              <button
+                onClick={() => setShowPreviewRekap(false)}
+                className="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-xl font-semibold transition duration-200 shadow-md"
+              >
+                ✕ Tutup
+              </button>
+              <button
+                onClick={() => exportRekapService()}
+                className="px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-xl font-semibold transition duration-200 shadow-lg hover:shadow-xl"
+              >
+                ⬇️ Download Excel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PREVIEW UANG MAKAN */}
+      {showPreviewUangMakan && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-[95vw] h-[90vh] rounded-2xl shadow-2xl flex flex-col border-t-4 border-amber-500">
+
+            {/* HEADER */}
+            <div className="p-6 border-b-2 border-gray-200 flex justify-between items-center bg-gradient-to-r from-amber-50 to-white">
+              <h2 className="font-bold text-2xl text-amber-800 flex items-center gap-2">
+                <span>💰</span> Preview Rekap Uang Makan
+              </h2>
+              <button onClick={() => setShowPreviewUangMakan(false)} className="p-2 hover:bg-red-100 rounded-full transition duration-200">
+                <X size={28} className="text-red-500" />
+              </button>
+            </div>
+
+            {/* CONTENT */}
+            <div className="flex-1 overflow-auto p-6">
+              <div className="text-center font-bold text-xl text-gray-800 mb-2">
+                💰 REKAPITULASI UANG MAKAN KARYAWAN
+              </div>
+              <div className="text-center font-semibold mb-6 text-gray-600">
+                PERIODE {startDate} s.d {endDate}
+              </div>
+
+              <div className="max-h-[600px] overflow-auto border-2 border-gray-200 rounded-xl">
+                <table className="min-w-full text-sm border-collapse bg-white">
+                  <thead className="bg-gradient-to-r from-amber-600 to-amber-700 text-white sticky top-0 z-10">
+                    <tr>
+                      {["NO", "NAMA", "JABATAN", "DEPT", "H", "OFF", "S", "I", "A", "EO", "CUTI", "TGS", "TOTAL"].map(h => (
+                        <th key={h} className="border p-3 text-center font-semibold text-xs md:text-sm">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewUangMakan.map((r, i) => (
+                      <tr key={i} className={`border-b border-gray-200 transition duration-200 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-amber-100`}>
+                        <td className="border p-3 text-center font-semibold text-gray-800">{i + 1}</td>
+                        <td className="border p-3 text-left font-medium text-gray-800">{r.nama}</td>
+                        <td className="border p-3 text-center text-gray-700">{r.jabatan}</td>
+                        <td className="border p-3 text-center text-gray-700">{r.dept}</td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-green-100 text-green-800 rounded-lg text-xs">{r.H}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-red-100 text-red-800 rounded-lg text-xs">{r.OFF}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-lg text-xs">{r.S}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-xs">{r.I}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-red-100 text-red-800 rounded-lg text-xs">{r.A}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-lg text-xs">{r.EO}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-lg text-xs">{r.CUTI}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-teal-100 text-teal-800 rounded-lg text-xs">{r.TGS}</span></td>
+                        <td className="border p-3 text-center font-bold"><span className="px-2 py-1 bg-amber-100 text-amber-800 rounded-lg">{r.TOTAL}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* FOOTER */}
+            <div className="p-6 border-t-2 border-gray-200 bg-gradient-to-r from-gray-50 to-white flex justify-end gap-3">
+              <button
+                onClick={() => setShowPreviewUangMakan(false)}
+                className="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-xl font-semibold transition duration-200 shadow-md"
+              >
+                ✕ Tutup
+              </button>
+              <button
+                onClick={() =>
+                  exportRekapUangMakan(
+                    previewUangMakan,
+                    startDate,
+                    endDate
+                  )
+                }
+                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold transition duration-200 shadow-lg hover:shadow-xl"
+              >
+                ⬇️ Download Excel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* MODAL REKAP HARIAN HOD */}
+      {/* ==================== MODAL REKAP HARIAN HOD ==================== */}
+      {isHodModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[95vw] max-h-[95vh] flex flex-col">
+            
+            {/* ========== HEADER ========== */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-cyan-600 to-cyan-700 rounded-t-2xl">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <FileSpreadsheet size={24} />
+                  Rekap Harian HOD
+                </h2>
+                <p className="text-cyan-100 text-sm mt-1">Head of Department Daily Report</p>
+              </div>
+              <button
+                onClick={closeHodModal}
+                className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition duration-200"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* ========== FILTER SECTION ========== */}
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-br from-gray-50 to-white">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                
+                {/* Tanggal Mulai */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <Calendar size={16} className="inline mr-1" />
+                    Tanggal Mulai <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={hodStartDate}
+                    onChange={(e) => setHodStartDate(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition duration-200 font-medium"
+                  />
+                </div>
+
+                {/* Tanggal Selesai */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <Calendar size={16} className="inline mr-1" />
+                    Tanggal Selesai <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={hodEndDate}
+                    onChange={(e) => setHodEndDate(e.target.value)}
+                    min={hodStartDate}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition duration-200 font-medium"
+                  />
+                </div>
+
+                {/* Pilih Karyawan */}
+                {/* Pilih Karyawan - SEARCHABLE SELECT */}
+                <div className="relative searchable-select">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    👤 Pilih Karyawan <span className="text-red-600">*</span>
+                  </label>
+                  
+                  {/* Button Trigger */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!loadingHod && hodStartDate && hodEndDate) {
+                        setIsDropdownOpen(!isDropdownOpen);
+                        setSearchKaryawan('');
+                      }
+                    }}
+                    disabled={loadingHod || !hodStartDate || !hodEndDate}
+                    className={`w-full px-4 py-2.5 border rounded-lg text-left flex items-center justify-between transition duration-200 font-medium
+                      ${loadingHod || !hodStartDate || !hodEndDate 
+                        ? 'bg-gray-100 cursor-not-allowed border-gray-300 text-gray-400' 
+                        : 'bg-white border-gray-300 hover:border-cyan-500 focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-gray-700'
+                      }`}
+                  >
+                    <span className={selectedKaryawan ? 'text-gray-900' : 'text-gray-500'}>
+                      {selectedKaryawan 
+                        ? karyawanOptions.find(k => k.value === selectedKaryawan)?.label 
+                        : '-- Pilih Karyawan --'
+                      }
+                    </span>
+                    <svg 
+                      className={`w-5 h-5 transition-transform duration-200 ${isDropdownOpen ? 'transform rotate-180' : ''}`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isDropdownOpen && (
+                    <div className="absolute z-50 w-full mt-2 bg-white border-2 border-cyan-500 rounded-lg shadow-2xl max-h-80 flex flex-col">
+                      {/* Search Input */}
+                      <div className="p-3 border-b border-gray-200 bg-gradient-to-r from-cyan-50 to-blue-50">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={searchKaryawan}
+                            onChange={(e) => setSearchKaryawan(e.target.value)}
+                            placeholder="🔍 Cari nama karyawan..."
+                            className="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition duration-200 font-medium"
+                            autoFocus
+                          />
+                          {searchKaryawan && (
+                            <button
+                              onClick={() => setSearchKaryawan('')}
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                              <X size={18} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Options List */}
+                      <div className="overflow-y-auto max-h-64 custom-scrollbar">
+                        {filteredKaryawan.length === 0 ? (
+                          <div className="p-6 text-center text-gray-500">
+                            <Users size={32} className="mx-auto mb-2 opacity-50" />
+                            <p className="font-medium">Tidak ada karyawan ditemukan</p>
+                            <p className="text-sm mt-1">Coba kata kunci lain</p>
+                          </div>
+                        ) : (
+                          filteredKaryawan.map((item) => {
+                            const isSelected = hodSelectedIds.has(item.value);
+                            return (
+                              <button
+                                key={item.value}
+                                type="button"
+                                onClick={() => {
+                                  if (!isSelected) {
+                                    addHodData(item.value);
+                                    setIsDropdownOpen(false);
+                                    setSearchKaryawan('');
+                                  }
+                                }}
+                                disabled={isSelected}
+                                className={`w-full px-4 py-3 text-left transition duration-150 flex items-center justify-between
+                                  ${isSelected 
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                    : 'hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50 text-gray-700 hover:text-cyan-900 cursor-pointer'
+                                  }
+                                  border-b border-gray-100 last:border-b-0
+                                `}
+                              >
+                                <span className={`font-medium ${isSelected ? 'line-through' : ''}`}>
+                                  {item.label}
+                                </span>
+                                {isSelected && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
+                                    <CheckCircle size={14} />
+                                    Sudah Dipilih
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {/* Footer Info */}
+                      <div className="p-3 border-t border-gray-200 bg-gray-50 text-xs text-gray-600 flex items-center justify-between">
+                        <span>Total: {filteredKaryawan.length} karyawan</span>
+                        <span>Terpilih: {hodSelectedIds.size}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Alert Validasi */}
+              {(!hodStartDate || !hodEndDate) && (
+                <div className="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded-r-lg flex items-start gap-3">
+                  <span className="text-xl">⚠️</span>
+                  <div>
+                    <p className="font-semibold">Perhatian!</p>
+                    <p className="text-sm">Mohon lengkapi tanggal mulai dan selesai untuk memilih karyawan.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Info & Action Buttons */}
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+                {/* Info Badge */}
+                <div className="flex items-center gap-3">
+                  {hodTableData.length > 0 && (
+                    <>
+                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-100 text-cyan-800 rounded-lg text-sm font-semibold border border-cyan-200">
+                        <FileSpreadsheet size={16} />
+                        Total: {hodTableData.length} record
+                      </div>
+                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm font-semibold border border-blue-200">
+                        👥 Karyawan: {hodSelectedIds.size}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={clearAllHodData}
+                    disabled={hodTableData.length === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 rounded-lg shadow-md hover:shadow-lg transition duration-300 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 size={16} /> Hapus Semua
+                  </button>
+                  <button
+                    onClick={downloadHodExcel}
+                    disabled={hodTableData.length === 0}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-lg shadow-md hover:shadow-lg transition duration-300 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed"
+                  >
+                    <Download size={16} /> Download Excel
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* ========== TABLE SECTION ========== */}
+            <div className="flex-1 overflow-auto p-6 bg-gray-50">
+              {loadingHod ? (
+                <div className="flex flex-col items-center justify-center h-64 gap-4">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-cyan-600"></div>
+                  <p className="text-gray-600 font-medium">Memuat data...</p>
+                </div>
+              ) : hodTableData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+                  <div className="bg-gray-100 rounded-full p-8 mb-4">
+                    <FileSpreadsheet size={64} className="opacity-50" />
+                  </div>
+                  <p className="text-xl font-semibold text-gray-700 mb-2">Belum ada data</p>
+                  <p className="text-sm text-gray-500">Pilih tanggal dan karyawan untuk memulai</p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg border-2 border-gray-200 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gradient-to-r from-cyan-600 to-cyan-700">
+                        <tr>
+                          <th className="px-4 py-3.5 text-left text-xs font-bold text-white uppercase tracking-wider">No</th>
+                          <th className="px-4 py-3.5 text-left text-xs font-bold text-white uppercase tracking-wider">Tanggal</th>
+                          <th className="px-4 py-3.5 text-left text-xs font-bold text-white uppercase tracking-wider">Nama Karyawan</th>
+                          <th className="px-4 py-3.5 text-left text-xs font-bold text-white uppercase tracking-wider">Jabatan</th>
+                          <th className="px-4 py-3.5 text-left text-xs font-bold text-white uppercase tracking-wider">Departemen</th>
+                          <th className="px-4 py-3.5 text-center text-xs font-bold text-white uppercase tracking-wider">Shift</th>
+                          <th className="px-4 py-3.5 text-center text-xs font-bold text-white uppercase tracking-wider">Actual Masuk</th>
+                          <th className="px-4 py-3.5 text-center text-xs font-bold text-white uppercase tracking-wider">Actual Pulang</th>
+                          <th className="px-4 py-3.5 text-center text-xs font-bold text-white uppercase tracking-wider">Status Kehadiran</th>
+                          <th className="px-4 py-3.5 text-center text-xs font-bold text-white uppercase tracking-wider">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {hodTableData.map((row, index) => (
+                          <tr
+                            key={index}
+                            className={`hover:bg-cyan-50 transition duration-150 ${
+                              index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                            }`}
+                          >
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                              {index + 1}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
+                              {row.tanggal || "-"}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
+                              {row.nama}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                              {row.jabatan}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                              {row.departemen}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                              <span className="inline-flex px-3 py-1 bg-gradient-to-r from-cyan-100 to-blue-100 text-cyan-800 rounded-full text-xs font-bold border border-cyan-200">
+                                {row.shift}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                              <span className="inline-flex px-3 py-1 bg-green-100 text-green-800 rounded-lg text-sm font-semibold">
+                                {formatJam(row.check_in || "-")}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                              <span className="inline-flex px-3 py-1 bg-red-100 text-red-800 rounded-lg text-sm font-semibold">
+                                {formatJam(row.check_out || "-")}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                              <span className="inline-flex px-3 py-1 bg-gradient-to-r from-cyan-100 to-blue-100 text-cyan-800 rounded-full text-xs font-bold border border-cyan-200">
+                                {row.status_kehadiran}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                              <button
+                                onClick={() => removeHodRow(index)}
+                                className="inline-flex items-center justify-center p-2 text-red-600 hover:bg-red-100 rounded-lg transition duration-200 hover:scale-110"
+                                title="Hapus data ini"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ========== FOOTER ========== */}
+            <div className="flex items-center justify-between p-6 border-t-2 border-gray-200 bg-gradient-to-r from-gray-50 to-white rounded-b-2xl">
+              <div className="text-sm text-gray-700 font-medium">
+                {hodTableData.length > 0 && hodStartDate && hodEndDate && (
+                  <span className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm">
+                    📊 Periode: <span className="font-bold text-cyan-700">{formatDate(hodStartDate)}</span> s/d <span className="font-bold text-cyan-700">{formatDate(hodEndDate)}</span>
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={closeHodModal}
+                className="px-6 py-2.5 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-100 hover:border-gray-400 transition duration-200 shadow-sm"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== MODAL HASIL IMPORT JADWAL ========== */}
+      {showJadwalImportResult && jadwalImportResult && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+            <div className={`p-5 border-b-2 ${jadwalImportResult.error ? "bg-red-50 border-red-300" : "bg-blue-50 border-blue-300"}`}>
+              <div className="flex items-center justify-between">
+                <h2 className={`text-xl font-bold ${jadwalImportResult.error ? "text-red-700" : "text-blue-700"}`}>
+                  {jadwalImportResult.error ? "❌ Import Jadwal Gagal" : "✅ Import Jadwal Berhasil"}
+                </h2>
+                <button
+                  onClick={() => setShowJadwalImportResult(false)}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <div className={`p-4 rounded-lg border-l-4 ${jadwalImportResult.error ? "bg-red-50 border-red-500 text-red-900" : "bg-green-50 border-green-500 text-green-900"}`}>
+                <p className="font-semibold">{jadwalImportResult.message || jadwalImportResult.error}</p>
+                {jadwalImportResult.hint && (
+                  <p className="text-sm mt-2">{jadwalImportResult.hint}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                  <p className="text-xs text-indigo-700 font-semibold">Karyawan di File</p>
+                  <p className="text-2xl font-bold text-indigo-800">{jadwalImportResult.affected_employees || 0}</p>
+                </div>
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                  <p className="text-xs text-orange-700 font-semibold">Jadwal Dihapus</p>
+                  <p className="text-2xl font-bold text-orange-800">{jadwalImportResult.deleted_count || 0}</p>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-xs text-green-700 font-semibold">Jadwal Diinsert</p>
+                  <p className="text-2xl font-bold text-green-800">{jadwalImportResult.inserted_count || 0}</p>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-xs text-red-700 font-semibold">Tidak Ditemukan</p>
+                  <p className="text-2xl font-bold text-red-800">
+                    {jadwalImportResult.not_found_employees?.length || 0}
+                  </p>
+                </div>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <p className="text-xs text-yellow-700 font-semibold">Kode Invalid</p>
+                  <p className="text-2xl font-bold text-yellow-800">
+                    {jadwalImportResult.invalid_codes?.length || 0}
+                  </p>
+                </div>
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                  <p className="text-xs text-purple-700 font-semibold">Tanpa Jadwal</p>
+                  <p className="text-2xl font-bold text-purple-800">
+                    {jadwalImportResult.employees_without_schedule_count || 0}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
+                <p className="font-semibold text-gray-900 mb-2">Summary Log</p>
+                <pre className="text-xs text-gray-700 bg-white border border-gray-200 rounded p-3 overflow-x-auto whitespace-pre-wrap">
+{`✅ SUMMARY KARYAWAN:
+👤 Karyawan di file   : ${jadwalImportResult.affected_employees || 0}
+🗑️ Jadwal dihapus     : ${jadwalImportResult.deleted_count || 0}
+🆕 Jadwal diinsert    : ${jadwalImportResult.inserted_count || 0}
+❌ Tidak ditemukan    : ${jadwalImportResult.not_found_employees?.length || 0}
+⚠️ Kode invalid      : ${jadwalImportResult.invalid_codes?.length || 0}
+📭 Tanpa jadwal      : ${jadwalImportResult.employees_without_schedule_count || 0}`}
+                </pre>
+              </div>
+
+              {jadwalImportResult.not_found_schedule_rows?.length > 0 && (
+                <div className="bg-red-50 border border-red-300 rounded-lg p-4">
+                  <p className="font-semibold text-red-900 mb-3">
+                    ❌ Detail Tidak Ditemukan (Nama, Tanggal, Kode Shift)
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border border-red-200 bg-white text-xs">
+                      <thead>
+                        <tr className="bg-red-100 border-b border-red-200">
+                          <th className="border border-red-200 px-2 py-2 text-left">Nama</th>
+                          <th className="border border-red-200 px-2 py-2 text-left">Tanggal</th>
+                          <th className="border border-red-200 px-2 py-2 text-left">Kode Shift</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {jadwalImportResult.not_found_schedule_rows.map((row, idx) => (
+                          <tr key={idx} className="border-b border-red-200 hover:bg-red-50">
+                            <td className="border border-red-200 px-2 py-2">{row.nama || "-"}</td>
+                            <td className="border border-red-200 px-2 py-2">{row.tanggal || "-"}</td>
+                            <td className="border border-red-200 px-2 py-2">{row.kode_shift || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {jadwalImportResult.not_found_schedule_rows_truncated > 0 && (
+                    <p className="text-xs text-red-700 mt-2">
+                      + {jadwalImportResult.not_found_schedule_rows_truncated} baris tambahan tidak ditampilkan.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {jadwalImportResult.employees_without_schedule?.length > 0 && (
+                <div className="bg-purple-50 border border-purple-300 rounded-lg p-4">
+                  <p className="font-semibold text-purple-900 mb-3">
+                    📭 Karyawan Tanpa Jadwal di Periode Import ({jadwalImportResult.employees_without_schedule_count || 0})
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border border-purple-200 bg-white text-xs">
+                      <thead>
+                        <tr className="bg-purple-100 border-b border-purple-200">
+                          <th className="border border-purple-200 px-2 py-2 text-left">NIK</th>
+                          <th className="border border-purple-200 px-2 py-2 text-left">Nama</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {jadwalImportResult.employees_without_schedule.map((row, idx) => (
+                          <tr key={idx} className="border-b border-purple-200 hover:bg-purple-50">
+                            <td className="border border-purple-200 px-2 py-2">{row.nik || "-"}</td>
+                            <td className="border border-purple-200 px-2 py-2">{row.nama || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 p-5 border-t bg-gray-50">
+              <button
+                onClick={() => setShowJadwalImportResult(false)}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition"
+              >
+                Tutup
+              </button>
+              {!jadwalImportResult.error && (
+                <button
+                  onClick={() => {
+                    setShowJadwalImportResult(false);
+                    loadJadwalKaryawan();
+                  }}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
+                >
+                  Refresh Data
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== MODAL HASIL IMPORT KEHADIRAN ========== */}
+      {showImportResult && importResult && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className={`p-6 border-b-2 ${importResult.error ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
+              <div className="flex items-center justify-between">
+                <h2 className={`text-2xl font-bold flex items-center gap-2 ${importResult.error ? 'text-red-700' : 'text-green-700'}`}>
+                  {importResult.error ? '❌ Import Gagal' : '✅ Import Berhasil'}
+                </h2>
+                <button
+                  onClick={() => setShowImportResult(false)}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Body - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Main Message */}
+              <div className={`p-4 rounded-lg border-l-4 ${importResult.error ? 'bg-red-50 border-red-500 text-red-900' : 'bg-green-50 border-green-500 text-green-900'}`}>
+                <p className="font-semibold text-lg">{importResult.message || importResult.error}</p>
+              </div>
+
+              {/* Statistics Box */}
+              {importResult.inserted_count !== undefined && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-600 font-semibold">Total Input</p>
+                    <p className="text-3xl font-bold text-blue-700">{(importResult.inserted_count || 0) + (importResult.skipped_count || 0)}</p>
+                  </div>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p className="text-sm text-green-600 font-semibold">Berhasil Masuk</p>
+                    <p className="text-3xl font-bold text-green-700">{importResult.inserted_count || 0}</p>
+                  </div>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-sm text-yellow-600 font-semibold">Skip</p>
+                    <p className="text-3xl font-bold text-yellow-700">{importResult.skipped_count || 0}</p>
+                  </div>
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <p className="text-sm text-orange-600 font-semibold">Duplikat</p>
+                    <p className="text-3xl font-bold text-orange-700">{importResult.duplicate_count || 0}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Details Breakdown */}
+              {(importResult.not_found_count || importResult.invalid_date_count) && (
+                <div className="space-y-3">
+                  {importResult.not_found_count > 0 && (
+                    <div className="bg-orange-50 border border-orange-300 rounded-lg p-4">
+                      <p className="font-semibold text-orange-900">❌ Tidak Ditemukan: {importResult.not_found_count}</p>
+                      {importResult.not_found_samples && importResult.not_found_samples.length > 0 && (
+                        <div className="mt-2 text-sm text-orange-800">
+                          <p className="font-medium mb-1">Contoh karyawan tidak ditemukan:</p>
+                          <ul className="list-disc list-inside space-y-1">
+                            {importResult.not_found_samples.slice(0, 5).map((name, idx) => (
+                              <li key={idx} className="text-xs">{name}</li>
+                            ))}
+                          </ul>
+                          {importResult.not_found_samples.length > 5 && (
+                            <p className="text-xs mt-2 text-orange-700">+ {importResult.not_found_samples.length - 5} karyawan lainnya</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {importResult.invalid_date_count > 0 && (
+                    <div className="bg-red-50 border border-red-300 rounded-lg p-4">
+                      <p className="font-semibold text-red-900">âš ï¸ Format Tanggal Salah: {importResult.invalid_date_count}</p>
+                      <p className="text-sm text-red-700 mt-1">Pastikan format tanggal adalah YYYY-MM-DD atau DD/MM/YYYY</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Detailed Data Tables */}
+              {importResult.inserted_count > 0 && importResult.inserted_data && importResult.inserted_data.length > 0 && (
+                <div className="bg-green-50 border border-green-300 rounded-lg p-4">
+                  <p className="font-semibold text-green-900 mb-3">✅ Data Berhasil Masuk ({Math.min(importResult.inserted_data.length, 100)} dari {importResult.inserted_count})</p>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border border-green-200 bg-white text-xs">
+                      <thead>
+                        <tr className="bg-green-100 border-b border-green-200">
+                          <th className="border border-green-200 px-2 py-2 text-left">ID Absen</th>
+                          <th className="border border-green-200 px-2 py-2 text-left">Nama</th>
+                          <th className="border border-green-200 px-2 py-2 text-left">Jabatan</th>
+                          <th className="border border-green-200 px-2 py-2 text-left">Departemen</th>
+                          <th className="border border-green-200 px-2 py-2 text-left">Tanggal</th>
+                          <th className="border border-green-200 px-2 py-2 text-left">Jam</th>
+                        </tr>
+                      </thead>
+                      <tbody className="max-h-64 overflow-y-auto">
+                        {importResult.inserted_data.map((row, idx) => (
+                          <tr key={idx} className="border-b border-green-200 hover:bg-green-50">
+                            <td className="border border-green-200 px-2 py-2">{row.id_absen}</td>
+                            <td className="border border-green-200 px-2 py-2">{row.nama}</td>
+                            <td className="border border-green-200 px-2 py-2">{row.jabatan}</td>
+                            <td className="border border-green-200 px-2 py-2">{row.departemen}</td>
+                            <td className="border border-green-200 px-2 py-2">{row.tanggal}</td>
+                            <td className="border border-green-200 px-2 py-2">{row.jam}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {importResult.duplicate_count > 0 && importResult.duplicate_data && importResult.duplicate_data.length > 0 && (
+                <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
+                  <p className="font-semibold text-yellow-900 mb-3">🔄 Data Duplikat ({Math.min(importResult.duplicate_data.length, 100)} dari {importResult.duplicate_count})</p>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border border-yellow-200 bg-white text-xs">
+                      <thead>
+                        <tr className="bg-yellow-100 border-b border-yellow-200">
+                          <th className="border border-yellow-200 px-2 py-2 text-left">ID Absen</th>
+                          <th className="border border-yellow-200 px-2 py-2 text-left">Nama</th>
+                          <th className="border border-yellow-200 px-2 py-2 text-left">Jabatan</th>
+                          <th className="border border-yellow-200 px-2 py-2 text-left">Departemen</th>
+                          <th className="border border-yellow-200 px-2 py-2 text-left">Tanggal</th>
+                          <th className="border border-yellow-200 px-2 py-2 text-left">Jam</th>
+                        </tr>
+                      </thead>
+                      <tbody className="max-h-64 overflow-y-auto">
+                        {importResult.duplicate_data.map((row, idx) => (
+                          <tr key={idx} className="border-b border-yellow-200 hover:bg-yellow-50">
+                            <td className="border border-yellow-200 px-2 py-2">{row.id_absen}</td>
+                            <td className="border border-yellow-200 px-2 py-2">{row.nama}</td>
+                            <td className="border border-yellow-200 px-2 py-2">{row.jabatan}</td>
+                            <td className="border border-yellow-200 px-2 py-2">{row.departemen}</td>
+                            <td className="border border-yellow-200 px-2 py-2">{row.tanggal}</td>
+                            <td className="border border-yellow-200 px-2 py-2">{row.jam}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {importResult.not_found_count > 0 && importResult.skipped_data && importResult.skipped_data.length > 0 && (
+                <div className="bg-red-50 border border-red-300 rounded-lg p-4">
+                  <p className="font-semibold text-red-900 mb-3">❌ Data Tidak Ditemukan di Tabel Karyawan ({Math.min(importResult.skipped_data.length, 100)} dari {importResult.not_found_count})</p>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border border-red-200 bg-white text-xs">
+                      <thead>
+                        <tr className="bg-red-100 border-b border-red-200">
+                          <th className="border border-red-200 px-2 py-2 text-left">ID Absen</th>
+                          <th className="border border-red-200 px-2 py-2 text-left">Nama</th>
+                          <th className="border border-red-200 px-2 py-2 text-left">Jabatan</th>
+                          <th className="border border-red-200 px-2 py-2 text-left">Departemen</th>
+                        </tr>
+                      </thead>
+                      <tbody className="max-h-64 overflow-y-auto">
+                        {importResult.skipped_data.map((row, idx) => (
+                          <tr key={idx} className="border-b border-red-200 hover:bg-red-50">
+                            <td className="border border-red-200 px-2 py-2">{row.id_absen}</td>
+                            <td className="border border-red-200 px-2 py-2">{row.nama}</td>
+                            <td className="border border-red-200 px-2 py-2">{row.jabatan}</td>
+                            <td className="border border-red-200 px-2 py-2">{row.departemen}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Error Details */}
+              {importResult.error && importResult.details && (
+                <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
+                  <p className="font-semibold text-gray-900 mb-2">Detail Error:</p>
+                  <pre className="text-xs text-gray-700 overflow-x-auto bg-white p-3 rounded border border-gray-200">
+                    {importResult.details}
+                  </pre>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-3 p-6 border-t bg-gray-50">
+              <button
+                onClick={() => setShowImportResult(false)}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition"
+              >
+                Tutup
+              </button>
+              {importResult.inserted_count > 0 && (
+                <button
+                  onClick={() => {
+                    setShowImportResult(false);
+                    loadJadwalKaryawan(); // Refresh data jika ada
+                  }}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
+                >
+                  Refresh Data
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+
+

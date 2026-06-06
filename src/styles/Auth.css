@@ -1,0 +1,354 @@
+/* ============================================
+   Authentication Styles (Login & Register)
+   ============================================ */
+
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.auth-card {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  padding: 40px;
+  width: 100%;
+  max-width: 450px;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.auth-header h1 {
+  font-size: 28px;
+  color: #333;
+  margin: 0 0 10px 0;
+  font-weight: 600;
+}
+
+.auth-header .subtitle {
+  color: #666;
+  margin: 0;
+  font-size: 14px;
+}
+
+/* ============================================
+   Form Styling
+   ============================================ */
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #333;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group input:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 6px;
+  color: #999;
+  font-size: 12px;
+}
+
+/* ============================================
+   Button Styling
+   ============================================ */
+
+.btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.btn-primary {
+  background-color: #667eea;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #5568d3;
+  box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+  transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-block {
+  width: 100%;
+  display: block;
+}
+
+.btn-link {
+  background: none;
+  color: #667eea;
+  padding: 0;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+
+/* ============================================
+   Alert Messages
+   ============================================ */
+
+.alert {
+  padding: 12px 15px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.alert-error {
+  background-color: #fee;
+  color: #c33;
+  border: 1px solid #fcc;
+}
+
+.alert-success {
+  background-color: #efe;
+  color: #3c3;
+  border: 1px solid #cfc;
+}
+
+.alert-warning {
+  background-color: #ffe;
+  color: #aa6;
+  border: 1px solid #ffc;
+}
+
+.alert-info {
+  background-color: #eef;
+  color: #33c;
+  border: 1px solid #ccf;
+}
+
+/* ============================================
+   Info Messages
+   ============================================ */
+
+.success-message {
+  color: #3c3;
+  text-align: center;
+  margin: 15px 0;
+  font-size: 16px;
+}
+
+.info-message {
+  color: #666;
+  text-align: center;
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+.redirect-message {
+  color: #999;
+  text-align: center;
+  margin: 10px 0;
+  font-size: 13px;
+}
+
+/* ============================================
+   Info Box
+   ============================================ */
+
+.info-box {
+  background-color: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 15px;
+  margin-top: 20px;
+}
+
+.info-box h3 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.info-box ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.info-box li {
+  color: #666;
+  font-size: 13px;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+/* ============================================
+   Demo Credentials Box
+   ============================================ */
+
+.demo-box {
+  background-color: #f0f7ff;
+  border: 1px solid #cce5ff;
+  border-radius: 6px;
+  padding: 15px;
+  margin-top: 20px;
+}
+
+.demo-box h3 {
+  margin: 0 0 10px 0;
+  color: #0066cc;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.demo-box p {
+  margin: 5px 0;
+  color: #333;
+  font-size: 13px;
+  font-family: "Courier New", monospace;
+}
+
+.demo-box .label {
+  color: #666;
+  font-family: inherit;
+}
+
+/* ============================================
+   Footer Text
+   ============================================ */
+
+.auth-footer {
+  text-align: center;
+  margin-top: 20px;
+  color: #666;
+  font-size: 14px;
+}
+
+.auth-footer a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+/* ============================================
+   Loading State
+   ============================================ */
+
+.loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 10px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 30px 20px;
+  }
+
+  .auth-header h1 {
+    font-size: 24px;
+  }
+
+  .form-group input {
+    padding: 10px 12px;
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+
+  .btn {
+    padding: 11px 20px;
+    font-size: 16px;
+  }
+
+  .info-box,
+  .demo-box {
+    font-size: 12px;
+  }
+}

@@ -1,0 +1,162 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply transition-all-300;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    @apply bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50;
+  }
+
+  body {
+    @apply font-sans antialiased;
+    background-attachment: fixed;
+  }
+
+  button:active {
+    transform: scale(0.98);
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="date"],
+  input[type="number"],
+  textarea,
+  select {
+    @apply transition-all-300;
+  }
+
+  input[type="text"]:focus,
+  input[type="email"]:focus,
+  input[type="password"]:focus,
+  input[type="date"]:focus,
+  input[type="number"]:focus,
+  textarea:focus,
+  select:focus {
+    @apply ring-2 ring-blue-400 ring-offset-2 ring-offset-white;
+  }
+}
+
+@layer components {
+  .btn-smooth {
+    @apply active:scale-95 transition-transform duration-200;
+  }
+
+  .card-hover {
+    @apply hover:shadow-lg hover:scale-[1.02] transition-all duration-300;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent;
+  }
+
+  .badge-animated {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-medium text-sm animation-pulse;
+  }
+}
+
+/* Enhanced scrollbar styling for sidebar dan main content */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.4) 0%, rgba(139, 92, 246, 0.4) 100%);
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.7) 0%, rgba(139, 92, 246, 0.7) 100%);
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(37, 99, 235, 0.4) transparent;
+}
+
+/* Sidebar scrollbar styling */
+aside ::-webkit-scrollbar {
+  width: 6px;
+}
+
+aside ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+aside ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+}
+
+aside ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Prevent body scroll when sidebar is open on mobile */
+body.sidebar-open {
+  overflow: hidden;
+}
+
+/* Global hover effects */
+a {
+  @apply relative cursor-pointer;
+}
+
+a::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #2563eb, #8b5cf6);
+  transition: width 0.3s ease;
+}
+
+a:hover::after {
+  width: 100%;
+}
+
+/* Selection styling */
+::selection {
+  @apply bg-blue-200 text-blue-900;
+}
+
+::-moz-selection {
+  @apply bg-blue-200 text-blue-900;
+}
+
+/* Smooth transitions for page changes */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Input placeholder styling */
+::placeholder {
+  @apply text-gray-400 transition-colors;
+}
+
+:focus::placeholder {
+  @apply text-gray-300;
+}
