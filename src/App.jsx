@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import DashboardLayout from "./layouts/DashboardLayout";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import AppAlertProvider from "./components/AppAlertProvider";
 
 // Lazy load page components for better code splitting
 const UploadJadwal = lazy(() => import("./pages/UploadJadwal"));
@@ -27,8 +28,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Suspense fallback={<LoadingFallback />}>
-          <Routes>
+        <AppAlertProvider>
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/register-admin" element={<Register />} />
@@ -98,8 +100,9 @@ export default function App() {
 
             {/* Fallback - Default to Dashboard after login */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </Suspense>
+            </Routes>
+          </Suspense>
+        </AppAlertProvider>
       </AuthProvider>
     </BrowserRouter>
   );

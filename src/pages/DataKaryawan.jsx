@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import sariAter from "../assets/sari-ater.png";
 import { useAuth } from "../context/AuthContext";
 import { excelDropzoneClassName, getExcelDropzoneHandlers } from "../utils/excelDropzone";
+import EmployeeDummyGeneratorModal from "../components/EmployeeDummyGeneratorModal";
 
 export default function Karyawan() {
   // const API_URL = "http://127.0.0.1:5000/api";  // ✅ TAMBAHKAN INI: URL backend Flask
@@ -24,6 +25,7 @@ export default function Karyawan() {
   const [previewTable, setPreviewTable] = useState("");
   const [currentFile, setCurrentFile] = useState(null);
   const [isDraggingExcel, setIsDraggingExcel] = useState(false);
+  const [showGeneratorModal, setShowGeneratorModal] = useState(false);
 
   const rowsPerPage = 10;
   const cols = ["nama", "nik", "jabatan", "dept", "id_absen"];
@@ -227,6 +229,12 @@ export default function Karyawan() {
           className="flex items-center justify-center gap-2 bg-[#1BA39C] hover:bg-[#158f89] text-white px-6 py-4 rounded-xl shadow-md text-sm md:text-base"
         >
           <Download size={20} /> Download Template Excel
+        </button>
+        <button
+          onClick={() => setShowGeneratorModal(true)}
+          className="flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-[#1BA39C] border border-[#1BA39C] px-6 py-4 rounded-xl shadow-md text-sm md:text-base"
+        >
+          <FileSpreadsheet size={20} /> Generate Dummy Data
         </button>
       </div>
 
@@ -458,6 +466,15 @@ export default function Karyawan() {
           </div>
         </div>
       )}
+
+      <EmployeeDummyGeneratorModal
+        isOpen={showGeneratorModal}
+        onClose={() => setShowGeneratorModal(false)}
+        title="Generate Data Dummy Karyawan"
+        description="Data dummy mengikuti format file upload: NAMA, NIK, JABATAN, DEPT."
+        typeKey="karyawan"
+        fileName="Dummy_Data_Karyawan.xlsx"
+      />
     </div>
   );
 }
