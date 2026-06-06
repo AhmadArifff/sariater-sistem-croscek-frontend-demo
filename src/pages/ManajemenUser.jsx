@@ -8,12 +8,15 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import UserModal from "../components/UserModal";
 import api from "../utils/api";
 import { formatDate, formatUserRole, formatActiveStatus } from "../utils/formatters";
+import { useAuth } from "../context/AuthContext";
 
 /**
  * User Management Page
  * CRUD operations for users (admin only)
  */
 export default function ManajemenUser() {
+  const { user } = useAuth();
+  const isGuest = user?.role === "guest";
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -161,7 +164,7 @@ export default function ManajemenUser() {
   ];
 
   // Actions for DataTable rows
-  const actions = {
+  const actions = isGuest ? {} : {
     edit: {
       label: "Edit",
       onClick: (row) => handleOpenEditModal(row),
@@ -189,15 +192,17 @@ export default function ManajemenUser() {
             Kelola pengguna sistem, atur role, dan status aktivitas
           </p>
         </div>
-        <Button
-          variant="primary"
-          size="md"
-          onClick={handleOpenCreateModal}
-          className="flex items-center gap-2"
-        >
-          <Plus size={18} />
-          Tambah Pengguna
-        </Button>
+        {!isGuest && (
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleOpenCreateModal}
+            className="flex items-center gap-2"
+          >
+            <Plus size={18} />
+            Tambah Pengguna
+          </Button>
+        )}
       </div>
 
       {/* Error Alert */}
@@ -226,7 +231,7 @@ export default function ManajemenUser() {
             pageSize={10}
             loading={loading}
             emptyMessage="Tidak ada pengguna"
-            onRowClick={(row) => handleOpenEditModal(row)}
+            onRowClick={isGuest ? undefined : (row) => handleOpenEditModal(row)}
           />
         </CardBody>
       </Card>
@@ -241,6 +246,8 @@ export default function ManajemenUser() {
               <strong>Admin:</strong> Akses penuh ke semua fitur sistem
               <br />
               <strong>Staff:</strong> Hanya dapat melihat menu Croscek Karyawan dan Karyawan DW
+              <br />
+              <strong>Guest:</strong> Dapat melihat semua menu, hanya read-only dan export-only
             </p>
           </div>
         </CardBody>

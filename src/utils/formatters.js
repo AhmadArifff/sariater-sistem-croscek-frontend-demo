@@ -117,6 +117,7 @@ export function formatAttendanceStatus(status) {
 export const USER_ROLES = {
   admin: { label: "Admin", color: "red", bg: "bg-red-100", text: "text-red-800" },
   staff: { label: "Staff", color: "blue", bg: "bg-blue-100", text: "text-blue-800" },
+  guest: { label: "Guest", color: "gray", bg: "bg-gray-100", text: "text-gray-800" },
 };
 
 export function formatUserRole(role) {

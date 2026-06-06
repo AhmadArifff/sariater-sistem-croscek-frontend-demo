@@ -7,6 +7,7 @@ import sariAter from "../assets/sari-ater.png";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import logoCompany from "../assets/Image/logo.jpg";
+import { excelDropzoneClassName, getExcelDropzoneHandlers } from "../utils/excelDropzone";
 
 
 export default function Croscek_DW() {
@@ -24,6 +25,8 @@ export default function Croscek_DW() {
   // LOADING / STATUS
   const [loadingJadwal, setLoadingJadwal] = useState(false);
   const [loadingKehadiran, setLoadingKehadiran] = useState(false);
+  const [isDraggingJadwal, setIsDraggingJadwal] = useState(false);
+  const [isDraggingKehadiran, setIsDraggingKehadiran] = useState(false);
   const [savingJadwal, setSavingJadwal] = useState(false);
   const [savingKehadiran, setSavingKehadiran] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -6163,10 +6166,13 @@ const handlePreviewDailyWorker = () => {
 
       {/* UPLOAD JADWAL */}
       <div className="mt-6 flex flex-col md:flex-row gap-4">
-        <label className="block w-full border-2 border-dashed border-blue-500 hover:bg-blue-50 cursor-pointer rounded-xl p-10 text-center transition">
+        <label
+          className={`block w-full border-2 border-dashed border-blue-500 hover:bg-blue-50 cursor-pointer rounded-xl p-10 text-center transition${excelDropzoneClassName(isDraggingJadwal)}`}
+          {...getExcelDropzoneHandlers(handleUploadJadwal, setIsDraggingJadwal)}
+        >
           <UploadCloud size={45} className="text-blue-600 mx-auto" />
           <p className="text-gray-700 font-medium mt-3">Upload File Jadwal</p>
-          <input type="file" onChange={handleUploadJadwal} className="hidden" />
+          <input type="file" onChange={handleUploadJadwal} accept=".xlsx,.xls" className="hidden" />
         </label>
         <div className="flex flex-col gap-2">
           <select
@@ -6995,10 +7001,13 @@ const handlePreviewDailyWorker = () => {
 
       {/* UPLOAD KEHADIRAN */}
       <div className="mt-10 flex flex-col md:flex-row gap-4">
-        <label className="block w-full border-2 border-dashed border-green-500 hover:bg-green-50 cursor-pointer rounded-xl p-10 text-center transition">
+        <label
+          className={`block w-full border-2 border-dashed border-green-500 hover:bg-green-50 cursor-pointer rounded-xl p-10 text-center transition${excelDropzoneClassName(isDraggingKehadiran)}`}
+          {...getExcelDropzoneHandlers(handleUploadKehadiran, setIsDraggingKehadiran)}
+        >
           <UploadCloud size={45} className="text-green-600 mx-auto" />
           <p className="text-gray-700 font-medium mt-3">Upload File Kehadiran</p>
-          <input type="file" onChange={handleUploadKehadiran} className="hidden" />
+          <input type="file" onChange={handleUploadKehadiran} accept=".xlsx,.xls" className="hidden" />
         </label>
         <div className="flex flex-col gap-2">
         {/* TAMBAHAN: SELECT BULAN (DINAMIS DARI DATA) */}

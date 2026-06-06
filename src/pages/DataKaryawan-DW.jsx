@@ -3,10 +3,14 @@ import { useState, useEffect } from "react";
 import { UploadCloud, FileSpreadsheet, Plus, Download, Trash2, Edit, Search } from "lucide-react";
 import * as XLSX from "xlsx";
 import sariAter from "../assets/sari-ater.png";
+import { useAuth } from "../context/AuthContext";
+import { excelDropzoneClassName, getExcelDropzoneHandlers } from "../utils/excelDropzone";
 
 export default function Karyawan_DW() {
   // const API_URL = "http://127.0.0.1:5000/api";  // ✅ TAMBAHKAN INI: URL backend Flask
   const API_URL = import.meta.env.VITE_API_URL;
+  const { user } = useAuth();
+  const isGuest = user?.role === "guest";
 
   const [showModal, setShowModal] = useState(false);
   const [data, setData] = useState([]);
@@ -19,6 +23,7 @@ export default function Karyawan_DW() {
   const [loading, setLoading] = useState(false);
   const [previewTable, setPreviewTable] = useState("");
   const [currentFile, setCurrentFile] = useState(null);
+  const [isDraggingExcel, setIsDraggingExcel] = useState(false);
 
   const rowsPerPage = 10;
   const cols = ["nama", "nik", "jabatan", "dept", "id_absen"];
@@ -184,11 +189,16 @@ export default function Karyawan_DW() {
 
       {/* UPLOAD & TEMPLATE */}
       <div className="mt-6 flex flex-col md:flex-row gap-4">
-        <label className="block w-full border-2 border-dashed border-[#1BA39C] bg-white hover:bg-[#e9f7f7] transition cursor-pointer rounded-xl p-10 md:p-14 text-center">
-          <UploadCloud size={40} className="text-[#1BA39C] mx-auto" />
-          <p className="text-gray-700 font-medium mt-3 text-sm md:text-base">Klik untuk Upload File Excel</p>
-          <input type="file" hidden accept=".xlsx,.xls" onChange={uploadExcel} />
-        </label>
+        {!isGuest && (
+          <label
+            className={`block w-full border-2 border-dashed border-[#1BA39C] bg-white hover:bg-[#e9f7f7] transition cursor-pointer rounded-xl p-10 md:p-14 text-center${excelDropzoneClassName(isDraggingExcel)}`}
+            {...getExcelDropzoneHandlers(uploadExcel, setIsDraggingExcel)}
+          >
+            <UploadCloud size={40} className="text-[#1BA39C] mx-auto" />
+            <p className="text-gray-700 font-medium mt-3 text-sm md:text-base">Klik untuk Upload File Excel</p>
+            <input type="file" hidden accept=".xlsx,.xls" onChange={uploadExcel} />
+          </label>
+        )}
         <button
           onClick={downloadTemplate}
           className="flex items-center justify-center gap-2 bg-[#1BA39C] hover:bg-[#158f89] text-white px-6 py-4 rounded-xl shadow-md text-sm md:text-base"
@@ -205,13 +215,15 @@ export default function Karyawan_DW() {
               <FileSpreadsheet className="text-green-700" size={28} />
               <h2 className="text-xl font-bold">Preview Data Excel</h2>
             </div>
-            <button
-              onClick={saveExcelToDB}
-              disabled={loading}
-              className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm md:text-base"
-            >
-              Simpan
-            </button>
+            {!isGuest && (
+              <button
+                onClick={saveExcelToDB}
+                disabled={loading}
+                className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm md:text-base"
+              >
+                Simpan
+              </button>
+            )}
           </div>
 
           <div className="overflow-auto max-h-[400px] border rounded-xl p-3 text-xs md:text-sm">
@@ -237,16 +249,18 @@ export default function Karyawan_DW() {
                 setCurrentPage(1);
               }}
             />
-            <button
-              className="flex items-center gap-1 bg-green-600 text-white px-3 py-1 rounded-lg"
-              onClick={() => {
-                setShowModal(true);
-                setIsEdit(false);
-                setForm({ nama: "", nik: "", jabatan: "", dept: "" });
-              }}
-            >
-              <Plus size={16} /> Tambah
-            </button>
+            {!isGuest && (
+              <button
+                className="flex items-center gap-1 bg-green-600 text-white px-3 py-1 rounded-lg"
+                onClick={() => {
+                  setShowModal(true);
+                  setIsEdit(false);
+                  setForm({ nama: "", nik: "", jabatan: "", dept: "" });
+                }}
+              >
+                <Plus size={16} /> Tambah
+              </button>
+            )}
           </div>
         </div>
 
@@ -257,7 +271,7 @@ export default function Karyawan_DW() {
               <tr>
                 <th className="border p-2">No</th>
                 {cols.map(c => <th key={c} className="border p-2">{c.toUpperCase()}</th>)}
-                <th className="border p-2">Action</th>
+                {!isGuest && <th className="border p-2">Action</th>}
               </tr>
             </thead>
 
@@ -278,35 +292,37 @@ export default function Karyawan_DW() {
                       ) : d[col]}
                     </td>
                   ))}
-                  <td className="border p-2 flex gap-2">
-                    {editingNik === d.nik ? (
+                  {!isGuest && (
+                    <td className="border p-2 flex gap-2">
+                      {editingNik === d.nik ? (
+                        <button
+                          onClick={() => saveData()}
+                          className="bg-blue-600 text-white px-2 py-1 rounded text-xs"
+                        >
+                          Update
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => editData(d)}
+                          className="bg-yellow-500 text-white px-2 py-1 rounded text-xs"
+                        >
+                          Edit
+                        </button>
+                      )}
                       <button
-                        onClick={() => saveData()}
-                        className="bg-blue-600 text-white px-2 py-1 rounded text-xs"
+                        onClick={() => removeData(d.nik)}
+                        className="bg-red-600 text-white px-2 py-1 rounded flex items-center gap-1 text-xs"
                       >
-                        Update
+                        <Trash2 size={14} /> Hapus
                       </button>
-                    ) : (
-                      <button
-                        onClick={() => editData(d)}
-                        className="bg-yellow-500 text-white px-2 py-1 rounded text-xs"
-                      >
-                        Edit
-                      </button>
-                    )}
-                    <button
-                      onClick={() => removeData(d.nik)}
-                      className="bg-red-600 text-white px-2 py-1 rounded flex items-center gap-1 text-xs"
-                    >
-                      <Trash2 size={14} /> Hapus
-                    </button>
-                  </td>
+                    </td>
+                  )}
                 </tr>
               ))}
 
               {data.length === 0 && (
                 <tr>
-                  <td className="border p-4 text-center" colSpan={cols.length + 2}>
+                  <td className="border p-4 text-center" colSpan={cols.length + (isGuest ? 1 : 2)}>
                     Tidak ada data ditemukan.
                   </td>
                 </tr>

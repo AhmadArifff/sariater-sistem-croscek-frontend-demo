@@ -224,6 +224,7 @@ export default function UserModal({ isOpen, onClose, user, isEditing, onSave }) 
           required
           options={[
             { value: "staff", label: "Staff - Akses Terbatas" },
+            { value: "guest", label: "Guest - Read & Export Only" },
             { value: "admin", label: "Admin - Akses Penuh" },
           ]}
         />

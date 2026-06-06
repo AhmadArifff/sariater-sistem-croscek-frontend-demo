@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.107.0",
     "axios": "^1.15.0",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
@@ -18,7 +19,10 @@
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.6",
     "recharts": "^3.8.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "npm:@e965/xlsx@^0.20.3"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

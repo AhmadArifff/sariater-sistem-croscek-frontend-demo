@@ -4,6 +4,7 @@ import { UploadCloud, FileSpreadsheet, Trash2, Plus, Download } from "lucide-rea
 import * as XLSX from "xlsx";
 import sariAter from "../assets/sari-ater.png";
 import { useAuth } from "../context/AuthContext";
+import { excelDropzoneClassName, getExcelDropzoneHandlers } from "../utils/excelDropzone";
 
 const COLS = [
   "kode", "lokasi_kerja", "nama_shift",
@@ -49,7 +50,8 @@ export default function InformasiJadwal() {
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState(null);
   
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isGuest = user?.role === "guest";
 
   // Debug logging
   useEffect(() => {
@@ -61,6 +63,7 @@ export default function InformasiJadwal() {
   // Upload Excel
   const [previewTable, setPreviewTable] = useState("");
   const [currentFile, setCurrentFile]   = useState(null);
+  const [isDraggingExcel, setIsDraggingExcel] = useState(false);
 
   // Inline edit
   const [editingKode, setEditingKode] = useState(null);
@@ -413,13 +416,18 @@ export default function InformasiJadwal() {
 
       {/* UPLOAD & TEMPLATE */}
       <div className="mt-6 flex flex-col md:flex-row gap-4">
-        <label className="block w-full border-2 border-dashed border-[#1BA39C] bg-white hover:bg-[#e9f7f7] transition cursor-pointer rounded-xl p-10 md:p-14 text-center">
-          <UploadCloud size={40} className="text-[#1BA39C] mx-auto" />
-          <p className="text-gray-700 font-medium mt-3 text-sm md:text-base">
-            Klik untuk Upload File Excel
-          </p>
-          <input type="file" hidden accept=".xlsx,.xls" onChange={handleFileChange} />
-        </label>
+        {!isGuest && (
+          <label
+            className={`block w-full border-2 border-dashed border-[#1BA39C] bg-white hover:bg-[#e9f7f7] transition cursor-pointer rounded-xl p-10 md:p-14 text-center${excelDropzoneClassName(isDraggingExcel)}`}
+            {...getExcelDropzoneHandlers(handleFileChange, setIsDraggingExcel)}
+          >
+            <UploadCloud size={40} className="text-[#1BA39C] mx-auto" />
+            <p className="text-gray-700 font-medium mt-3 text-sm md:text-base">
+              Klik untuk Upload File Excel
+            </p>
+            <input type="file" hidden accept=".xlsx,.xls" onChange={handleFileChange} />
+          </label>
+        )}
 
         <button
           onClick={downloadTemplate}
@@ -437,13 +445,15 @@ export default function InformasiJadwal() {
               <FileSpreadsheet className="text-green-700" size={28} />
               <h2 className="text-xl font-bold">Preview Data Excel</h2>
             </div>
-            <button
-              onClick={saveExcelToDB}
-              disabled={loading}
-              className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm md:text-base"
-            >
-              {loading ? "Menyimpan..." : "Simpan ke Database"}
-            </button>
+            {!isGuest && (
+              <button
+                onClick={saveExcelToDB}
+                disabled={loading}
+                className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm md:text-base"
+              >
+                {loading ? "Menyimpan..." : "Simpan ke Database"}
+              </button>
+            )}
           </div>
           <div className="overflow-auto max-h-[400px] border rounded-xl p-3 text-xs md:text-sm">
             <div dangerouslySetInnerHTML={{ __html: previewTable }} />
@@ -464,12 +474,14 @@ export default function InformasiJadwal() {
               value={search}
               onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
             />
-            <button
-              className="flex items-center gap-1 bg-green-600 text-white px-3 py-1 rounded-lg"
-              onClick={() => { setShowModal(true); setNewForm(EMPTY_FORM); }}
-            >
-              <Plus size={16} /> Tambah
-            </button>
+            {!isGuest && (
+              <button
+                className="flex items-center gap-1 bg-green-600 text-white px-3 py-1 rounded-lg"
+                onClick={() => { setShowModal(true); setNewForm(EMPTY_FORM); }}
+              >
+                <Plus size={16} /> Tambah
+              </button>
+            )}
           </div>
         </div>
 
@@ -500,7 +512,7 @@ export default function InformasiJadwal() {
                     {c.replace("_", " ").toUpperCase()}
                   </th>
                 ))}
-                <th className="border p-2">Action</th>
+                {!isGuest && <th className="border p-2">Action</th>}
               </tr>
             </thead>
 
@@ -538,40 +550,42 @@ export default function InformasiJadwal() {
                     </td>
                   ))}
 
-                  <td className="border p-2">
-                    <div className="flex gap-1 justify-center">
-                      {editingKode === item.kode ? (
-                        <>
+                  {!isGuest && (
+                    <td className="border p-2">
+                      <div className="flex gap-1 justify-center">
+                        {editingKode === item.kode ? (
+                          <>
+                            <button
+                              onClick={() => handleUpdate(item.kode)}
+                              disabled={loading}
+                              className="bg-blue-600 text-white px-2 py-1 rounded text-xs disabled:opacity-60"
+                            >
+                              Update
+                            </button>
+                            <button
+                              onClick={() => { setEditingKode(null); setEditForm({}); }}
+                              className="bg-gray-400 text-white px-2 py-1 rounded text-xs"
+                            >
+                              Batal
+                            </button>
+                          </>
+                        ) : (
                           <button
-                            onClick={() => handleUpdate(item.kode)}
-                            disabled={loading}
-                            className="bg-blue-600 text-white px-2 py-1 rounded text-xs disabled:opacity-60"
+                            onClick={() => startEdit(item)}
+                            className="bg-yellow-500 text-white px-2 py-1 rounded text-xs"
                           >
-                            Update
+                            Edit
                           </button>
-                          <button
-                            onClick={() => { setEditingKode(null); setEditForm({}); }}
-                            className="bg-gray-400 text-white px-2 py-1 rounded text-xs"
-                          >
-                            Batal
-                          </button>
-                        </>
-                      ) : (
+                        )}
                         <button
-                          onClick={() => startEdit(item)}
-                          className="bg-yellow-500 text-white px-2 py-1 rounded text-xs"
+                          onClick={() => handleDelete(item.kode)}
+                          className="bg-red-600 text-white px-2 py-1 rounded flex items-center gap-1 text-xs"
                         >
-                          Edit
+                          <Trash2 size={14} /> Hapus
                         </button>
-                      )}
-                      <button
-                        onClick={() => handleDelete(item.kode)}
-                        className="bg-red-600 text-white px-2 py-1 rounded flex items-center gap-1 text-xs"
-                      >
-                        <Trash2 size={14} /> Hapus
-                      </button>
-                    </div>
-                  </td>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
 
@@ -579,7 +593,7 @@ export default function InformasiJadwal() {
                 <tr>
                   <td
                     className="border p-4 text-center text-gray-400"
-                    colSpan={COLS.length + 2}
+                    colSpan={COLS.length + (isGuest ? 1 : 2)}
                   >
                     Tidak ada data ditemukan.
                   </td>

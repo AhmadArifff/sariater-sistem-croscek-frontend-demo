@@ -7,6 +7,7 @@ import sariAter from "../assets/sari-ater.png";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import logoCompany from "../assets/Image/logo.jpg";
+import { excelDropzoneClassName, getExcelDropzoneHandlers } from "../utils/excelDropzone";
 // import { 
 //   // FileSpreadsheet, 
 //   // X, 
@@ -36,6 +37,8 @@ export default function Croscek() {
   // LOADING / STATUS
   const [loadingJadwal, setLoadingJadwal] = useState(false);
   const [loadingKehadiran, setLoadingKehadiran] = useState(false);
+  const [isDraggingJadwal, setIsDraggingJadwal] = useState(false);
+  const [isDraggingKehadiran, setIsDraggingKehadiran] = useState(false);
   const [savingJadwal, setSavingJadwal] = useState(false);
   const [savingKehadiran, setSavingKehadiran] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -6663,7 +6666,10 @@ const formatDate = (dateString) => {
 
           {/* UPLOAD JADWAL */}
       <div className="mt-6 mx-6 flex flex-col md:flex-row gap-4">
-        <label className="block w-full border-2 border-dashed border-blue-400 hover:border-blue-600 hover:bg-blue-50 cursor-pointer rounded-2xl p-10 text-center transition duration-300">
+        <label
+          className={`block w-full border-2 border-dashed border-blue-400 hover:border-blue-600 hover:bg-blue-50 cursor-pointer rounded-2xl p-10 text-center transition duration-300${excelDropzoneClassName(isDraggingJadwal)}`}
+          {...getExcelDropzoneHandlers(handleUploadJadwal, setIsDraggingJadwal)}
+        >
           <UploadCloud size={45} className="text-blue-600 mx-auto" />
           <p className="text-gray-700 font-semibold mt-3">Upload File Jadwal</p>
           <p className="text-xs text-gray-500 mt-1">Format: Excel (.xlsx, .xls)</p>
@@ -7478,7 +7484,10 @@ const formatDate = (dateString) => {
 
       {/* UPLOAD KEHADIRAN */}
       <div className="mt-10 mx-6 flex flex-col md:flex-row gap-4">
-        <label className="block w-full border-2 border-dashed border-emerald-400 hover:border-emerald-600 hover:bg-emerald-50 cursor-pointer rounded-2xl p-10 text-center transition duration-300">
+        <label
+          className={`block w-full border-2 border-dashed border-emerald-400 hover:border-emerald-600 hover:bg-emerald-50 cursor-pointer rounded-2xl p-10 text-center transition duration-300${excelDropzoneClassName(isDraggingKehadiran)}`}
+          {...getExcelDropzoneHandlers(handleUploadKehadiran, setIsDraggingKehadiran)}
+        >
           <UploadCloud size={45} className="text-emerald-600 mx-auto" />
           <p className="text-gray-700 font-semibold mt-3">Upload File Kehadiran</p>
           <p className="text-xs text-gray-500 mt-1">Format: Excel (.xlsx, .xls)</p>

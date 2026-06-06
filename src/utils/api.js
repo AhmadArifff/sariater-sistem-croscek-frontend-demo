@@ -12,10 +12,86 @@ const api = axios.create({
   },
 });
 
+function getStoredUserRole() {
+  try {
+    const storedUser = localStorage.getItem("auth_user");
+    return storedUser ? JSON.parse(storedUser)?.role : null;
+  } catch {
+    return null;
+  }
+}
+
+function getFetchMethod(input, init = {}) {
+  if (init.method) return init.method.toUpperCase();
+  if (input instanceof Request && input.method) return input.method.toUpperCase();
+  return "GET";
+}
+
+function isApiRequest(input) {
+  const rawUrl = typeof input === "string" ? input : input?.url;
+  if (!rawUrl) return false;
+  try {
+    const targetUrl = new URL(rawUrl, window.location.origin);
+    const apiUrl = new URL(API_BASE_URL, window.location.origin);
+    return targetUrl.origin === apiUrl.origin && targetUrl.pathname.startsWith(apiUrl.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function installAuthenticatedFetch() {
+  if (typeof window === "undefined" || window.__croscekFetchInstalled) return;
+
+  const originalFetch = window.fetch.bind(window);
+  window.__croscekFetchInstalled = true;
+
+  window.fetch = async (input, init = {}) => {
+    if (!isApiRequest(input)) {
+      return originalFetch(input, init);
+    }
+
+    const method = getFetchMethod(input, init);
+    const role = getStoredUserRole();
+
+    if (role === "guest" && !["GET", "HEAD", "OPTIONS"].includes(method)) {
+      window.alert("Akses guest hanya read-only dan export-only.");
+      return new Response(JSON.stringify({ error: "Guest hanya boleh membaca data" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const token = localStorage.getItem("auth_token");
+    if (!token) {
+      return originalFetch(input, init);
+    }
+
+    const headers = new Headers(
+      init.headers || (input instanceof Request ? input.headers : undefined)
+    );
+    headers.set("Authorization", `Bearer ${token}`);
+
+    return originalFetch(input, { ...init, headers });
+  };
+}
+
+installAuthenticatedFetch();
+
 // Add JWT token interceptor
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("auth_token");
+    const role = getStoredUserRole();
+
+    if (
+      role === "guest" &&
+      config.method &&
+      !["get", "head", "options"].includes(config.method.toLowerCase())
+    ) {
+      window.alert("Akses guest hanya read-only dan export-only.");
+      return Promise.reject(new Error("Guest hanya boleh membaca data"));
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

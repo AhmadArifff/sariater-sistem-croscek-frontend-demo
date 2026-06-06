@@ -41,7 +41,14 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route path="/informasi-jadwal" element={<UploadJadwal />} />
+              <Route
+                path="/informasi-jadwal"
+                element={
+                  <ProtectedRoute requiredRole={["admin", "guest"]}>
+                    <UploadJadwal />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/croscek-karyawan" element={<Croscek />} />
               <Route path="/croscek-dw" element={<Croscek_DW />} />
@@ -50,7 +57,7 @@ export default function App() {
               <Route
                 path="/karyawan"
                 element={
-                  <ProtectedRoute requiredRole="admin">
+                  <ProtectedRoute requiredRole={["admin", "guest"]}>
                     <UploadKaryawan />
                   </ProtectedRoute>
                 }
@@ -58,7 +65,7 @@ export default function App() {
               <Route
                 path="/dw"
                 element={
-                  <ProtectedRoute requiredRole="admin">
+                  <ProtectedRoute requiredRole={["admin", "guest"]}>
                     <UploadKaryawan_DW />
                   </ProtectedRoute>
                 }
@@ -66,7 +73,7 @@ export default function App() {
               <Route
                 path="/manajemen-user"
                 element={
-                  <ProtectedRoute requiredRole="admin">
+                  <ProtectedRoute requiredRole={["admin", "guest"]}>
                     <ManajemenUser />
                   </ProtectedRoute>
                 }

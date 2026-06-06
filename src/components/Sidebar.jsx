@@ -123,8 +123,7 @@ export default function Sidebar() {
   const handleMouseLeave = () => isDesktop && setOpen(false);
 
   /* ================= MENU TREE - Role Based ================= */
-  // Staff hanya bisa lihat: Croscek Karyawan & Croscek DW & Dashboard
-  // Admin bisa lihat semua
+  // Staff hanya bisa lihat menu operasional, guest bisa lihat semua menu secara read-only.
   const getMenuTree = () => {
     const baseMenu = [
       {
@@ -190,6 +189,8 @@ export default function Sidebar() {
 
     // Filter menu berdasarkan role
     return baseMenu.filter(menu => {
+      if (user?.role === "guest") return true;
+
       if (menu.requiredRole && !hasRole(menu.requiredRole)) {
         return false;
       }
