@@ -4747,7 +4747,18 @@ const LIBUR_SHIFTS = ['CT','CTT','EO','OF1','CTB','X'];
 const hasPrediksiShiftValue = (prediksiShift) => {
   if (prediksiShift === null || prediksiShift === undefined) return false;
   const normalized = String(prediksiShift).trim().toUpperCase();
-  return normalized !== "" && normalized !== "NULL" && normalized !== "0" && normalized !== "FALSE";
+  return ![
+    "",
+    "NULL",
+    "0",
+    "FALSE",
+    "OK",
+    "✓ OK",
+    "✔ OK",
+    "SESUAI",
+    "NORMAL",
+    "-"
+  ].includes(normalized);
 };
 
 const formatPrediksiDateTime = (value) => {
