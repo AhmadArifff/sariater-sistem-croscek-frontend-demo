@@ -34,12 +34,6 @@ const CLEAR_SCHEDULE_PREVIEW_EVENT = "croscek:tour-clear-schedule-preview";
 
 const DASHBOARD_STEPS = [
   {
-    target: "dashboard-header",
-    title: "Dashboard Analytics",
-    icon: BarChart3,
-    body: "Ini halaman ringkasan utama. Recruiter atau admin bisa melihat kondisi kehadiran, tren, kualitas data, dan daftar keterlambatan dari satu tempat.",
-  },
-  {
     target: "dashboard-filter-card",
     title: "Filter Data",
     icon: Filter,
@@ -47,7 +41,7 @@ const DASHBOARD_STEPS = [
   },
   {
     target: "dashboard-filter-type",
-    title: "Tipe Filter",
+    title: "Pilihan Periode",
     icon: Filter,
     body: "Pilih Hari Ini untuk monitoring cepat, Range Tanggal untuk audit periode tertentu, atau Bulan untuk laporan bulanan seperti Juni 2026.",
   },
@@ -99,49 +93,15 @@ const DASHBOARD_STEPS = [
     icon: LineChart,
     body: "Chart ini fokus pada tren keterlambatan harian per departemen. Ini membantu membaca apakah keterlambatan hanya sporadis atau berulang.",
   },
-  {
-    target: "dashboard-last-updated",
-    title: "Waktu Refresh Tampilan",
-    icon: Clock,
-    body: "Bagian ini menunjukkan kapan dashboard terakhir dirender di browser. Jika data baru diimport, refresh atau ubah filter untuk memastikan tampilan terbaru.",
-  },
 ];
 
 const MANAGEMENT_USER_STEPS = [
-  {
-    target: "users-page",
-    title: "Halaman Manajemen User",
-    icon: Users,
-    action: "closeUserModal",
-    body: "Halaman Manajemen User adalah pusat kontrol akun aplikasi. Anggap seperti ruang admin yang menyimpan beberapa bagian kecil: tombol tambah user, tabel data, status aktif, role, dan aksi akun. Setiap bagian punya tugas sendiri, lalu semuanya bekerja bersama untuk mengatur siapa yang boleh masuk dan apa yang boleh dilakukan.",
-  },
-  {
-    target: "users-header",
-    title: "Konteks Halaman",
-    icon: Users,
-    action: "closeUserModal",
-    body: "Header ini memberi konteks sebelum admin mulai bekerja. Teks judul dan deskripsi membantu user demo memahami bahwa menu ini dipakai untuk mengelola username, nama lengkap, role akses, dan status aktivitas akun.",
-  },
   {
     target: "users-add-button",
     title: "Tambah Pengguna",
     icon: UserPlus,
     action: "closeUserModal",
     body: "Tombol Tambah Pengguna adalah pintu masuk untuk membuat akun baru. Saat diklik, aplikasi membuka form modal sehingga admin bisa mengisi identitas user, menentukan role Admin, Staff, atau Guest, lalu menyimpan akun tanpa meninggalkan halaman ini.",
-  },
-  {
-    target: "users-modal-shell",
-    title: "Modal Buat Pengguna",
-    icon: UserPlus,
-    action: "openUserModal",
-    body: "Modal ini adalah form khusus untuk membuat akun. Konsepnya seperti formulir kecil yang muncul di atas halaman utama, supaya admin bisa fokus mengisi data user tanpa kehilangan konteks halaman Manajemen User.",
-  },
-  {
-    target: "users-modal-title",
-    title: "Judul Modal",
-    icon: UserPlus,
-    action: "openUserModal",
-    body: "Judul modal memberi tahu mode kerja yang sedang aktif. Saat membuat user baru akan tertulis Buat Pengguna Baru, sedangkan saat edit akan berubah menjadi Edit Pengguna.",
   },
   {
     target: "users-modal-username",
@@ -193,13 +153,6 @@ const MANAGEMENT_USER_STEPS = [
     body: "Tombol Buat Pengguna menjalankan validasi form lalu menyimpan akun baru jika semua field valid. Tutorial ini hanya menjelaskan tombolnya dan tidak menekan tombol simpan, jadi data tidak berubah.",
   },
   {
-    target: "users-table-card",
-    title: "Tabel Pengguna",
-    icon: ListChecks,
-    action: "closeUserModal",
-    body: "Tabel ini adalah daftar kerja utama. Di sini admin bisa membaca semua akun, mencari user tertentu, sorting kolom, membuka edit lewat baris, serta memakai action seperti Edit, Aktifkan atau Nonaktifkan, dan Hapus. Jadi tabel ini bukan hanya tampilan data, tapi juga kontrol operasional akun.",
-  },
-  {
     target: "users-table-search",
     title: "Search User",
     icon: Filter,
@@ -231,27 +184,6 @@ const MANAGEMENT_USER_STEPS = [
 
 const SCHEDULE_STEPS = [
   {
-    target: "schedule-page",
-    title: "Halaman Informasi Jadwal",
-    icon: CalendarDays,
-    action: "closeScheduleHelpers",
-    body: "Halaman Informasi Jadwal adalah master data shift. Anggap seperti kumpulan komponen kecil: header, upload Excel, template, preview, tabel data, search, pagination, dan form tambah. Setiap bagian punya fungsi sendiri lalu digabung menjadi workflow pengelolaan shift.",
-  },
-  {
-    target: "schedule-header",
-    title: "Header Informasi Jadwal",
-    icon: CalendarDays,
-    action: "closeScheduleHelpers",
-    body: "Header ini memberi konteks halaman. Logo menunjukkan identitas aplikasi, judul menjelaskan menu aktif, dan deskripsi memberi tahu bahwa jadwal bisa diunggah lewat Excel atau ditambah manual.",
-  },
-  {
-    target: "schedule-upload-section",
-    title: "Area Upload dan Template",
-    icon: UploadCloud,
-    action: "closeScheduleHelpers",
-    body: "Bagian ini adalah pintu masuk data Excel. Di sisi kiri ada dropzone upload, dan di sisi kanan ada tombol download template supaya format file yang dipakai tetap sesuai standar sistem.",
-  },
-  {
     target: "schedule-upload-dropzone",
     title: "Dropzone Upload Excel",
     icon: UploadCloud,
@@ -273,13 +205,6 @@ const SCHEDULE_STEPS = [
     body: "Area preview muncul setelah file Excel dipilih. Tutorial menampilkan contoh preview agar user memahami bahwa data bisa diperiksa dulu sebelum benar-benar dikirim ke database.",
   },
   {
-    target: "schedule-preview-header",
-    title: "Header Preview",
-    icon: FileSpreadsheet,
-    action: "showSchedulePreview",
-    body: "Header preview menampilkan konteks file yang sedang dibaca dan tombol simpan. Ini menjadi checkpoint sebelum data Excel masuk ke master jadwal.",
-  },
-  {
     target: "schedule-preview-save",
     title: "Simpan ke Database",
     icon: CheckSquare,
@@ -294,20 +219,6 @@ const SCHEDULE_STEPS = [
     body: "Tabel preview memperlihatkan isi Excel yang berhasil dibaca. User bisa memeriksa apakah kode shift, jam, status, dan kolom lain sudah rapi sebelum proses upload final.",
   },
   {
-    target: "schedule-table-card",
-    title: "Data Informasi Jadwal",
-    icon: ListChecks,
-    action: "clearSchedulePreview",
-    body: "Bagian ini menampilkan data shift yang sudah tersimpan. Ini adalah pusat kerja master jadwal setelah data berhasil dibuat lewat upload Excel atau form manual.",
-  },
-  {
-    target: "schedule-table-header",
-    title: "Header Tabel dan Tools",
-    icon: Filter,
-    action: "clearSchedulePreview",
-    body: "Header tabel menggabungkan judul daftar data, input pencarian, dan tombol tambah. Sama seperti komponen kecil di React, masing-masing punya tugas berbeda tetapi membentuk satu workflow.",
-  },
-  {
     target: "schedule-search-input",
     title: "Search Jadwal",
     icon: Filter,
@@ -320,20 +231,6 @@ const SCHEDULE_STEPS = [
     icon: UserPlus,
     action: "closeScheduleHelpers",
     body: "Tombol Tambah membuka form manual untuk membuat satu informasi jadwal baru. Ini berguna saat admin ingin menambah shift kecil tanpa membuat file Excel.",
-  },
-  {
-    target: "schedule-modal-shell",
-    title: "Modal Tambah Jadwal",
-    icon: CalendarDays,
-    action: "openScheduleModal",
-    body: "Modal ini adalah form input jadwal manual. User tetap berada di halaman yang sama, tetapi fokus dipindahkan ke form kecil untuk mengisi detail shift satu per satu.",
-  },
-  {
-    target: "schedule-modal-title",
-    title: "Judul Modal",
-    icon: CalendarDays,
-    action: "openScheduleModal",
-    body: "Judul modal menjelaskan bahwa admin sedang berada di mode tambah informasi jadwal. Ini membedakan form tambah dari tabel utama di belakangnya.",
   },
   {
     target: "schedule-modal-field-kode",
@@ -411,13 +308,6 @@ const SCHEDULE_STEPS = [
     icon: CheckSquare,
     action: "openScheduleModal",
     body: "Tombol Simpan menjalankan validasi dan mengirim data jadwal baru ke backend. Tutorial hanya menjelaskan tombol ini dan tidak menekannya, jadi database tetap aman.",
-  },
-  {
-    target: "schedule-table-wrapper",
-    title: "Tabel Master Jadwal",
-    icon: ListChecks,
-    action: "closeScheduleHelpers",
-    body: "Tabel ini menampilkan daftar jadwal dari backend. Setiap baris membawa data kode, lokasi, nama shift, jam, status, dan kontrol.",
   },
   {
     target: "schedule-table-head",
