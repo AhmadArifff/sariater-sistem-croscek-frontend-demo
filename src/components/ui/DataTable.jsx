@@ -19,6 +19,7 @@ export function DataTable({
   onRowClick = null,
   loading = false,
   emptyMessage = "No data found",
+  tourPrefix = "",
 }) {
   const [sortConfig, setSortConfig] = useState({
     key: null,
@@ -84,10 +85,16 @@ export function DataTable({
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200">
+    <div
+      className="bg-white rounded-lg border border-gray-200"
+      data-tour={tourPrefix ? `${tourPrefix}-root` : undefined}
+    >
       {/* Header with Search */}
       {searchable && (
-        <div className="p-4 border-b border-gray-200">
+        <div
+          className="p-4 border-b border-gray-200"
+          data-tour={tourPrefix ? `${tourPrefix}-search` : undefined}
+        >
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <input
@@ -105,10 +112,10 @@ export function DataTable({
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" data-tour={tourPrefix ? `${tourPrefix}-content` : undefined}>
         <table className="w-full">
           {/* Header */}
-          <thead>
+          <thead data-tour={tourPrefix ? `${tourPrefix}-columns` : undefined}>
             <tr className="bg-gray-50 border-b border-gray-200">
               {columns.map((col) => (
                 <th
@@ -134,7 +141,10 @@ export function DataTable({
                 </th>
               ))}
               {Object.keys(actions).length > 0 && (
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                <th
+                  className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  data-tour={tourPrefix ? `${tourPrefix}-actions` : undefined}
+                >
                   Actions
                 </th>
               )}
@@ -172,7 +182,10 @@ export function DataTable({
                   ))}
                   {Object.keys(actions).length > 0 && (
                     <td className="px-6 py-4 text-sm">
-                      <div className="flex gap-2">
+                      <div
+                        className="flex gap-2"
+                        data-tour={tourPrefix ? `${tourPrefix}-actions` : undefined}
+                      >
                         {Object.entries(actions).map(([key, action]) => (
                           <button
                             key={key}

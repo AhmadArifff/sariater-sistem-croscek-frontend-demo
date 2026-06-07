@@ -157,6 +157,7 @@ export default function UserModal({ isOpen, onClose, user, isEditing, onSave }) 
         size="md"
         onClick={onClose}
         disabled={loading}
+        data-tour="users-modal-cancel"
       >
         Batal
       </Button>
@@ -165,6 +166,7 @@ export default function UserModal({ isOpen, onClose, user, isEditing, onSave }) 
         size="md"
         onClick={handleSubmit}
         loading={loading}
+        data-tour="users-modal-submit"
       >
         {isEditing ? "Ubah" : "Buat"} Pengguna
       </Button>
@@ -178,6 +180,11 @@ export default function UserModal({ isOpen, onClose, user, isEditing, onSave }) 
       title={isEditing ? "Edit Pengguna" : "Buat Pengguna Baru"}
       footer={modalFooter}
       size="md"
+      dataTour="users-modal-shell"
+      headerDataTour="users-modal-title"
+      closeDataTour="users-modal-close"
+      contentDataTour="users-modal-form"
+      footerDataTour="users-modal-footer"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
@@ -196,6 +203,7 @@ export default function UserModal({ isOpen, onClose, user, isEditing, onSave }) 
           placeholder="Masukkan username"
           required
           disabled={isEditing} // Can't change username when editing
+          data-tour="users-modal-username"
           hint={
             isEditing
               ? "Username tidak dapat diubah"
@@ -212,6 +220,7 @@ export default function UserModal({ isOpen, onClose, user, isEditing, onSave }) 
           onChange={handleChange}
           placeholder="Masukkan nama lengkap"
           required
+          data-tour="users-modal-name"
         />
 
         {/* Role Field */}
@@ -222,6 +231,7 @@ export default function UserModal({ isOpen, onClose, user, isEditing, onSave }) 
           value={formData.role}
           onChange={handleChange}
           required
+          data-tour="users-modal-role"
           options={[
             { value: "staff", label: "Staff - Akses Terbatas" },
             { value: "guest", label: "Guest - Read & Export Only" },
@@ -242,6 +252,7 @@ export default function UserModal({ isOpen, onClose, user, isEditing, onSave }) 
               : "Masukkan password"
           }
           required={!isEditing}
+          data-tour="users-modal-password"
           hint={
             isEditing
               ? "Minimal 8 karakter (opsional)"
@@ -250,7 +261,7 @@ export default function UserModal({ isOpen, onClose, user, isEditing, onSave }) 
         />
 
         {/* Confirm Password Field */}
-        {formData.password && (
+        {(!isEditing || formData.password) && (
           <FormInput
             label="Konfirmasi Password"
             name="confirmPassword"
@@ -259,6 +270,7 @@ export default function UserModal({ isOpen, onClose, user, isEditing, onSave }) 
             onChange={handleChange}
             placeholder="Konfirmasi password"
             required={!!formData.password}
+            data-tour="users-modal-confirm-password"
             hint="Harus sama dengan password di atas"
           />
         )}

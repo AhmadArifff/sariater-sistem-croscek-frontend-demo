@@ -14,6 +14,11 @@ export function Modal({
   size = "md",
   closeButton = true,
   className = "",
+  dataTour,
+  headerDataTour,
+  closeDataTour,
+  contentDataTour,
+  footerDataTour,
 }) {
   if (!isOpen) return null;
 
@@ -33,14 +38,19 @@ export function Modal({
       <div
         className={`bg-white rounded-lg shadow-xl w-full mx-4 ${sizeClasses[size]} ${className}`}
         onClick={(e) => e.stopPropagation()}
+        data-tour={dataTour}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <div
+          className="flex items-center justify-between px-6 py-4 border-b border-gray-200"
+          data-tour={headerDataTour}
+        >
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           {closeButton && (
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 transition-colors"
+              data-tour={closeDataTour}
             >
               <X size={20} />
             </button>
@@ -48,11 +58,14 @@ export function Modal({
         </div>
 
         {/* Content */}
-        <div className="px-6 py-4">{children}</div>
+        <div className="px-6 py-4" data-tour={contentDataTour}>{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg flex gap-3 justify-end">
+          <div
+            className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg flex gap-3 justify-end"
+            data-tour={footerDataTour}
+          >
             {footer}
           </div>
         )}

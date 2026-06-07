@@ -10,6 +10,9 @@ import api from "../utils/api";
 import { formatDate, formatUserRole, formatActiveStatus } from "../utils/formatters";
 import { useAuth } from "../context/AuthContext";
 
+const TOUR_OPEN_USER_CREATE_MODAL_EVENT = "croscek:tour-open-user-create-modal";
+const TOUR_CLOSE_USER_MODAL_EVENT = "croscek:tour-close-user-modal";
+
 /**
  * User Management Page
  * CRUD operations for users (admin only)
@@ -35,6 +38,30 @@ export default function ManajemenUser() {
   // Fetch users on mount
   useEffect(() => {
     loadUsers();
+  }, []);
+
+  useEffect(() => {
+    const openCreateModalForTour = () => {
+      setSelectedUser(null);
+      setIsEditing(false);
+      setShowConfirmDelete(false);
+      setShowConfirmToggle(false);
+      setShowUserModal(true);
+    };
+
+    const closeModalForTour = () => {
+      setShowUserModal(false);
+      setSelectedUser(null);
+      setIsEditing(false);
+    };
+
+    window.addEventListener(TOUR_OPEN_USER_CREATE_MODAL_EVENT, openCreateModalForTour);
+    window.addEventListener(TOUR_CLOSE_USER_MODAL_EVENT, closeModalForTour);
+
+    return () => {
+      window.removeEventListener(TOUR_OPEN_USER_CREATE_MODAL_EVENT, openCreateModalForTour);
+      window.removeEventListener(TOUR_CLOSE_USER_MODAL_EVENT, closeModalForTour);
+    };
   }, []);
 
   const loadUsers = async () => {
@@ -233,6 +260,7 @@ export default function ManajemenUser() {
             loading={loading}
             emptyMessage="Tidak ada pengguna"
             onRowClick={isGuest ? undefined : (row) => handleOpenEditModal(row)}
+            tourPrefix="users-table"
           />
         </CardBody>
       </Card>

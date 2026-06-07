@@ -21,6 +21,8 @@ import { useAuth } from "../context/AuthContext";
 const STORAGE_KEY = "croscek.admin.tour.v2";
 const LOGIN_TRIGGER_KEY = "croscek.admin.tour.login-trigger";
 const OPEN_EVENT = "croscek:open-admin-tour";
+const OPEN_USER_CREATE_MODAL_EVENT = "croscek:tour-open-user-create-modal";
+const CLOSE_USER_MODAL_EVENT = "croscek:tour-close-user-modal";
 
 const DASHBOARD_STEPS = [
   {
@@ -102,30 +104,119 @@ const MANAGEMENT_USER_STEPS = [
     target: "users-page",
     title: "Halaman Manajemen User",
     icon: Users,
+    action: "closeUserModal",
     body: "Halaman Manajemen User adalah pusat kontrol akun aplikasi. Anggap seperti ruang admin yang menyimpan beberapa bagian kecil: tombol tambah user, tabel data, status aktif, role, dan aksi akun. Setiap bagian punya tugas sendiri, lalu semuanya bekerja bersama untuk mengatur siapa yang boleh masuk dan apa yang boleh dilakukan.",
   },
   {
     target: "users-header",
     title: "Konteks Halaman",
     icon: Users,
+    action: "closeUserModal",
     body: "Header ini memberi konteks sebelum admin mulai bekerja. Teks judul dan deskripsi membantu user demo memahami bahwa menu ini dipakai untuk mengelola username, nama lengkap, role akses, dan status aktivitas akun.",
   },
   {
     target: "users-add-button",
     title: "Tambah Pengguna",
     icon: UserPlus,
+    action: "closeUserModal",
     body: "Tombol Tambah Pengguna adalah pintu masuk untuk membuat akun baru. Saat diklik, aplikasi membuka form modal sehingga admin bisa mengisi identitas user, menentukan role Admin, Staff, atau Guest, lalu menyimpan akun tanpa meninggalkan halaman ini.",
+  },
+  {
+    target: "users-modal-shell",
+    title: "Modal Buat Pengguna",
+    icon: UserPlus,
+    action: "openUserModal",
+    body: "Modal ini adalah form khusus untuk membuat akun. Konsepnya seperti formulir kecil yang muncul di atas halaman utama, supaya admin bisa fokus mengisi data user tanpa kehilangan konteks halaman Manajemen User.",
+  },
+  {
+    target: "users-modal-title",
+    title: "Judul Modal",
+    icon: UserPlus,
+    action: "openUserModal",
+    body: "Judul modal memberi tahu mode kerja yang sedang aktif. Saat membuat user baru akan tertulis Buat Pengguna Baru, sedangkan saat edit akan berubah menjadi Edit Pengguna.",
+  },
+  {
+    target: "users-modal-username",
+    title: "Input Username",
+    icon: Users,
+    action: "openUserModal",
+    body: "Field Username dipakai sebagai identitas login. Untuk user baru, admin wajib mengisi minimal 3 karakter. Saat mode edit, username dikunci agar identitas login utama tidak berubah sembarangan.",
+  },
+  {
+    target: "users-modal-name",
+    title: "Input Nama Lengkap",
+    icon: Users,
+    action: "openUserModal",
+    body: "Field Nama Lengkap menyimpan nama tampilan user di aplikasi. Data ini dipakai supaya akun mudah dikenali oleh admin, recruiter, atau pemilik sistem ketika melihat daftar pengguna.",
+  },
+  {
+    target: "users-modal-role",
+    title: "Pilihan Role",
+    icon: ShieldCheck,
+    action: "openUserModal",
+    body: "Dropdown Role menentukan hak akses user. Staff dipakai untuk akses operasional terbatas, Guest untuk baca dan export saja, sedangkan Admin punya akses penuh ke pengaturan dan data sistem.",
+  },
+  {
+    target: "users-modal-password",
+    title: "Input Password",
+    icon: ShieldCheck,
+    action: "openUserModal",
+    body: "Field Password dipakai sebagai kunci login akun. Untuk user baru wajib diisi minimal 8 karakter. Saat edit, password boleh dikosongkan kalau admin tidak ingin mengganti password lama.",
+  },
+  {
+    target: "users-modal-confirm-password",
+    title: "Konfirmasi Password",
+    icon: ShieldCheck,
+    action: "openUserModal",
+    body: "Field Konfirmasi Password memastikan password yang diketik sudah benar. Nilainya harus sama dengan field Password, sehingga risiko salah ketik saat membuat akun bisa dikurangi.",
+  },
+  {
+    target: "users-modal-cancel",
+    title: "Tombol Batal",
+    icon: X,
+    action: "openUserModal",
+    body: "Tombol Batal menutup modal tanpa menyimpan data. Ini penting untuk demo karena admin bisa keluar dari form kapan saja tanpa membuat perubahan ke database.",
+  },
+  {
+    target: "users-modal-submit",
+    title: "Tombol Buat Pengguna",
+    icon: UserPlus,
+    action: "openUserModal",
+    body: "Tombol Buat Pengguna menjalankan validasi form lalu menyimpan akun baru jika semua field valid. Tutorial ini hanya menjelaskan tombolnya dan tidak menekan tombol simpan, jadi data tidak berubah.",
   },
   {
     target: "users-table-card",
     title: "Tabel Pengguna",
     icon: ListChecks,
+    action: "closeUserModal",
     body: "Tabel ini adalah daftar kerja utama. Di sini admin bisa membaca semua akun, mencari user tertentu, sorting kolom, membuka edit lewat baris, serta memakai action seperti Edit, Aktifkan atau Nonaktifkan, dan Hapus. Jadi tabel ini bukan hanya tampilan data, tapi juga kontrol operasional akun.",
+  },
+  {
+    target: "users-table-search",
+    title: "Search User",
+    icon: Filter,
+    action: "closeUserModal",
+    body: "Input search di tabel membantu admin menemukan akun dengan cepat berdasarkan data yang terlihat di kolom, seperti username, nama lengkap, role, status, atau tanggal dibuat.",
+  },
+  {
+    target: "users-table-columns",
+    title: "Header dan Sorting Kolom",
+    icon: ListChecks,
+    action: "closeUserModal",
+    body: "Header kolom menjelaskan struktur data user. Kolom yang sortable bisa diklik untuk mengurutkan data, sehingga admin dapat membaca daftar pengguna dengan urutan yang paling nyaman.",
+  },
+  {
+    target: "users-table-actions",
+    title: "Action per User",
+    icon: CheckSquare,
+    action: "closeUserModal",
+    body: "Area Actions berisi kontrol per akun. Edit membuka modal edit, Aktifkan atau Nonaktifkan mengubah status login, dan Hapus akan meminta konfirmasi sebelum data user dihapus.",
   },
   {
     target: "users-role-info",
     title: "Panduan Role",
     icon: ShieldCheck,
+    action: "closeUserModal",
     body: "Panduan role menjelaskan batas akses setiap tipe akun. Admin punya akses penuh, Staff fokus ke proses operasional croscek, sedangkan Guest bisa membuka semua menu untuk membaca dan export saja. Ini membantu recruiter memahami desain permission aplikasi dengan cepat.",
   },
 ];
@@ -183,19 +274,22 @@ const getPlacement = (rect) => {
   }
 
   const tooltipWidth = Math.min(380, window.innerWidth - 32);
+  const tooltipHeight = Math.min(360, window.innerHeight - 32);
   const spacing = 16;
   const rightFits = rect.right + tooltipWidth + spacing < window.innerWidth;
   const leftFits = rect.left - tooltipWidth - spacing > 0;
   const top = Math.min(
     Math.max(16, rect.top),
-    Math.max(16, window.innerHeight - 260)
+    Math.max(16, window.innerHeight - tooltipHeight - 16)
   );
 
   if (rightFits) return { top, left: rect.right + spacing };
   if (leftFits) return { top, left: rect.left - tooltipWidth - spacing };
 
-  const belowFits = rect.bottom + 260 + spacing < window.innerHeight;
-  const verticalTop = belowFits ? rect.bottom + spacing : Math.max(16, rect.top - 260 - spacing);
+  const belowFits = rect.bottom + tooltipHeight + spacing < window.innerHeight;
+  const verticalTop = belowFits
+    ? rect.bottom + spacing
+    : Math.max(16, rect.top - tooltipHeight - spacing);
   return {
     top: verticalTop,
     left: Math.min(Math.max(16, rect.left), window.innerWidth - tooltipWidth - 16),
@@ -258,6 +352,13 @@ export default function AdminOnboardingTour() {
     if (mode !== "walkthrough" || !step) return;
 
     let frame = 0;
+    if (step.action === "openUserModal") {
+      window.dispatchEvent(new Event(OPEN_USER_CREATE_MODAL_EVENT));
+    }
+    if (step.action === "closeUserModal") {
+      window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
+    }
+
     const updateRect = () => {
       const target = document.querySelector(`[data-tour="${step.target}"]`);
       if (!target) {
@@ -287,7 +388,7 @@ export default function AdminOnboardingTour() {
       frame = window.setTimeout(updateRect, 280);
     };
 
-    scrollToTarget();
+    frame = window.setTimeout(scrollToTarget, 80);
     window.addEventListener("resize", updateRect);
     window.addEventListener("scroll", updateRect, true);
 
@@ -306,11 +407,13 @@ export default function AdminOnboardingTour() {
     } catch {
       // Abaikan jika localStorage tidak tersedia.
     }
+    window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
     setMode("closed");
   };
 
   const startFlow = (flowId) => {
     const selectedFlow = TOUR_FLOWS[flowId] || TOUR_FLOWS.dashboard;
+    window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
     setActiveFlowId(selectedFlow.id);
     setStepIndex(0);
     setTargetRect(null);
@@ -324,6 +427,7 @@ export default function AdminOnboardingTour() {
 
   const nextStep = () => {
     if (stepIndex >= activeSteps.length - 1) {
+      window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
       setStepIndex(0);
       setTargetRect(null);
       setMode("launcher");
@@ -476,7 +580,10 @@ export default function AdminOnboardingTour() {
             <div className="flex justify-between gap-2">
               <button
                 type="button"
-                onClick={() => setMode("launcher")}
+                onClick={() => {
+                  window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
+                  setMode("launcher");
+                }}
                 className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold"
               >
                 Pilih Flow
