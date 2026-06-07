@@ -33,7 +33,8 @@ export default function AttendanceDummyGeneratorModal({
   title,
   description,
   filePrefix = "Dummy_Kehadiran_Karyawan",
-  machineName = "Karyawan 2"
+  machineName = "Karyawan 2",
+  tourPrefix = "attendance-generator"
 }) {
   const [search, setSearch] = useState("");
   const [count, setCount] = useState(25);
@@ -216,7 +217,10 @@ export default function AttendanceDummyGeneratorModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl max-h-[92vh] overflow-hidden flex flex-col">
+      <div
+        className="bg-white rounded-xl shadow-2xl w-full max-w-7xl max-h-[92vh] overflow-hidden flex flex-col"
+        data-tour={`${tourPrefix}-shell`}
+      >
         <div className="p-5 border-b flex items-start justify-between gap-4">
           <div>
             <h3 className="text-lg md:text-xl font-bold text-gray-900">{title}</h3>
@@ -234,7 +238,7 @@ export default function AttendanceDummyGeneratorModal({
 
         <div className="p-5 border-b grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5 overflow-hidden min-h-0">
           <div className="space-y-3 min-h-0 lg:max-h-[360px] lg:overflow-y-auto lg:pr-1">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3" data-tour={`${tourPrefix}-dates`}>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal awal</label>
                 <input
@@ -273,13 +277,14 @@ export default function AttendanceDummyGeneratorModal({
                   setAttendanceRows([]);
                 }}
                 className="border rounded-lg px-3 py-2 w-full"
+                data-tour={`${tourPrefix}-count`}
               />
               <p className="text-xs text-gray-500 mt-1">
                 Maksimal mengikuti data tersedia: {filteredEmployees.length} orang.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3" data-tour={`${tourPrefix}-categories`}>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Telat masuk</label>
                 <input type="number" min="0" value={lateCount} onChange={(event) => {
@@ -317,7 +322,7 @@ export default function AttendanceDummyGeneratorModal({
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row gap-2" data-tour={`${tourPrefix}-actions`}>
               <button type="button" onClick={generateRows} disabled={selectedEmployees.length === 0 || !startDate || !endDate} className="flex items-center justify-center gap-2 bg-[#1BA39C] hover:bg-[#158f89] disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm">
                 <RefreshCw size={16} /> Generate
               </button>
@@ -326,7 +331,7 @@ export default function AttendanceDummyGeneratorModal({
               </button>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2" data-tour={`${tourPrefix}-selection-actions`}>
               <button type="button" onClick={selectByCount} disabled={filteredEmployees.length === 0} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm disabled:opacity-60">
                 Pilih Jumlah
               </button>
@@ -338,7 +343,7 @@ export default function AttendanceDummyGeneratorModal({
               </button>
             </div>
 
-            <div className="bg-gray-50 border rounded-lg p-3 text-sm text-gray-700 space-y-1">
+            <div className="bg-gray-50 border rounded-lg p-3 text-sm text-gray-700 space-y-1" data-tour={`${tourPrefix}-summary`}>
               <p>Total database: <strong>{normalizedEmployees.length}</strong></p>
               <p>Terpilih: <strong>{selectedEmployees.length}</strong></p>
               <p>Normal otomatis: <strong>{normalCount}</strong></p>
@@ -360,9 +365,10 @@ export default function AttendanceDummyGeneratorModal({
                   setAttendanceRows([]);
                 }}
                 className="border rounded-lg pl-9 pr-3 py-2 w-full text-sm"
+                data-tour={`${tourPrefix}-employee-search`}
               />
             </div>
-            <div className="border rounded-xl overflow-auto max-h-[360px]">
+            <div className="border rounded-xl overflow-auto max-h-[360px]" data-tour={`${tourPrefix}-employee-table`}>
               <table className="min-w-full text-xs md:text-sm">
                 <thead className="bg-gray-100 sticky top-0">
                   <tr>
@@ -401,7 +407,7 @@ export default function AttendanceDummyGeneratorModal({
           </div>
         </div>
 
-        <div className="p-5 overflow-auto">
+        <div className="p-5 overflow-auto" data-tour={`${tourPrefix}-preview`}>
           <div className="flex items-center justify-between gap-3 mb-3">
             <h4 className="font-bold text-gray-900">Preview Kehadiran</h4>
             <p className="text-xs text-gray-500">

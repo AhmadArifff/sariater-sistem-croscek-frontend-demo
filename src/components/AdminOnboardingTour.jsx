@@ -37,6 +37,16 @@ const OPEN_EMPLOYEE_GENERATOR_EVENT = "croscek:tour-open-employee-generator";
 const CLOSE_EMPLOYEE_GENERATOR_EVENT = "croscek:tour-close-employee-generator";
 const SHOW_EMPLOYEE_PREVIEW_EVENT = "croscek:tour-show-employee-preview";
 const CLEAR_EMPLOYEE_PREVIEW_EVENT = "croscek:tour-clear-employee-preview";
+const OPEN_CROSCEK_ROSTER_GENERATOR_EVENT = "croscek:tour-open-croscek-roster-generator";
+const CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT = "croscek:tour-close-croscek-roster-generator";
+const OPEN_CROSCEK_ATTENDANCE_GENERATOR_EVENT = "croscek:tour-open-croscek-attendance-generator";
+const CLOSE_CROSCEK_ATTENDANCE_GENERATOR_EVENT = "croscek:tour-close-croscek-attendance-generator";
+const SHOW_CROSCEK_JADWAL_PREVIEW_EVENT = "croscek:tour-show-croscek-jadwal-preview";
+const CLEAR_CROSCEK_JADWAL_PREVIEW_EVENT = "croscek:tour-clear-croscek-jadwal-preview";
+const SHOW_CROSCEK_KEHADIRAN_PREVIEW_EVENT = "croscek:tour-show-croscek-kehadiran-preview";
+const CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT = "croscek:tour-clear-croscek-kehadiran-preview";
+const OPEN_CROSCEK_RESULT_MODAL_EVENT = "croscek:tour-open-croscek-result-modal";
+const CLOSE_CROSCEK_RESULT_MODAL_EVENT = "croscek:tour-close-croscek-result-modal";
 
 const DASHBOARD_STEPS = [
   {
@@ -488,6 +498,268 @@ const createEmployeeDataSteps = (label) => [
   },
 ];
 
+const createCroscekSteps = (label) => [
+  {
+    target: "croscek-jadwal-upload-dropzone",
+    title: "Upload Jadwal",
+    icon: UploadCloud,
+    action: "closeCroscekHelpers",
+    body: `Dropzone ini dipakai untuk upload file jadwal ${label}. User bisa klik atau drag and drop Excel, lalu aplikasi membaca jadwal sebelum disimpan.`,
+  },
+  {
+    target: "croscek-jadwal-period-upload",
+    title: "Bulan Template Jadwal",
+    icon: CalendarDays,
+    action: "closeCroscekHelpers",
+    body: "Pilihan bulan menentukan periode template jadwal yang akan dibuat atau dipakai untuk generate data dummy.",
+  },
+  {
+    target: "croscek-jadwal-template-button",
+    title: "Template Jadwal",
+    icon: Download,
+    action: "closeCroscekHelpers",
+    body: "Tombol ini mengunduh template Excel jadwal. Gunakan template ini supaya struktur kolom upload sesuai dengan parser aplikasi.",
+  },
+  {
+    target: "croscek-roster-generator-button",
+    title: "Generate Dummy Jadwal",
+    icon: FileSpreadsheet,
+    action: "closeCroscekHelpers",
+    body: `Tombol ini membuka generator jadwal dummy ${label}. Fitur ini membantu membuat file testing tanpa menulis jadwal manual satu per satu.`,
+  },
+  {
+    target: "roster-generator-period",
+    title: "Periode Generator Jadwal",
+    icon: CalendarDays,
+    action: "openCroscekRosterGenerator",
+    body: "Di sini user memilih bulan dan tahun jadwal dummy. Jumlah hari otomatis mengikuti bulan yang dipilih.",
+  },
+  {
+    target: "roster-generator-count",
+    title: "Jumlah Orang Jadwal",
+    icon: Users,
+    action: "openCroscekRosterGenerator",
+    body: "Input jumlah orang membatasi berapa data dari database yang dipakai untuk dummy jadwal. Jumlahnya tidak melebihi data master yang tersedia.",
+  },
+  {
+    target: "roster-generator-employee-search",
+    title: "Cari Orang",
+    icon: Filter,
+    action: "openCroscekRosterGenerator",
+    body: "Search ini memudahkan memilih karyawan atau DW berdasarkan nama, NIK, ID absen, jabatan, atau departemen.",
+  },
+  {
+    target: "roster-generator-employee-table",
+    title: "Pilih Orang",
+    icon: ListChecks,
+    action: "openCroscekRosterGenerator",
+    body: "Tabel ini adalah sumber orang yang akan dibuatkan jadwal. User bisa memilih beberapa orang atau memakai tombol Select All/Pilih Jumlah.",
+  },
+  {
+    target: "roster-generator-shift-card",
+    title: "Shift Informasi Jadwal",
+    icon: Clock,
+    action: "openCroscekRosterGenerator",
+    body: "Bagian ini memuat shift dari menu Informasi Jadwal, termasuk kode, jam, nama shift, dan lokasi. Generator memakai daftar ini untuk membagi jadwal random.",
+  },
+  {
+    target: "roster-generator-generate",
+    title: "Generate Jadwal",
+    icon: CheckSquare,
+    action: "openCroscekRosterGenerator",
+    body: "Tombol Generate membuat preview jadwal dummy sesuai orang, bulan, dan shift yang dipilih. Tutorial tidak menyimpan data ke database.",
+  },
+  {
+    target: "roster-generator-preview",
+    title: "Preview Jadwal Dummy",
+    icon: FileSpreadsheet,
+    action: "openCroscekRosterGenerator",
+    body: "Preview ini memperlihatkan jadwal hasil generator sebelum diexport. Formatnya dibuat agar bisa dipakai kembali di upload jadwal.",
+  },
+  {
+    target: "roster-generator-export",
+    title: "Export Jadwal Dummy",
+    icon: Download,
+    action: "openCroscekRosterGenerator",
+    body: "Export Excel mengunduh jadwal dummy dalam format upload. Ini berguna untuk test case manual dari awal sampai croscek.",
+  },
+  {
+    target: "croscek-jadwal-preview-card",
+    title: "Preview Upload Jadwal",
+    icon: FileSpreadsheet,
+    action: "showCroscekJadwalPreview",
+    body: "Setelah file jadwal dipilih, preview muncul di sini. User bisa mengecek isi Excel sebelum menyimpannya ke database.",
+  },
+  {
+    target: "croscek-jadwal-preview-save",
+    title: "Simpan Jadwal",
+    icon: CheckSquare,
+    action: "showCroscekJadwalPreview",
+    body: "Tombol Simpan Jadwal mengirim hasil upload ke backend. Dalam tutorial tombol ini hanya dijelaskan, sehingga data tidak berubah.",
+  },
+  {
+    target: "croscek-jadwal-table-card",
+    title: "Data Jadwal",
+    icon: ListChecks,
+    action: "clearCroscekPreviews",
+    body: "Tabel ini menampilkan jadwal yang sudah ada di database. Data inilah yang akan dibandingkan dengan scan kehadiran saat proses croscek.",
+  },
+  {
+    target: "croscek-jadwal-table-filters",
+    title: "Filter Tabel Jadwal",
+    icon: Filter,
+    action: "clearCroscekPreviews",
+    body: "Filter periode, search, dan jumlah baris membantu user membaca jadwal yang sudah tersimpan tanpa membuka semua data sekaligus.",
+  },
+  {
+    target: "croscek-jadwal-action-menu-button",
+    title: "Menu Aksi Jadwal",
+    icon: ListChecks,
+    action: "clearCroscekPreviews",
+    body: "Menu ini berisi aksi jadwal seperti tambah manual, tambah jadwal sebulan, hapus periode, dan kosongkan jadwal. Aksi destruktif tetap memakai konfirmasi.",
+  },
+  {
+    target: "croscek-jadwal-table-actions",
+    title: "Edit dan Hapus Jadwal",
+    icon: Trash2,
+    action: "clearCroscekPreviews",
+    body: "Kolom Action dipakai untuk memperbaiki satu jadwal atau menghapus baris tertentu. Ini berguna saat ada koreksi setelah upload.",
+  },
+  {
+    target: "croscek-kehadiran-upload-dropzone",
+    title: "Upload Kehadiran",
+    icon: UploadCloud,
+    action: "clearCroscekPreviews",
+    body: `Dropzone ini dipakai untuk upload file scanlog kehadiran ${label}. File ini nanti dicocokkan dengan jadwal berdasarkan ID absen atau PIN.`,
+  },
+  {
+    target: "croscek-kehadiran-period-select",
+    title: "Periode Kehadiran",
+    icon: CalendarDays,
+    action: "clearCroscekPreviews",
+    body: "Pilihan periode kehadiran membantu user memilih data scanlog yang akan dikelola atau dihapus per periode.",
+  },
+  {
+    target: "croscek-kehadiran-template-button",
+    title: "Template Kehadiran",
+    icon: Download,
+    action: "clearCroscekPreviews",
+    body: "Template kehadiran membantu memastikan format scanlog sesuai kolom yang dibaca sistem, termasuk PIN atau ID absen.",
+  },
+  {
+    target: "croscek-attendance-generator-button",
+    title: "Generate Dummy Kehadiran",
+    icon: FileSpreadsheet,
+    action: "clearCroscekPreviews",
+    body: "Tombol ini membuka generator scanlog dummy. User bisa membuat skenario telat, pulang cepat, lupa scan, dan pindah shift.",
+  },
+  {
+    target: "attendance-generator-dates",
+    title: "Periode Scanlog Dummy",
+    icon: CalendarDays,
+    action: "openCroscekAttendanceGenerator",
+    body: "Tanggal awal dan akhir menentukan rentang scanlog dummy yang akan dibuat.",
+  },
+  {
+    target: "attendance-generator-categories",
+    title: "Kategori Skenario",
+    icon: Filter,
+    action: "openCroscekAttendanceGenerator",
+    body: "Input kategori menentukan berapa orang yang dibuat telat, pulang cepat, lupa check-in, lupa check-out, atau pindah shift.",
+  },
+  {
+    target: "attendance-generator-employee-table",
+    title: "Pilih Orang Scanlog",
+    icon: ListChecks,
+    action: "openCroscekAttendanceGenerator",
+    body: "Tabel ini memilih orang yang akan dibuatkan scanlog. Data tetap mengikuti jumlah orang yang tersedia di database.",
+  },
+  {
+    target: "attendance-generator-actions",
+    title: "Generate dan Export Scanlog",
+    icon: CheckSquare,
+    action: "openCroscekAttendanceGenerator",
+    body: "Generate membuat preview scanlog, sedangkan Export Excel mengunduh file dummy untuk diuji lewat upload kehadiran.",
+  },
+  {
+    target: "attendance-generator-preview",
+    title: "Preview Kehadiran Dummy",
+    icon: FileSpreadsheet,
+    action: "openCroscekAttendanceGenerator",
+    body: "Preview ini menampilkan scan pertama hasil generator, sehingga user bisa melihat PIN, tanggal scan, jam, dan status sebelum export.",
+  },
+  {
+    target: "croscek-kehadiran-preview-card",
+    title: "Preview Upload Kehadiran",
+    icon: FileSpreadsheet,
+    action: "showCroscekKehadiranPreview",
+    body: "Setelah file kehadiran dipilih, preview muncul di sini supaya user bisa memeriksa data scanlog sebelum menyimpan ke database.",
+  },
+  {
+    target: "croscek-kehadiran-preview-save",
+    title: "Simpan Kehadiran",
+    icon: CheckSquare,
+    action: "showCroscekKehadiranPreview",
+    body: "Tombol Simpan Kehadiran mengirim data scanlog ke backend. Tutorial hanya menjelaskan tombol ini dan tidak menekannya.",
+  },
+  {
+    target: "croscek-process-button",
+    title: "Proses Croscek",
+    icon: Play,
+    action: "clearCroscekPreviews",
+    body: "Tombol ini menjalankan pencocokan jadwal dan kehadiran. Hasilnya muncul dalam modal, lengkap dengan indikator warna dan status.",
+  },
+  {
+    target: "croscek-result-modal",
+    title: "Modal Hasil Croscek",
+    icon: BarChart3,
+    action: "openCroscekResult",
+    body: "Hasil croscek ditampilkan di modal agar fokus user tidak pecah. Dari sini user bisa filter, cek indikator, export, dan simpan hasil.",
+  },
+  {
+    target: "croscek-result-filters",
+    title: "Filter Hasil",
+    icon: Filter,
+    action: "openCroscekResult",
+    body: "Search dan filter tanggal membantu menemukan nama atau periode tertentu di hasil croscek.",
+  },
+  {
+    target: "croscek-result-table",
+    title: "Indikator Warna",
+    icon: ShieldCheck,
+    action: "openCroscekResult",
+    body: "Indikator warna memisahkan data aman, telat, selisih lebih dari 2 jam, pindah shift/data kurang, dan tidak ada scan masuk-pulang.",
+  },
+  {
+    target: "croscek-result-table",
+    title: "Tabel Hasil",
+    icon: ListChecks,
+    action: "openCroscekResult",
+    body: "Tabel ini memperlihatkan jadwal masuk-pulang, aktual masuk-pulang, prediksi shift, status kehadiran, status masuk, dan status pulang.",
+  },
+  {
+    target: "croscek-result-status-controls",
+    title: "Keterangan Manual",
+    icon: CheckSquare,
+    action: "openCroscekResult",
+    body: "Jika ada status yang perlu alasan manual, select keterangan muncul di kolom status. Pilihan ini dipakai saat rekap dan simpan croscek.",
+  },
+  {
+    target: "croscek-result-actions",
+    title: "Export dan Simpan",
+    icon: Download,
+    action: "openCroscekResult",
+    body: "Area tombol ini berisi export Excel, rekap, simpan croscek, dan aksi pendukung lain sesuai menu. Gunakan setelah hasil sudah dicek.",
+  },
+  {
+    target: "croscek-result-pagination",
+    title: "Pagination Hasil",
+    icon: ListChecks,
+    action: "openCroscekResult",
+    body: "Pagination membantu membaca hasil croscek yang besar tanpa membebani layar. User bisa berpindah halaman setelah filter diterapkan.",
+  },
+];
+
 const TOUR_FLOWS = {
   dashboard: {
     id: "dashboard",
@@ -539,6 +811,26 @@ const TOUR_FLOWS = {
     steps: createEmployeeDataSteps("daily worker"),
     enabled: true,
   },
+  croscekEmployees: {
+    id: "croscekEmployees",
+    title: "Croscek Jadwal Karyawan",
+    label: "Croscek Karyawan Tutorial",
+    subtitle: "Pelajari upload/generate jadwal, upload/generate kehadiran, proses croscek, indikator, export, dan simpan hasil.",
+    icon: CheckSquare,
+    route: "/croscek-karyawan",
+    steps: createCroscekSteps("karyawan"),
+    enabled: true,
+  },
+  croscekDw: {
+    id: "croscekDw",
+    title: "Croscek Jadwal DW",
+    label: "Croscek DW Tutorial",
+    subtitle: "Pelajari upload/generate jadwal DW, upload/generate kehadiran DW, proses croscek, rekap DW, export, dan simpan hasil.",
+    icon: CheckSquare,
+    route: "/croscek-dw",
+    steps: createCroscekSteps("daily worker"),
+    enabled: true,
+  },
 };
 
 const FLOW_OPTIONS = [
@@ -547,14 +839,8 @@ const FLOW_OPTIONS = [
   TOUR_FLOWS.schedule,
   TOUR_FLOWS.employees,
   TOUR_FLOWS.dw,
-  {
-    id: "croscek",
-    title: "Croscek Karyawan",
-    subtitle: "Flow upload, generate dummy, indikator, dan export akan dibuat berikutnya.",
-    icon: CheckSquare,
-    steps: [],
-    enabled: false,
-  },
+  TOUR_FLOWS.croscekEmployees,
+  TOUR_FLOWS.croscekDw,
 ];
 
 const getPlacement = (rect) => {
@@ -566,7 +852,7 @@ const getPlacement = (rect) => {
   }
 
   const tooltipWidth = Math.min(380, window.innerWidth - 32);
-  const tooltipHeight = Math.min(360, window.innerHeight - 32);
+  const tooltipHeight = Math.min(520, window.innerHeight - 32);
   const spacing = 16;
   const rightFits = rect.right + tooltipWidth + spacing < window.innerWidth;
   const leftFits = rect.left - tooltipWidth - spacing > 0;
@@ -604,6 +890,13 @@ export default function AdminOnboardingTour() {
   const StepIcon = step?.icon || BarChart3;
   const progress = Math.round(((stepIndex + 1) / activeSteps.length) * 100);
   const tooltipPosition = getPlacement(targetRect);
+  const closeCroscekHelpers = () => {
+    window.dispatchEvent(new Event(CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT));
+    window.dispatchEvent(new Event(CLOSE_CROSCEK_ATTENDANCE_GENERATOR_EVENT));
+    window.dispatchEvent(new Event(CLEAR_CROSCEK_JADWAL_PREVIEW_EVENT));
+    window.dispatchEvent(new Event(CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT));
+    window.dispatchEvent(new Event(CLOSE_CROSCEK_RESULT_MODAL_EVENT));
+  };
 
   const hasStoredDecision = useMemo(() => {
     try {
@@ -691,6 +984,44 @@ export default function AdminOnboardingTour() {
       window.dispatchEvent(new Event(CLOSE_EMPLOYEE_GENERATOR_EVENT));
       window.dispatchEvent(new Event(CLEAR_EMPLOYEE_PREVIEW_EVENT));
     }
+    if (step.action === "openCroscekRosterGenerator") {
+      window.dispatchEvent(new Event(CLEAR_CROSCEK_JADWAL_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_ATTENDANCE_GENERATOR_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_RESULT_MODAL_EVENT));
+      window.dispatchEvent(new Event(OPEN_CROSCEK_ROSTER_GENERATOR_EVENT));
+    }
+    if (step.action === "openCroscekAttendanceGenerator") {
+      window.dispatchEvent(new Event(CLEAR_CROSCEK_JADWAL_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_RESULT_MODAL_EVENT));
+      window.dispatchEvent(new Event(OPEN_CROSCEK_ATTENDANCE_GENERATOR_EVENT));
+    }
+    if (step.action === "showCroscekJadwalPreview") {
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_ATTENDANCE_GENERATOR_EVENT));
+      window.dispatchEvent(new Event(CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_RESULT_MODAL_EVENT));
+      window.dispatchEvent(new Event(SHOW_CROSCEK_JADWAL_PREVIEW_EVENT));
+    }
+    if (step.action === "showCroscekKehadiranPreview") {
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_ATTENDANCE_GENERATOR_EVENT));
+      window.dispatchEvent(new Event(CLEAR_CROSCEK_JADWAL_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_RESULT_MODAL_EVENT));
+      window.dispatchEvent(new Event(SHOW_CROSCEK_KEHADIRAN_PREVIEW_EVENT));
+    }
+    if (step.action === "openCroscekResult") {
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_ATTENDANCE_GENERATOR_EVENT));
+      window.dispatchEvent(new Event(CLEAR_CROSCEK_JADWAL_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(OPEN_CROSCEK_RESULT_MODAL_EVENT));
+    }
+    if (step.action === "clearCroscekPreviews" || step.action === "closeCroscekHelpers") {
+      closeCroscekHelpers();
+    }
 
     const updateRect = () => {
       const target = document.querySelector(`[data-tour="${step.target}"]`);
@@ -746,6 +1077,7 @@ export default function AdminOnboardingTour() {
     window.dispatchEvent(new Event(CLOSE_EMPLOYEE_MODAL_EVENT));
     window.dispatchEvent(new Event(CLOSE_EMPLOYEE_GENERATOR_EVENT));
     window.dispatchEvent(new Event(CLEAR_EMPLOYEE_PREVIEW_EVENT));
+    closeCroscekHelpers();
     setMode("closed");
   };
 
@@ -757,6 +1089,7 @@ export default function AdminOnboardingTour() {
     window.dispatchEvent(new Event(CLOSE_EMPLOYEE_MODAL_EVENT));
     window.dispatchEvent(new Event(CLOSE_EMPLOYEE_GENERATOR_EVENT));
     window.dispatchEvent(new Event(CLEAR_EMPLOYEE_PREVIEW_EVENT));
+    closeCroscekHelpers();
     setActiveFlowId(selectedFlow.id);
     setStepIndex(0);
     setTargetRect(null);
@@ -776,6 +1109,7 @@ export default function AdminOnboardingTour() {
       window.dispatchEvent(new Event(CLOSE_EMPLOYEE_MODAL_EVENT));
       window.dispatchEvent(new Event(CLOSE_EMPLOYEE_GENERATOR_EVENT));
       window.dispatchEvent(new Event(CLEAR_EMPLOYEE_PREVIEW_EVENT));
+      closeCroscekHelpers();
       setStepIndex(0);
       setTargetRect(null);
       setMode("launcher");
@@ -888,7 +1222,7 @@ export default function AdminOnboardingTour() {
         )}
 
         <div
-          className="fixed w-[min(380px,calc(100vw-32px))] bg-white rounded-2xl shadow-2xl border border-slate-200 pointer-events-auto overflow-hidden"
+          className="fixed w-[min(380px,calc(100vw-32px))] max-h-[calc(100vh-32px)] bg-white rounded-2xl shadow-2xl border border-slate-200 pointer-events-auto overflow-y-auto"
           style={{ top: tooltipPosition.top, left: tooltipPosition.left }}
         >
           <div className="p-4 border-b border-slate-200 flex items-start justify-between gap-3 bg-gradient-to-r from-blue-50 to-slate-50">
@@ -935,6 +1269,7 @@ export default function AdminOnboardingTour() {
                   window.dispatchEvent(new Event(CLOSE_EMPLOYEE_MODAL_EVENT));
                   window.dispatchEvent(new Event(CLOSE_EMPLOYEE_GENERATOR_EVENT));
                   window.dispatchEvent(new Event(CLEAR_EMPLOYEE_PREVIEW_EVENT));
+                  closeCroscekHelpers();
                   setMode("launcher");
                 }}
                 className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold"

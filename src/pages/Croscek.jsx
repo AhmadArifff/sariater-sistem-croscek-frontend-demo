@@ -1,6 +1,6 @@
 ﻿// src/pages/Croscek.jsx
 // import { useState, useEffect } from "react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { UploadCloud, FileSpreadsheet, ArrowRight, Search, X, Calendar,Users,CheckCircle,Plus, Trash2, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import sariAter from "../assets/sari-ater.png";
@@ -10,6 +10,29 @@ import logoCompany from "../assets/Image/logo.jpg";
 import { excelDropzoneClassName, getExcelDropzoneHandlers } from "../utils/excelDropzone";
 import RosterDummyGeneratorModal from "../components/RosterDummyGeneratorModal";
 import AttendanceDummyGeneratorModal from "../components/AttendanceDummyGeneratorModal";
+
+const TOUR_OPEN_CROSCEK_ROSTER_GENERATOR_EVENT = "croscek:tour-open-croscek-roster-generator";
+const TOUR_CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT = "croscek:tour-close-croscek-roster-generator";
+const TOUR_OPEN_CROSCEK_ATTENDANCE_GENERATOR_EVENT = "croscek:tour-open-croscek-attendance-generator";
+const TOUR_CLOSE_CROSCEK_ATTENDANCE_GENERATOR_EVENT = "croscek:tour-close-croscek-attendance-generator";
+const TOUR_SHOW_CROSCEK_JADWAL_PREVIEW_EVENT = "croscek:tour-show-croscek-jadwal-preview";
+const TOUR_CLEAR_CROSCEK_JADWAL_PREVIEW_EVENT = "croscek:tour-clear-croscek-jadwal-preview";
+const TOUR_SHOW_CROSCEK_KEHADIRAN_PREVIEW_EVENT = "croscek:tour-show-croscek-kehadiran-preview";
+const TOUR_CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT = "croscek:tour-clear-croscek-kehadiran-preview";
+const TOUR_OPEN_CROSCEK_RESULT_MODAL_EVENT = "croscek:tour-open-croscek-result-modal";
+const TOUR_CLOSE_CROSCEK_RESULT_MODAL_EVENT = "croscek:tour-close-croscek-result-modal";
+const TOUR_JADWAL_PREVIEW_HTML = `
+  <table class='min-w-full border text-xs bg-white'>
+    <thead><tr><th class='border p-2'>NO</th><th class='border p-2'>ID ABSEN</th><th class='border p-2'>NAMA</th><th class='border p-2'>1</th><th class='border p-2'>2</th></tr></thead>
+    <tbody><tr><td class='border p-2'>1</td><td class='border p-2'>710001</td><td class='border p-2'>AHMAD ARIF PRATAMA</td><td class='border p-2'>M1</td><td class='border p-2'>1A</td></tr></tbody>
+  </table>
+`;
+const TOUR_KEHADIRAN_PREVIEW_HTML = `
+  <table class='min-w-full border text-xs bg-white'>
+    <thead><tr><th class='border p-2'>Tanggal scan</th><th class='border p-2'>Tanggal</th><th class='border p-2'>Jam</th><th class='border p-2'>PIN</th><th class='border p-2'>Nama</th></tr></thead>
+    <tbody><tr><td class='border p-2'>01-06-2026 08:02:00</td><td class='border p-2'>01-06-2026</td><td class='border p-2'>08:02:00</td><td class='border p-2'>710001</td><td class='border p-2'>AHMAD ARIF PRATAMA</td></tr></tbody>
+  </table>
+`;
 // import { 
 //   // FileSpreadsheet, 
 //   // X, 
@@ -46,9 +69,66 @@ export default function Croscek() {
   const [processing, setProcessing] = useState(false);
   const [showRosterGeneratorModal, setShowRosterGeneratorModal] = useState(false);
   const [showAttendanceGeneratorModal, setShowAttendanceGeneratorModal] = useState(false);
+  const tourJadwalPreviewRef = useRef(false);
+  const tourKehadiranPreviewRef = useRef(false);
 
   // MODAL PREVIEW CROSCEK
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    const openRosterGenerator = () => setShowRosterGeneratorModal(true);
+    const closeRosterGenerator = () => setShowRosterGeneratorModal(false);
+    const openAttendanceGenerator = () => setShowAttendanceGeneratorModal(true);
+    const closeAttendanceGenerator = () => setShowAttendanceGeneratorModal(false);
+    const showJadwalPreviewForTour = () => {
+      tourJadwalPreviewRef.current = true;
+      setJadwalFile(null);
+      setJadwalPreview(TOUR_JADWAL_PREVIEW_HTML);
+    };
+    const clearJadwalPreviewForTour = () => {
+      if (!tourJadwalPreviewRef.current) return;
+      tourJadwalPreviewRef.current = false;
+      setJadwalPreview("");
+      setJadwalFile(null);
+    };
+    const showKehadiranPreviewForTour = () => {
+      tourKehadiranPreviewRef.current = true;
+      setKehadiranFile(null);
+      setKehadiranPreview(TOUR_KEHADIRAN_PREVIEW_HTML);
+    };
+    const clearKehadiranPreviewForTour = () => {
+      if (!tourKehadiranPreviewRef.current) return;
+      tourKehadiranPreviewRef.current = false;
+      setKehadiranPreview("");
+      setKehadiranFile(null);
+    };
+    const openResultModalForTour = () => setShowModal(true);
+    const closeResultModalForTour = () => setShowModal(false);
+
+    window.addEventListener(TOUR_OPEN_CROSCEK_ROSTER_GENERATOR_EVENT, openRosterGenerator);
+    window.addEventListener(TOUR_CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT, closeRosterGenerator);
+    window.addEventListener(TOUR_OPEN_CROSCEK_ATTENDANCE_GENERATOR_EVENT, openAttendanceGenerator);
+    window.addEventListener(TOUR_CLOSE_CROSCEK_ATTENDANCE_GENERATOR_EVENT, closeAttendanceGenerator);
+    window.addEventListener(TOUR_SHOW_CROSCEK_JADWAL_PREVIEW_EVENT, showJadwalPreviewForTour);
+    window.addEventListener(TOUR_CLEAR_CROSCEK_JADWAL_PREVIEW_EVENT, clearJadwalPreviewForTour);
+    window.addEventListener(TOUR_SHOW_CROSCEK_KEHADIRAN_PREVIEW_EVENT, showKehadiranPreviewForTour);
+    window.addEventListener(TOUR_CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT, clearKehadiranPreviewForTour);
+    window.addEventListener(TOUR_OPEN_CROSCEK_RESULT_MODAL_EVENT, openResultModalForTour);
+    window.addEventListener(TOUR_CLOSE_CROSCEK_RESULT_MODAL_EVENT, closeResultModalForTour);
+
+    return () => {
+      window.removeEventListener(TOUR_OPEN_CROSCEK_ROSTER_GENERATOR_EVENT, openRosterGenerator);
+      window.removeEventListener(TOUR_CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT, closeRosterGenerator);
+      window.removeEventListener(TOUR_OPEN_CROSCEK_ATTENDANCE_GENERATOR_EVENT, openAttendanceGenerator);
+      window.removeEventListener(TOUR_CLOSE_CROSCEK_ATTENDANCE_GENERATOR_EVENT, closeAttendanceGenerator);
+      window.removeEventListener(TOUR_SHOW_CROSCEK_JADWAL_PREVIEW_EVENT, showJadwalPreviewForTour);
+      window.removeEventListener(TOUR_CLEAR_CROSCEK_JADWAL_PREVIEW_EVENT, clearJadwalPreviewForTour);
+      window.removeEventListener(TOUR_SHOW_CROSCEK_KEHADIRAN_PREVIEW_EVENT, showKehadiranPreviewForTour);
+      window.removeEventListener(TOUR_CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT, clearKehadiranPreviewForTour);
+      window.removeEventListener(TOUR_OPEN_CROSCEK_RESULT_MODAL_EVENT, openResultModalForTour);
+      window.removeEventListener(TOUR_CLOSE_CROSCEK_RESULT_MODAL_EVENT, closeResultModalForTour);
+    };
+  }, []);
 
   // MODAL HASIL IMPORT
   const [showImportResult, setShowImportResult] = useState(false);
@@ -6554,7 +6634,7 @@ const formatDate = (dateString) => {
   // RENDER
   // -----------------------------------------
   return (
-    <div className="w-full bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+    <div className="w-full bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen" data-tour="croscek-page">
         {/* HEADER */}
           <div className="relative bg-gradient-to-br from-white via-gray-50 to-blue-50 p-5 md:p-7 rounded-3xl shadow-2xl hover:shadow-3xl flex flex-col md:flex-row md:items-center gap-5 m-6 overflow-hidden transition-all duration-300 ease-in-out hover:scale-[1.02] border border-gray-100 group"
             style={{
@@ -6761,6 +6841,7 @@ const formatDate = (dateString) => {
         <label
           className={`block w-full border-2 border-dashed border-blue-400 hover:border-blue-600 hover:bg-blue-50 cursor-pointer rounded-2xl p-10 text-center transition duration-300${excelDropzoneClassName(isDraggingJadwal)}`}
           {...getExcelDropzoneHandlers(handleUploadJadwal, setIsDraggingJadwal)}
+          data-tour="croscek-jadwal-upload-dropzone"
         >
           <UploadCloud size={45} className="text-blue-600 mx-auto" />
           <p className="text-gray-700 font-semibold mt-3">Upload File Jadwal</p>
@@ -6772,6 +6853,7 @@ const formatDate = (dateString) => {
             value={selectedMonth}
             onChange={handleMonthChange}
             className="border-2 border-gray-300 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+            data-tour="croscek-jadwal-period-upload"
           >
             <option value={0}>Januari</option>
             <option value={1}>Februari</option>
@@ -6789,6 +6871,7 @@ const formatDate = (dateString) => {
           <button
             onClick={exportTemplateJadwal}
             className="flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl text-sm md:text-base font-semibold transition duration-300 transform hover:scale-105"
+            data-tour="croscek-jadwal-template-button"
           >
             <Download size={20} />
             Download Template Excel
@@ -6796,6 +6879,7 @@ const formatDate = (dateString) => {
           <button
             onClick={() => setShowRosterGeneratorModal(true)}
             className="flex items-center justify-center gap-2 bg-white hover:bg-blue-50 text-blue-700 border-2 border-blue-300 px-6 py-3 rounded-xl shadow-md text-sm md:text-base font-semibold transition duration-300"
+            data-tour="croscek-roster-generator-button"
           >
             <FileSpreadsheet size={20} />
             Generate Dummy Jadwal
@@ -6811,7 +6895,7 @@ const formatDate = (dateString) => {
       )}
 
       {jadwalPreview && (
-        <div className="bg-white mt-6 mx-6 p-6 rounded-2xl shadow-lg border-t-4 border-blue-500">
+        <div className="bg-white mt-6 mx-6 p-6 rounded-2xl shadow-lg border-t-4 border-blue-500" data-tour="croscek-jadwal-preview-card">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold flex items-center gap-2 text-gray-800">
               <div className="p-2 bg-blue-100 rounded-lg"><FileSpreadsheet className="text-blue-700" size={24} /></div>
@@ -6821,19 +6905,21 @@ const formatDate = (dateString) => {
               onClick={saveJadwal}
               disabled={savingJadwal}
               className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-2 rounded-xl shadow-md hover:shadow-lg font-semibold transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              data-tour="croscek-jadwal-preview-save"
             >
               {savingJadwal ? "Menyimpan..." : "✓ Simpan Jadwal"}
             </button>
           </div>
           <div
             className="overflow-auto max-h-[500px] border-2 border-gray-200 rounded-xl p-4 text-xs bg-gray-50 hover:bg-white transition duration-200"
+            data-tour="croscek-jadwal-preview-table"
             dangerouslySetInnerHTML={{ __html: jadwalPreview }}
           />
         </div>
       )}
 
       {/* TABEL CRUD JADWAL KARYAWAN */}
-      <div className="bg-white mt-10 mx-6 p-6 rounded-2xl shadow-lg border-t-4 border-green-500">
+      <div className="bg-white mt-10 mx-6 p-6 rounded-2xl shadow-lg border-t-4 border-green-500" data-tour="croscek-jadwal-table-card">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
           <h2 className="text-xl font-bold text-gray-800">📅 Data Jadwal Karyawan</h2>
           <select
@@ -6849,6 +6935,7 @@ const formatDate = (dateString) => {
               setSelectedYearJadwal(tahun);
             }}
             className="border-2 border-gray-300 rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition duration-200"
+            data-tour="croscek-jadwal-period-select"
           >
             {availablePeriodsJadwal.length > 0 ? (
               availablePeriodsJadwal.map((period, index) => (
@@ -6863,12 +6950,13 @@ const formatDate = (dateString) => {
               <option value="" disabled>Tidak ada periode tersedia</option>
             )}
           </select>
-          <div className="flex items-center gap-3 relative flex-wrap">
+          <div className="flex items-center gap-3 relative flex-wrap" data-tour="croscek-jadwal-table-filters">
             <input
               type="text"
               placeholder="🔍 Cari data jadwal..."
               className="border-2 border-gray-300 px-4 py-2 rounded-xl text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition duration-200"
               value={searchJadwal}
+              data-tour="croscek-jadwal-search-input"
               onChange={(e) => {
                 setSearchJadwal(e.target.value);
                 setPageJadwal(1);
@@ -6882,6 +6970,7 @@ const formatDate = (dateString) => {
                 setPageJadwal(1);
               }}
               className="border-2 border-gray-300 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition duration-200"
+              data-tour="croscek-jadwal-rows-select"
             >
               <option value={5}>5 Baris</option>
               <option value={10}>10 Baris</option>
@@ -6893,11 +6982,12 @@ const formatDate = (dateString) => {
               <button
                 onClick={() => setShowActionMenu(prev => !prev)}
                 className="p-2 rounded-xl hover:bg-gray-100 border-2 border-gray-300 font-bold transition duration-200 hover:border-gray-400"
+                data-tour="croscek-jadwal-action-menu-button"
               >
                 ⋮
               </button>
               {showActionMenu && (
-                <div className="absolute right-0 top-12 w-48 bg-white border-2 border-gray-200 rounded-xl shadow-xl z-50">
+                <div className="absolute right-0 top-12 w-48 bg-white border-2 border-gray-200 rounded-xl shadow-xl z-50" data-tour="croscek-jadwal-action-menu">
                   <button
                     onClick={() => {
                       setShowModalTambah(true);
@@ -6941,7 +7031,7 @@ const formatDate = (dateString) => {
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border-2 border-gray-200">
+        <div className="overflow-x-auto rounded-xl border-2 border-gray-200" data-tour="croscek-jadwal-table">
           <table className="min-w-full text-xs md:text-sm">
             <thead className="bg-gradient-to-r from-green-500 to-green-600 text-white sticky top-0 z-20">
               <tr>
@@ -6949,7 +7039,7 @@ const formatDate = (dateString) => {
                 {colsJadwal.map(c => (
                   <th key={c} className="p-3 text-left font-semibold">{c.replace("_", " ").toUpperCase()}</th>
                 ))}
-                <th className="p-3 text-center font-semibold">Action</th>
+                  <th className="p-3 text-center font-semibold" data-tour="croscek-jadwal-table-actions">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -6986,7 +7076,7 @@ const formatDate = (dateString) => {
                       ) : item[col]}
                     </td>
                   ))}
-                  <td className="p-3 flex gap-2 justify-center flex-wrap">
+                  <td className="p-3 flex gap-2 justify-center flex-wrap" data-tour="croscek-jadwal-table-actions">
                     {editingId === item.no ? (
                       <button
                         onClick={() => handleUpdate(item.no)}
@@ -7024,7 +7114,7 @@ const formatDate = (dateString) => {
         </div>
 
         {!isAllRows && totalPagesJadwal > 1 && (
-          <div className="grid grid-cols-3 items-center mt-6 text-sm">
+          <div className="grid grid-cols-3 items-center mt-6 text-sm" data-tour="croscek-jadwal-pagination">
             <div className="text-gray-700 font-medium">
               Menampilkan {(pageJadwal - 1) * rowsPerPageJadwal + 1}–
               {Math.min(pageJadwal * rowsPerPageJadwal, filteredJadwal.length)} dari {filteredJadwal.length}
@@ -7586,6 +7676,7 @@ const formatDate = (dateString) => {
         <label
           className={`block w-full border-2 border-dashed border-emerald-400 hover:border-emerald-600 hover:bg-emerald-50 cursor-pointer rounded-2xl p-10 text-center transition duration-300${excelDropzoneClassName(isDraggingKehadiran)}`}
           {...getExcelDropzoneHandlers(handleUploadKehadiran, setIsDraggingKehadiran)}
+          data-tour="croscek-kehadiran-upload-dropzone"
         >
           <UploadCloud size={45} className="text-emerald-600 mx-auto" />
           <p className="text-gray-700 font-semibold mt-3">Upload File Kehadiran</p>
@@ -7607,6 +7698,7 @@ const formatDate = (dateString) => {
             }}
             className="border-2 border-gray-300 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition duration-200"
             disabled={loadingPeriods}
+            data-tour="croscek-kehadiran-period-select"
           >
             {availablePeriods.length > 0 ? (
               availablePeriods.map((period, index) => (
@@ -7628,6 +7720,7 @@ const formatDate = (dateString) => {
           <button
             onClick={exportTemplateKehadiran}
             className="flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl text-sm md:text-base font-semibold transition duration-300 transform hover:scale-105"
+            data-tour="croscek-kehadiran-template-button"
           >
             <Download size={20} />
             Download Template Excel
@@ -7636,6 +7729,7 @@ const formatDate = (dateString) => {
           <button
             onClick={() => setShowAttendanceGeneratorModal(true)}
             className="flex items-center justify-center gap-2 bg-white hover:bg-emerald-50 text-emerald-700 border-2 border-emerald-300 px-6 py-3 rounded-xl shadow-md text-sm md:text-base font-semibold transition duration-300"
+            data-tour="croscek-attendance-generator-button"
           >
             <FileSpreadsheet size={20} />
             Generate Dummy Kehadiran
@@ -7645,6 +7739,7 @@ const formatDate = (dateString) => {
             onClick={handleDeleteKehadiranPeriod}
             disabled={availablePeriods.length === 0 || !selectedMonthKehadiran || !selectedYearKehadiran}
             className="flex items-center justify-center gap-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl text-sm md:text-base font-semibold transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            data-tour="croscek-kehadiran-delete-period-button"
           >
             🗑 Hapus Data Periode
           </button>
@@ -7659,7 +7754,7 @@ const formatDate = (dateString) => {
       )}
 
       {kehadiranPreview && (
-        <div className="bg-white mt-6 mx-6 p-6 rounded-2xl shadow-lg border-t-4 border-emerald-500">
+        <div className="bg-white mt-6 mx-6 p-6 rounded-2xl shadow-lg border-t-4 border-emerald-500" data-tour="croscek-kehadiran-preview-card">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold flex items-center gap-2 text-gray-800">
               <div className="p-2 bg-emerald-100 rounded-lg"><FileSpreadsheet className="text-emerald-700" size={24} /></div>
@@ -7669,12 +7764,14 @@ const formatDate = (dateString) => {
               onClick={saveKehadiran}
               disabled={savingKehadiran}
               className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-2 rounded-xl shadow-md hover:shadow-lg font-semibold transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              data-tour="croscek-kehadiran-preview-save"
             >
               {savingKehadiran ? "Menyimpan..." : "✓ Simpan Kehadiran"}
             </button>
           </div>
           <div
             className="overflow-auto max-h-[500px] border-2 border-gray-200 rounded-xl p-4 text-xs bg-gray-50 hover:bg-white transition duration-200"
+            data-tour="croscek-kehadiran-preview-table"
             dangerouslySetInnerHTML={{ __html: kehadiranPreview }}
           />
         </div>
@@ -7686,6 +7783,7 @@ const formatDate = (dateString) => {
           disabled={processing}
           onClick={prosesCroscek}
           className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl flex items-center mx-auto gap-3 font-bold transition duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
+          data-tour="croscek-process-button"
         >
           <span>🔄 Proses Croscek</span>
           <ArrowRight size={22} />
@@ -7818,7 +7916,7 @@ const formatDate = (dateString) => {
       {/* MODAL PREVIEW CROSCEK */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 p-4 flex items-center justify-center">
-          <div className="bg-white w-full max-w-[95vw] h-[92vh] rounded-2xl shadow-2xl flex flex-col border-t-4 border-purple-500 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="bg-white w-full max-w-[95vw] h-[92vh] rounded-2xl shadow-2xl flex flex-col border-t-4 border-purple-500 animate-in fade-in slide-in-from-bottom-4 duration-300" data-tour="croscek-result-modal">
             
             {/* HEADER */}
             <div className="p-6 border-b-2 border-gray-200 flex justify-between items-center bg-gradient-to-r from-gray-50 to-white">
@@ -7834,13 +7932,14 @@ const formatDate = (dateString) => {
             </div>
 
             {/* FILTER SECTION */}
-            <div className="p-5 border-b-2 border-gray-200 bg-gray-50 flex flex-wrap items-center gap-3">
+            <div className="p-5 border-b-2 border-gray-200 bg-gray-50 flex flex-wrap items-center gap-3" data-tour="croscek-result-filters">
               <Search size={20} className="text-gray-600" />
               <input
                 type="text"
                 placeholder="🔍 Cari nama / tanggal..."
                 className="border-2 border-gray-300 p-3 rounded-xl flex-1 min-w-[200px] focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition duration-200 font-medium"
                 value={search}
+                data-tour="croscek-result-search"
                 onChange={(e) => {
                   setSearch(e.target.value);
                   setPage(1);
@@ -7852,6 +7951,7 @@ const formatDate = (dateString) => {
                   type="date"
                   className="border-0 focus:outline-none focus:ring-0 p-1 text-sm"
                   value={startDate}
+                  data-tour="croscek-result-start-date"
                   onChange={(e) => {
                     setStartDate(e.target.value);
                     setPage(1);
@@ -7864,6 +7964,7 @@ const formatDate = (dateString) => {
                   type="date"
                   className="border-0 focus:outline-none focus:ring-0 p-1 text-sm"
                   value={endDate}
+                  data-tour="croscek-result-end-date"
                   onChange={(e) => {
                     setEndDate(e.target.value);
                     setPage(1);
@@ -7872,6 +7973,7 @@ const formatDate = (dateString) => {
               </div>
             </div>
 
+                <div data-tour="croscek-result-indicators">
                 <AttendanceLegend
                   data={baseFilteredData}
                   activeIndicator={indicatorFilter}
@@ -7879,8 +7981,9 @@ const formatDate = (dateString) => {
                   currentPageCount={paginated.length}
                   filteredCount={filteredData.length}
                 />
+                </div>
             {/* TABLE CONTAINER */}
-            <div className="overflow-auto flex-1 p-4">
+            <div className="overflow-auto flex-1 p-4" data-tour="croscek-result-table">
               {/* â”€â”€ Legend â€” sticky di dalam overflow container â”€â”€ */}
               {/* <div className="sticky top-0 z-30 mb-3">
               </div> */}
@@ -7899,7 +8002,7 @@ const formatDate = (dateString) => {
                       <th className="p-3 text-center font-semibold whitespace-nowrap">📤 Jadwal Pulang</th>
                       <th className="p-3 text-center font-semibold whitespace-nowrap">✅ Aktual Masuk</th>
                       <th className="p-3 text-center font-semibold whitespace-nowrap">✅ Aktual Pulang</th>
-                      <th className="p-3 text-center font-semibold whitespace-nowrap">📍 Status Kehadiran</th>
+                      <th className="p-3 text-center font-semibold whitespace-nowrap" data-tour="croscek-result-status-controls">📍 Status Kehadiran</th>
                       <th className="p-3 text-center font-semibold whitespace-nowrap">⏱ Status Masuk</th>
                       <th className="p-3 text-center font-semibold whitespace-nowrap">⏱ Status Pulang</th>
                     </tr>
@@ -7936,7 +8039,7 @@ const formatDate = (dateString) => {
                         <td className="p-3 font-semibold text-gray-800 whitespace-nowrap">{row.Nama}</td>
                         <td className="p-3 whitespace-nowrap"><span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-lg text-xs font-semibold">{row.Tanggal}</span></td>
                         <td className="p-3"><span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-lg text-xs font-semibold">{row.Kode_Shift}</span></td>
-                        <td className="p-3 text-center">
+                        <td className="p-3 text-center" data-tour="croscek-result-status-controls">
                           {!hasPrediksiShiftValue(row.Prediksi_Shift) ? (
                             <span className="px-2 py-1 bg-green-100 text-green-800 rounded-lg text-xs font-semibold">✓ OK</span>
                           ) : (
@@ -8135,12 +8238,13 @@ const formatDate = (dateString) => {
             </div>
 
             {/* FOOTER */}
-            <div className="p-5 border-t-2 border-gray-200 bg-gradient-to-r from-gray-50 to-white flex flex-col gap-3">
+            <div className="p-5 border-t-2 border-gray-200 bg-gradient-to-r from-gray-50 to-white flex flex-col gap-3" data-tour="croscek-result-actions">
               {/* Baris 1: Tombol Export */}
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={exportFilteredData}
                   className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
+                  data-tour="croscek-result-export-excel"
                 >
                   <FileSpreadsheet size={16} /> Export Excel
                 </button>
@@ -8218,6 +8322,7 @@ const formatDate = (dateString) => {
                   <button
                     onClick={simpanCroscek}
                     className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105 border-2 border-green-700"
+                    data-tour="croscek-result-save"
                   >
                     💾 Simpan Croscek
                   </button>
@@ -8231,7 +8336,7 @@ const formatDate = (dateString) => {
                 </div>
 
                 {/* Navigasi halaman - kanan saja */}
-                <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex items-center gap-3 flex-shrink-0" data-tour="croscek-result-pagination">
                   <button
                     disabled={currentPage === 1}
                     onClick={() => setPage(currentPage - 1)}
@@ -9152,6 +9257,7 @@ const formatDate = (dateString) => {
         title="Generate Data Dummy Jadwal Karyawan"
         description="Pilih karyawan dari database, tentukan bulan, lalu generate roster dummy sesuai format upload jadwal."
         filePrefix="Dummy_Jadwal_Karyawan"
+        tourPrefix="roster-generator"
       />
 
       <AttendanceDummyGeneratorModal
@@ -9164,6 +9270,7 @@ const formatDate = (dateString) => {
         description="Pilih karyawan dari database, tentukan periode dan jumlah kategori telat, pulang cepat, lupa check-in, atau lupa check-out."
         filePrefix="Dummy_Kehadiran_Karyawan"
         machineName="Karyawan 2"
+        tourPrefix="attendance-generator"
       />
     </div>
   );

@@ -19,7 +19,8 @@ export default function RosterDummyGeneratorModal({
   shiftScheduleMap = {},
   title,
   description,
-  filePrefix = "Dummy_Jadwal_Karyawan"
+  filePrefix = "Dummy_Jadwal_Karyawan",
+  tourPrefix = "roster-generator"
 }) {
   const currentDate = new Date();
   const [search, setSearch] = useState("");
@@ -219,7 +220,10 @@ export default function RosterDummyGeneratorModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl max-h-[92vh] overflow-hidden flex flex-col">
+      <div
+        className="bg-white rounded-xl shadow-2xl w-full max-w-7xl max-h-[92vh] overflow-hidden flex flex-col"
+        data-tour={`${tourPrefix}-shell`}
+      >
         <div className="p-5 border-b flex items-start justify-between gap-4">
           <div>
             <h3 className="text-lg md:text-xl font-bold text-gray-900">{title}</h3>
@@ -237,7 +241,7 @@ export default function RosterDummyGeneratorModal({
 
         <div className="p-5 border-b grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-5 overflow-auto min-h-0">
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3" data-tour={`${tourPrefix}-period`}>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Bulan</label>
                 <select
@@ -278,13 +282,14 @@ export default function RosterDummyGeneratorModal({
                 value={count}
                 onChange={(event) => setCount(event.target.value)}
                 className="border rounded-lg px-3 py-2 w-full"
+                data-tour={`${tourPrefix}-count`}
               />
               <p className="text-xs text-gray-500 mt-1">
                 Maksimal mengikuti data tersedia: {filteredEmployees.length} orang.
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2" data-tour={`${tourPrefix}-selection-actions`}>
               <button
                 type="button"
                 onClick={selectByCount}
@@ -310,7 +315,7 @@ export default function RosterDummyGeneratorModal({
               </button>
             </div>
 
-            <div className="bg-gray-50 border rounded-lg p-3 text-sm text-gray-700 space-y-1">
+            <div className="bg-gray-50 border rounded-lg p-3 text-sm text-gray-700 space-y-1" data-tour={`${tourPrefix}-summary`}>
               <p>Total database: <strong>{normalizedEmployees.length}</strong></p>
               <p>Terpilih: <strong>{selectedEmployees.length}</strong></p>
               <p>Kode shift kerja: <strong>{selectedWorkCodes.length}</strong> / {workCodes.length}</p>
@@ -323,6 +328,7 @@ export default function RosterDummyGeneratorModal({
                 onClick={generateRows}
                 disabled={selectedEmployees.length === 0 || selectedWorkCodes.length === 0}
                 className="flex items-center justify-center gap-2 bg-[#1BA39C] hover:bg-[#158f89] disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm"
+                data-tour={`${tourPrefix}-generate`}
               >
                 <RefreshCw size={16} /> Generate
               </button>
@@ -331,6 +337,7 @@ export default function RosterDummyGeneratorModal({
                 onClick={exportExcel}
                 disabled={selectedEmployees.length === 0 || selectedWorkCodes.length === 0}
                 className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm"
+                data-tour={`${tourPrefix}-export`}
               >
                 <Download size={16} /> Export Excel
               </button>
@@ -349,9 +356,10 @@ export default function RosterDummyGeneratorModal({
                   setRosterRows([]);
                 }}
                 className="border rounded-lg pl-9 pr-3 py-2 w-full text-sm"
+                data-tour={`${tourPrefix}-employee-search`}
               />
             </div>
-            <div className="border rounded-xl overflow-auto max-h-[360px]">
+            <div className="border rounded-xl overflow-auto max-h-[360px]" data-tour={`${tourPrefix}-employee-table`}>
               <table className="min-w-full text-xs md:text-sm">
                 <thead className="bg-gray-100 sticky top-0">
                   <tr>
@@ -394,7 +402,7 @@ export default function RosterDummyGeneratorModal({
               </table>
             </div>
 
-            <div className="mt-4 border rounded-xl p-3 bg-white">
+            <div className="mt-4 border rounded-xl p-3 bg-white" data-tour={`${tourPrefix}-shift-card`}>
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div>
                   <h4 className="font-bold text-gray-900 text-sm">Shift Informasi Jadwal</h4>
@@ -415,10 +423,11 @@ export default function RosterDummyGeneratorModal({
                   value={shiftSearch}
                   onChange={(event) => setShiftSearch(event.target.value)}
                   className="border rounded-lg pl-9 pr-3 py-2 w-full text-sm"
+                  data-tour={`${tourPrefix}-shift-search`}
                 />
               </div>
 
-              <div className="flex flex-wrap gap-2 mb-3">
+              <div className="flex flex-wrap gap-2 mb-3" data-tour={`${tourPrefix}-shift-actions`}>
                 <button
                   type="button"
                   onClick={selectAllFilteredShifts}
@@ -444,7 +453,7 @@ export default function RosterDummyGeneratorModal({
                 </button>
               </div>
 
-              <div className="border rounded-lg overflow-auto max-h-[180px]">
+              <div className="border rounded-lg overflow-auto max-h-[180px]" data-tour={`${tourPrefix}-shift-table`}>
                 <table className="min-w-full text-xs">
                   <thead className="bg-gray-100 sticky top-0">
                     <tr>
@@ -490,7 +499,7 @@ export default function RosterDummyGeneratorModal({
           </div>
         </div>
 
-        <div className="p-5 overflow-auto">
+        <div className="p-5 overflow-auto" data-tour={`${tourPrefix}-preview`}>
           <div className="flex items-center justify-between gap-3 mb-3">
             <h4 className="font-bold text-gray-900">Preview Jadwal</h4>
             <p className="text-xs text-gray-500">

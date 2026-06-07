@@ -1,6 +1,6 @@
 // src/pages/Croscek.jsx
 // import { useState, useEffect } from "react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { UploadCloud, FileSpreadsheet, ArrowRight, Search, X, Plus, Trash2, Download, Calendar, Users, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import * as XLSX from "xlsx";
 import sariAter from "../assets/sari-ater.png";
@@ -11,6 +11,28 @@ import { excelDropzoneClassName, getExcelDropzoneHandlers } from "../utils/excel
 import RosterDummyGeneratorModal from "../components/RosterDummyGeneratorModal";
 import AttendanceDummyGeneratorModal from "../components/AttendanceDummyGeneratorModal";
 
+const TOUR_OPEN_CROSCEK_ROSTER_GENERATOR_EVENT = "croscek:tour-open-croscek-roster-generator";
+const TOUR_CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT = "croscek:tour-close-croscek-roster-generator";
+const TOUR_OPEN_CROSCEK_ATTENDANCE_GENERATOR_EVENT = "croscek:tour-open-croscek-attendance-generator";
+const TOUR_CLOSE_CROSCEK_ATTENDANCE_GENERATOR_EVENT = "croscek:tour-close-croscek-attendance-generator";
+const TOUR_SHOW_CROSCEK_JADWAL_PREVIEW_EVENT = "croscek:tour-show-croscek-jadwal-preview";
+const TOUR_CLEAR_CROSCEK_JADWAL_PREVIEW_EVENT = "croscek:tour-clear-croscek-jadwal-preview";
+const TOUR_SHOW_CROSCEK_KEHADIRAN_PREVIEW_EVENT = "croscek:tour-show-croscek-kehadiran-preview";
+const TOUR_CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT = "croscek:tour-clear-croscek-kehadiran-preview";
+const TOUR_OPEN_CROSCEK_RESULT_MODAL_EVENT = "croscek:tour-open-croscek-result-modal";
+const TOUR_CLOSE_CROSCEK_RESULT_MODAL_EVENT = "croscek:tour-close-croscek-result-modal";
+const TOUR_JADWAL_PREVIEW_HTML = `
+  <table class='min-w-full border text-xs bg-white'>
+    <thead><tr><th class='border p-2'>NO</th><th class='border p-2'>ID ABSEN</th><th class='border p-2'>NAMA</th><th class='border p-2'>1</th><th class='border p-2'>2</th></tr></thead>
+    <tbody><tr><td class='border p-2'>1</td><td class='border p-2'>720001</td><td class='border p-2'>DW CONTOH PRATAMA</td><td class='border p-2'>DW1</td><td class='border p-2'>OFF</td></tr></tbody>
+  </table>
+`;
+const TOUR_KEHADIRAN_PREVIEW_HTML = `
+  <table class='min-w-full border text-xs bg-white'>
+    <thead><tr><th class='border p-2'>Tanggal scan</th><th class='border p-2'>Tanggal</th><th class='border p-2'>Jam</th><th class='border p-2'>PIN</th><th class='border p-2'>Nama</th></tr></thead>
+    <tbody><tr><td class='border p-2'>01-06-2026 08:04:00</td><td class='border p-2'>01-06-2026</td><td class='border p-2'>08:04:00</td><td class='border p-2'>720001</td><td class='border p-2'>DW CONTOH PRATAMA</td></tr></tbody>
+  </table>
+`;
 
 export default function Croscek_DW() {
   const API = import.meta.env.VITE_API_URL;
@@ -34,9 +56,66 @@ export default function Croscek_DW() {
   const [processing, setProcessing] = useState(false);
   const [showRosterGeneratorModal, setShowRosterGeneratorModal] = useState(false);
   const [showAttendanceGeneratorModal, setShowAttendanceGeneratorModal] = useState(false);
+  const tourJadwalPreviewRef = useRef(false);
+  const tourKehadiranPreviewRef = useRef(false);
 
   // MODAL PREVIEW CROSCEK
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    const openRosterGenerator = () => setShowRosterGeneratorModal(true);
+    const closeRosterGenerator = () => setShowRosterGeneratorModal(false);
+    const openAttendanceGenerator = () => setShowAttendanceGeneratorModal(true);
+    const closeAttendanceGenerator = () => setShowAttendanceGeneratorModal(false);
+    const showJadwalPreviewForTour = () => {
+      tourJadwalPreviewRef.current = true;
+      setJadwalFile(null);
+      setJadwalPreview(TOUR_JADWAL_PREVIEW_HTML);
+    };
+    const clearJadwalPreviewForTour = () => {
+      if (!tourJadwalPreviewRef.current) return;
+      tourJadwalPreviewRef.current = false;
+      setJadwalPreview("");
+      setJadwalFile(null);
+    };
+    const showKehadiranPreviewForTour = () => {
+      tourKehadiranPreviewRef.current = true;
+      setKehadiranFile(null);
+      setKehadiranPreview(TOUR_KEHADIRAN_PREVIEW_HTML);
+    };
+    const clearKehadiranPreviewForTour = () => {
+      if (!tourKehadiranPreviewRef.current) return;
+      tourKehadiranPreviewRef.current = false;
+      setKehadiranPreview("");
+      setKehadiranFile(null);
+    };
+    const openResultModalForTour = () => setShowModal(true);
+    const closeResultModalForTour = () => setShowModal(false);
+
+    window.addEventListener(TOUR_OPEN_CROSCEK_ROSTER_GENERATOR_EVENT, openRosterGenerator);
+    window.addEventListener(TOUR_CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT, closeRosterGenerator);
+    window.addEventListener(TOUR_OPEN_CROSCEK_ATTENDANCE_GENERATOR_EVENT, openAttendanceGenerator);
+    window.addEventListener(TOUR_CLOSE_CROSCEK_ATTENDANCE_GENERATOR_EVENT, closeAttendanceGenerator);
+    window.addEventListener(TOUR_SHOW_CROSCEK_JADWAL_PREVIEW_EVENT, showJadwalPreviewForTour);
+    window.addEventListener(TOUR_CLEAR_CROSCEK_JADWAL_PREVIEW_EVENT, clearJadwalPreviewForTour);
+    window.addEventListener(TOUR_SHOW_CROSCEK_KEHADIRAN_PREVIEW_EVENT, showKehadiranPreviewForTour);
+    window.addEventListener(TOUR_CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT, clearKehadiranPreviewForTour);
+    window.addEventListener(TOUR_OPEN_CROSCEK_RESULT_MODAL_EVENT, openResultModalForTour);
+    window.addEventListener(TOUR_CLOSE_CROSCEK_RESULT_MODAL_EVENT, closeResultModalForTour);
+
+    return () => {
+      window.removeEventListener(TOUR_OPEN_CROSCEK_ROSTER_GENERATOR_EVENT, openRosterGenerator);
+      window.removeEventListener(TOUR_CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT, closeRosterGenerator);
+      window.removeEventListener(TOUR_OPEN_CROSCEK_ATTENDANCE_GENERATOR_EVENT, openAttendanceGenerator);
+      window.removeEventListener(TOUR_CLOSE_CROSCEK_ATTENDANCE_GENERATOR_EVENT, closeAttendanceGenerator);
+      window.removeEventListener(TOUR_SHOW_CROSCEK_JADWAL_PREVIEW_EVENT, showJadwalPreviewForTour);
+      window.removeEventListener(TOUR_CLEAR_CROSCEK_JADWAL_PREVIEW_EVENT, clearJadwalPreviewForTour);
+      window.removeEventListener(TOUR_SHOW_CROSCEK_KEHADIRAN_PREVIEW_EVENT, showKehadiranPreviewForTour);
+      window.removeEventListener(TOUR_CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT, clearKehadiranPreviewForTour);
+      window.removeEventListener(TOUR_OPEN_CROSCEK_RESULT_MODAL_EVENT, openResultModalForTour);
+      window.removeEventListener(TOUR_CLOSE_CROSCEK_RESULT_MODAL_EVENT, closeResultModalForTour);
+    };
+  }, []);
 
   // MODAL HASIL IMPORT
   const [showImportResult, setShowImportResult] = useState(false);
@@ -6171,7 +6250,7 @@ const handlePreviewDailyWorker = () => {
   // RENDER
   // -----------------------------------------
   return (
-    <div className="w-full">
+    <div className="w-full" data-tour="croscek-page">
       {/* HEADER */}
       <div className="bg-white p-5 md:p-7 rounded-2xl shadow-md flex flex-col md:flex-row md:items-center gap-5">
         <img src={sariAter} className="w-20 md:w-28" alt="logo" />
@@ -6188,6 +6267,7 @@ const handlePreviewDailyWorker = () => {
         <label
           className={`block w-full border-2 border-dashed border-blue-500 hover:bg-blue-50 cursor-pointer rounded-xl p-10 text-center transition${excelDropzoneClassName(isDraggingJadwal)}`}
           {...getExcelDropzoneHandlers(handleUploadJadwal, setIsDraggingJadwal)}
+          data-tour="croscek-jadwal-upload-dropzone"
         >
           <UploadCloud size={45} className="text-blue-600 mx-auto" />
           <p className="text-gray-700 font-medium mt-3">Upload File Jadwal</p>
@@ -6198,6 +6278,7 @@ const handlePreviewDailyWorker = () => {
             value={selectedMonth}
             onChange={handleMonthChange}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            data-tour="croscek-jadwal-period-upload"
           >
             <option value={0}>Januari</option>
             <option value={1}>Februari</option>
@@ -6215,6 +6296,7 @@ const handlePreviewDailyWorker = () => {
           <button
             onClick={exportTemplateJadwal}
             className="flex items-center justify-center gap-2 bg-[#1BA39C] hover:bg-[#158f89] text-white px-6 py-4 rounded-xl shadow-md text-sm md:text-base"
+            data-tour="croscek-jadwal-template-button"
           >
             <Download size={20} />
             Download Template Excel
@@ -6222,6 +6304,7 @@ const handlePreviewDailyWorker = () => {
           <button
             onClick={() => setShowRosterGeneratorModal(true)}
             className="flex items-center justify-center gap-2 bg-white hover:bg-blue-50 text-blue-700 border border-blue-300 px-6 py-4 rounded-xl shadow-md text-sm md:text-base"
+            data-tour="croscek-roster-generator-button"
           >
             <FileSpreadsheet size={20} />
             Generate Dummy Jadwal
@@ -6235,7 +6318,7 @@ const handlePreviewDailyWorker = () => {
       )}
 
       {jadwalPreview && (
-        <div className="bg-white mt-6 p-5 rounded-2xl shadow-md">
+        <div className="bg-white mt-6 p-5 rounded-2xl shadow-md" data-tour="croscek-jadwal-preview-card">
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-lg font-bold flex items-center gap-2">
               <FileSpreadsheet className="text-blue-700" /> Preview Jadwal
@@ -6244,19 +6327,21 @@ const handlePreviewDailyWorker = () => {
               onClick={saveJadwal}
               disabled={savingJadwal}
               className="bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700"
+              data-tour="croscek-jadwal-preview-save"
             >
               {savingJadwal ? "Menyimpan..." : "Simpan Jadwal"}
             </button>
           </div>
           <div
             className="overflow-auto max-h-[500px] border rounded-xl p-3 text-xs"
+            data-tour="croscek-jadwal-preview-table"
             dangerouslySetInnerHTML={{ __html: jadwalPreview }}
           />
         </div>
       )}
 
       {/* TAMBAHAN: TABEL CRUD JADWAL KARYAWAN */}
-      <div className="bg-white mt-10 p-4 md:p-6 rounded-2xl shadow-md">
+      <div className="bg-white mt-10 p-4 md:p-6 rounded-2xl shadow-md" data-tour="croscek-jadwal-table-card">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3">
           {/* LEFT */}
           <h2 className="text-xl font-bold">Data Jadwal Karyawan</h2>
@@ -6269,6 +6354,7 @@ const handlePreviewDailyWorker = () => {
               setSelectedYearJadwal(tahun);
             }}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            data-tour="croscek-jadwal-period-select"
           >
             {availablePeriodsJadwal.length > 0 ? (
               availablePeriodsJadwal.map((period, index) => (
@@ -6284,13 +6370,14 @@ const handlePreviewDailyWorker = () => {
             )}
           </select>
           {/* RIGHT */}
-          <div className="flex items-center gap-2 relative">
+          <div className="flex items-center gap-2 relative" data-tour="croscek-jadwal-table-filters">
             {/* Search */}
             <input
               type="text"
               placeholder="Cari data jadwal..."
               className="border px-3 py-2 rounded-lg text-sm"
               value={searchJadwal}
+              data-tour="croscek-jadwal-search-input"
               onChange={(e) => {
                 setSearchJadwal(e.target.value);
                 setPageJadwal(1);
@@ -6306,6 +6393,7 @@ const handlePreviewDailyWorker = () => {
                 setPageJadwal(1);
               }}
               className="border border-gray-300 rounded-lg px-2 py-2 text-sm"
+              data-tour="croscek-jadwal-rows-select"
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
@@ -6318,13 +6406,14 @@ const handlePreviewDailyWorker = () => {
             <button
               onClick={() => setShowActionMenu(prev => !prev)}
               className="p-2 rounded-lg hover:bg-gray-100 border"
+              data-tour="croscek-jadwal-action-menu-button"
             >
               ⋮
             </button>
 
             {/* DROPDOWN MENU */}
             {showActionMenu && (
-              <div className="absolute right-0 top-12 w-44 bg-white border rounded-lg shadow-lg z-50">
+              <div className="absolute right-0 top-12 w-44 bg-white border rounded-lg shadow-lg z-50" data-tour="croscek-jadwal-action-menu">
                 <button
                   onClick={() => {
                     setShowModalTambah(true);
@@ -6359,7 +6448,7 @@ const handlePreviewDailyWorker = () => {
           </div>
         </div>
 
-        <div className="overflow-auto">
+        <div className="overflow-auto" data-tour="croscek-jadwal-table">
           <table className="min-w-full border text-xs md:text-sm">
             <thead className="bg-gray-100">
               <tr>
@@ -6367,7 +6456,7 @@ const handlePreviewDailyWorker = () => {
                 {colsJadwal.map(c => (
                   <th key={c} className="border p-2">{c.replace("_", " ")}</th>
                 ))}
-                <th className="border p-2">Action</th>
+                <th className="border p-2" data-tour="croscek-jadwal-table-actions">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -6406,7 +6495,7 @@ const handlePreviewDailyWorker = () => {
                   </td>
                 ))}
 
-                  <td className="border p-2 flex gap-2">
+                  <td className="border p-2 flex gap-2" data-tour="croscek-jadwal-table-actions">
                     {editingId === item.no ? (
                       <button
                         onClick={() => handleUpdate(item.no)}
@@ -6446,7 +6535,7 @@ const handlePreviewDailyWorker = () => {
         </div>
 
         {!isAllRows && totalPagesJadwal > 1 && (
-          <div className="grid grid-cols-3 items-center mt-4 text-sm">
+          <div className="grid grid-cols-3 items-center mt-4 text-sm" data-tour="croscek-jadwal-pagination">
             
             {/* Info kiri */}
             <div className="text-gray-600">
@@ -7030,6 +7119,7 @@ const handlePreviewDailyWorker = () => {
         <label
           className={`block w-full border-2 border-dashed border-green-500 hover:bg-green-50 cursor-pointer rounded-xl p-10 text-center transition${excelDropzoneClassName(isDraggingKehadiran)}`}
           {...getExcelDropzoneHandlers(handleUploadKehadiran, setIsDraggingKehadiran)}
+          data-tour="croscek-kehadiran-upload-dropzone"
         >
           <UploadCloud size={45} className="text-green-600 mx-auto" />
           <p className="text-gray-700 font-medium mt-3">Upload File Kehadiran</p>
@@ -7046,6 +7136,7 @@ const handlePreviewDailyWorker = () => {
           }}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
           disabled={loadingPeriods}
+          data-tour="croscek-kehadiran-period-select"
         >
           {availablePeriods.length > 0 ? (
             availablePeriods.map((period, index) => (
@@ -7071,6 +7162,7 @@ const handlePreviewDailyWorker = () => {
         <button
           onClick={exportTemplateKehadiran}
           className="flex items-center justify-center gap-2 bg-[#1BA39C] hover:bg-[#158f89] text-white px-6 py-4 rounded-xl shadow-md text-sm md:text-base"
+          data-tour="croscek-kehadiran-template-button"
         >
           <Download size={20} />
           Download Template Excel
@@ -7079,6 +7171,7 @@ const handlePreviewDailyWorker = () => {
         <button
           onClick={() => setShowAttendanceGeneratorModal(true)}
           className="flex items-center justify-center gap-2 bg-white hover:bg-green-50 text-green-700 border border-green-300 px-6 py-4 rounded-xl shadow-md text-sm md:text-base"
+          data-tour="croscek-attendance-generator-button"
         >
           <FileSpreadsheet size={20} />
           Generate Dummy Kehadiran
@@ -7089,6 +7182,7 @@ const handlePreviewDailyWorker = () => {
           onClick={handleDeleteKehadiranPeriod}
           disabled={availablePeriods.length === 0}
           className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-4 rounded-xl shadow-md text-sm md:text-base disabled:opacity-50"
+          data-tour="croscek-kehadiran-delete-period-button"
         >
           🗑 Hapus Data Periode
         </button>
@@ -7107,7 +7201,7 @@ const handlePreviewDailyWorker = () => {
       )}
 
       {kehadiranPreview && (
-        <div className="bg-white mt-6 p-5 rounded-2xl shadow-md">
+        <div className="bg-white mt-6 p-5 rounded-2xl shadow-md" data-tour="croscek-kehadiran-preview-card">
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-lg font-bold flex items-center gap-2">
               <FileSpreadsheet className="text-green-700" /> Preview Kehadiran
@@ -7116,12 +7210,14 @@ const handlePreviewDailyWorker = () => {
               onClick={saveKehadiran}
               disabled={savingKehadiran}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700"
+              data-tour="croscek-kehadiran-preview-save"
             >
               {savingKehadiran ? "Menyimpan..." : "Simpan Kehadiran"}
             </button>
           </div>
           <div
             className="overflow-auto max-h-[500px] border rounded-xl p-3 text-xs"
+            data-tour="croscek-kehadiran-preview-table"
             dangerouslySetInnerHTML={{ __html: kehadiranPreview }}
           />
         </div>
@@ -7133,6 +7229,7 @@ const handlePreviewDailyWorker = () => {
                     disabled={processing}
           onClick={prosesCroscek}
           className="bg-purple-600 text-white px-6 py-3 rounded-xl shadow hover:bg-purple-700 disabled:opacity-50 flex items-center mx-auto gap-2"
+          data-tour="croscek-process-button"
         >
           Proses Croscek <ArrowRight size={20} />
         </button>
@@ -7188,7 +7285,7 @@ const handlePreviewDailyWorker = () => {
   //       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50">
   // <         div className="bg-white w-screen h-screen flex flex-col">
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 p-6">
-            <div className="bg-white w-full h-full max-w-[95vw] max-h-[92vh] mx-auto rounded-2xl shadow-xl flex flex-col">
+            <div className="bg-white w-full h-full max-w-[95vw] max-h-[92vh] mx-auto rounded-2xl shadow-xl flex flex-col" data-tour="croscek-result-modal">
             {/* HEADER */}
             <div className="p-4 border-b flex justify-between items-center">
               <h2 className="text-xl font-bold">Preview Hasil Croscek</h2>
@@ -7201,13 +7298,14 @@ const handlePreviewDailyWorker = () => {
             </div>
 
             {/* SEARCH DAN FILTER TANGGAL */}
-            <div className="p-4 flex items-center gap-2 border-b">
+            <div className="p-4 flex items-center gap-2 border-b" data-tour="croscek-result-filters">
               <Search />
               <input
                 type="text"
                 placeholder="Cari nama / tanggal..."
                 className="border p-2 rounded w-full"
                 value={search}
+                data-tour="croscek-result-search"
                 onChange={(e) => {
                   setSearch(e.target.value);
                   setPage(1);
@@ -7219,6 +7317,7 @@ const handlePreviewDailyWorker = () => {
                 type="date"
                 className="border p-2 rounded"
                 value={startDate}
+                data-tour="croscek-result-start-date"
                 onChange={(e) => {
                   setStartDate(e.target.value);
                   setPage(1);
@@ -7230,6 +7329,7 @@ const handlePreviewDailyWorker = () => {
                 type="date"
                 className="border p-2 rounded"
                 value={endDate}
+                data-tour="croscek-result-end-date"
                 onChange={(e) => {
                   setEndDate(e.target.value);
                   setPage(1);
@@ -7238,7 +7338,7 @@ const handlePreviewDailyWorker = () => {
             </div>
 
             {/* TABLE */}
-            <div className="overflow-auto p-4 flex-1">
+            <div className="overflow-auto p-4 flex-1" data-tour="croscek-result-table">
               <table className="min-w-full text-sm border">
                 <thead className="bg-gray-100">
                   <tr>
@@ -7252,7 +7352,7 @@ const handlePreviewDailyWorker = () => {
                     <th className="border p-2 whitespace-nowrap">Jadwal Pulang</th>
                     <th className="border p-2 whitespace-nowrap">Aktual Masuk</th>
                     <th className="border p-2 whitespace-nowrap">Aktual Pulang</th>
-                    <th className="border p-2 whitespace-nowrap">Status Kehadiran</th>
+                    <th className="border p-2 whitespace-nowrap" data-tour="croscek-result-status-controls">Status Kehadiran</th>
                     <th className="border p-2 whitespace-nowrap">Status Masuk</th>
                     <th className="border p-2 whitespace-nowrap">Status Pulang</th>
                   </tr>
@@ -7320,7 +7420,7 @@ const handlePreviewDailyWorker = () => {
                       <td className="border p-2">{row.Jadwal_Pulang}</td>
                       {/* <td className="border p-2">{formatJam(row.Actual_Masuk)}</td>
                       <td className="border p-2">{formatJam(row.Actual_Pulang)}</td> */}
-                      <td className="border p-2">
+                      <td className="border p-2" data-tour="croscek-result-status-controls">
                         {
                           LIBUR_SHIFTS.includes(row.Kode_Shift)
                             ? (
@@ -7550,13 +7650,14 @@ const handlePreviewDailyWorker = () => {
             </div>
 
             {/* EXPORT BUTTON DAN PAGINATION */}
-            <div className="p-4 border-t flex justify-between items-center">
+            <div className="p-4 border-t flex justify-between items-center" data-tour="croscek-result-actions">
               {/* Grup tombol kiri */}
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex flex-wrap items-center gap-2 bg-white p-3 rounded-xl border shadow-sm">
                     {/* Export Excel */}
                     <button
                       onClick={exportFilteredData}
+                      data-tour="croscek-result-export-excel"
                       className="
                         inline-flex items-center gap-2
                         px-4 py-2 text-sm font-semibold
@@ -7717,6 +7818,7 @@ const handlePreviewDailyWorker = () => {
                     {/* Simpan Croscek */}
                     <button
                       onClick={simpanCroscek}
+                      data-tour="croscek-result-save"
                       className="
                         inline-flex items-center gap-2
                         px-4 py-2 text-sm font-semibold
@@ -7737,7 +7839,7 @@ const handlePreviewDailyWorker = () => {
 
                 </div>
               {/* Navigasi halaman */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4" data-tour="croscek-result-pagination">
                 <button
                   disabled={page === 1}
                   onClick={() => setPage(page - 1)}
@@ -8234,6 +8336,7 @@ const handlePreviewDailyWorker = () => {
       title="Generate Data Dummy Jadwal Daily Worker (DW)"
       description="Pilih DW dari database, tentukan bulan, lalu generate roster dummy sesuai format upload jadwal."
       filePrefix="Dummy_Jadwal_Daily_Worker"
+      tourPrefix="roster-generator"
     />
 
     <AttendanceDummyGeneratorModal
@@ -8246,6 +8349,7 @@ const handlePreviewDailyWorker = () => {
       description="Pilih DW dari database, tentukan periode dan jumlah kategori telat, pulang cepat, lupa check-in, atau lupa check-out."
       filePrefix="Dummy_Kehadiran_Daily_Worker"
       machineName="Karyawan 2"
+      tourPrefix="attendance-generator"
     />
 
     </div>
