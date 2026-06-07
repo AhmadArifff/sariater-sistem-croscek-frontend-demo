@@ -220,8 +220,8 @@ export default function AttendanceDummyGeneratorModal({
           </button>
         </div>
 
-        <div className="p-5 border-b grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5 overflow-hidden">
-          <div className="space-y-4">
+        <div className="p-5 border-b grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5 overflow-hidden min-h-0">
+          <div className="space-y-3 min-h-0 lg:max-h-[360px] lg:overflow-y-auto lg:pr-1">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal awal</label>
@@ -298,6 +298,15 @@ export default function AttendanceDummyGeneratorModal({
               </div>
             </div>
 
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button type="button" onClick={generateRows} disabled={selectedEmployees.length === 0 || !startDate || !endDate} className="flex items-center justify-center gap-2 bg-[#1BA39C] hover:bg-[#158f89] disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm">
+                <RefreshCw size={16} /> Generate
+              </button>
+              <button type="button" onClick={exportExcel} disabled={selectedEmployees.length === 0 || !startDate || !endDate} className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm">
+                <Download size={16} /> Export Excel
+              </button>
+            </div>
+
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={selectByCount} disabled={filteredEmployees.length === 0} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm disabled:opacity-60">
                 Pilih Jumlah
@@ -317,15 +326,6 @@ export default function AttendanceDummyGeneratorModal({
               {specialTotal > selectedCount && (
                 <p className="text-red-600 text-xs">Jumlah kategori akan disesuaikan agar tidak melebihi orang terpilih.</p>
               )}
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2">
-              <button type="button" onClick={generateRows} disabled={selectedEmployees.length === 0 || !startDate || !endDate} className="flex items-center justify-center gap-2 bg-[#1BA39C] hover:bg-[#158f89] disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm">
-                <RefreshCw size={16} /> Generate
-              </button>
-              <button type="button" onClick={exportExcel} disabled={selectedEmployees.length === 0 || !startDate || !endDate} className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm">
-                <Download size={16} /> Export Excel
-              </button>
             </div>
           </div>
 
