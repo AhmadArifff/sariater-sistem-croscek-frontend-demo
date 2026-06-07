@@ -86,6 +86,7 @@ export default function Croscek_DW() {
   // MODAL PREVIEW CROSCEK
   const [showModal, setShowModal] = useState(false);
   const [showTourExportPreview, setShowTourExportPreview] = useState(false);
+  const [tourExportPreviewType, setTourExportPreviewType] = useState("hasil");
 
   useEffect(() => {
     const openRosterGenerator = () => setShowRosterGeneratorModal(true);
@@ -116,7 +117,10 @@ export default function Croscek_DW() {
     };
     const openResultModalForTour = () => setShowModal(true);
     const closeResultModalForTour = () => setShowModal(false);
-    const openExportPreviewForTour = () => setShowTourExportPreview(true);
+    const openExportPreviewForTour = (event) => {
+      setTourExportPreviewType(event?.detail?.type || "hasil");
+      setShowTourExportPreview(true);
+    };
     const closeExportPreviewForTour = () => setShowTourExportPreview(false);
     const openDwPreviewForTour = () => {
       setRekapDailyWorkerPreview(TOUR_DW_REKAP_PREVIEW);
@@ -6284,6 +6288,48 @@ const handlePreviewDailyWorker = () => {
 };
 
 
+const renderTourExportPreviewContent = () => {
+  const cell = "border border-gray-300 p-2 whitespace-nowrap";
+  const head = `${cell} bg-gray-100 font-bold text-gray-800 text-center`;
+
+  return (
+    <div>
+      <div className="mb-4">
+        <h2 className="font-bold text-lg text-gray-900">Preview Export Excel - Hasil Croscek DW</h2>
+        <p className="text-sm text-gray-600 mt-1">
+          Mengikuti sheet Hasil Croscek pada file hasil_croscek_start_sd_end.xlsx untuk menu Daily Worker.
+        </p>
+      </div>
+      <table className="min-w-full border-collapse text-xs">
+        <thead>
+          <tr>
+            {[
+              "Nama", "Tanggal", "Kode Shift", "Jabatan", "Departemen",
+              "Jadwal Masuk", "Jadwal Pulang", "Aktual Masuk", "Aktual Pulang",
+              "Keterangan Jadwal", "Status Kehadiran", "Status Masuk", "Status Pulang"
+            ].map((header) => <th key={header} className={head}>{header}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            {[
+              "DW CONTOH PRATAMA", "01-06-2026", "DW1", "DAILY WORKER", "HOUSEKEEPING",
+              "08:00:00", "16:00:00", "08:04:00", "16:03:00",
+              "Sesuai Jadwal", "Hadir", "Masuk Tepat Waktu", "Pulang Tepat Waktu"
+            ].map((value, index) => <td key={`${value}-${index}`} className={cell}>{value}</td>)}
+          </tr>
+        </tbody>
+      </table>
+      {tourExportPreviewType !== "hasil" && (
+        <p className="mt-3 text-xs text-gray-500">
+          Preview ini mengikuti struktur export hasil croscek. Rekap Daily Worker punya modal preview terpisah dengan layout rekap bulanan DW.
+        </p>
+      )}
+    </div>
+  );
+};
+
+
 
 
 
@@ -7910,38 +7956,15 @@ const handlePreviewDailyWorker = () => {
 
       {showTourExportPreview && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-4xl max-h-[86vh] rounded-xl shadow flex flex-col border-t-4 border-emerald-500" data-tour="croscek-export-preview-modal">
+          <div className="bg-white w-full max-w-6xl max-h-[86vh] rounded-xl shadow flex flex-col border-t-4 border-emerald-500" data-tour="croscek-export-preview-modal">
             <div className="p-4 border-b flex justify-between items-center">
-              <div>
-                <h2 className="font-bold text-lg">Preview Struktur File Export</h2>
-                <p className="text-sm text-gray-600">Contoh isi file hasil croscek DW sebelum diunduh.</p>
-              </div>
+              <p className="text-sm font-bold text-emerald-700 uppercase tracking-wide">Preview struktur file Excel</p>
               <button onClick={() => setShowTourExportPreview(false)}>
                 <X size={24} />
               </button>
             </div>
             <div className="p-4 overflow-auto">
-              <table className="min-w-full border text-xs md:text-sm">
-                <thead className="bg-emerald-600 text-white">
-                  <tr>
-                    {["Nama", "Tanggal", "Shift", "Jadwal", "Actual", "Status Kehadiran", "Status Masuk", "Status Pulang"].map((header) => (
-                      <th key={header} className="border p-2 text-left whitespace-nowrap">{header}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border p-2">DW CONTOH PRATAMA</td>
-                    <td className="border p-2">2026-06-01</td>
-                    <td className="border p-2">DW1</td>
-                    <td className="border p-2">08:00-16:00</td>
-                    <td className="border p-2">08:04-16:03</td>
-                    <td className="border p-2">Hadir</td>
-                    <td className="border p-2">Masuk Tepat Waktu</td>
-                    <td className="border p-2">Pulang Tepat Waktu</td>
-                  </tr>
-                </tbody>
-              </table>
+              {renderTourExportPreviewContent()}
             </div>
             <div className="p-4 border-t flex justify-end">
               <button onClick={() => setShowTourExportPreview(false)} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">

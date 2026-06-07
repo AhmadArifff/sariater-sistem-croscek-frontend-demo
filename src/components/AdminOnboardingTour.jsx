@@ -13,6 +13,7 @@ import {
   LineChart,
   ListChecks,
   Play,
+  Search,
   ShieldCheck,
   Trash2,
   UploadCloud,
@@ -766,6 +767,7 @@ const createCroscekSteps = (label) => [
     title: "Preview File Export",
     icon: FileSpreadsheet,
     action: "openCroscekExportPreview",
+    previewType: "hasil",
     body: "Sebelum download, user perlu memahami isi file export: nama, tanggal, shift, jadwal, actual, status kehadiran, status masuk, dan status pulang.",
   },
   ...(label === "daily worker" ? [
@@ -803,6 +805,7 @@ const createCroscekSteps = (label) => [
       title: "Preview Rekap Harian",
       icon: FileSpreadsheet,
       action: "openCroscekExportPreview",
+      previewType: "rekapHarian",
       body: "Preview ini menjelaskan struktur file rekap harian sebelum download: setiap hari dipisahkan agar pemeriksaan per tanggal lebih mudah.",
     },
     {
@@ -817,6 +820,7 @@ const createCroscekSteps = (label) => [
       title: "Preview Rekap Periode",
       icon: FileSpreadsheet,
       action: "openCroscekExportPreview",
+      previewType: "rekapPeriode",
       body: "Preview ini membantu user memahami isi file rekap periode: ringkasan status hadir, tidak hadir, telat, pulang awal, dan kategori keterangan.",
     },
     {
@@ -831,6 +835,7 @@ const createCroscekSteps = (label) => [
       title: "Preview Rekap YTD",
       icon: FileSpreadsheet,
       action: "openCroscekExportPreview",
+      previewType: "rekapYtd",
       body: "Preview ini menjelaskan bahwa export YTD membawa ringkasan lintas bulan, sehingga user perlu memastikan periode dan data sudah lengkap.",
     },
     {
@@ -845,6 +850,7 @@ const createCroscekSteps = (label) => [
       title: "Preview Export Shift",
       icon: FileSpreadsheet,
       action: "openCroscekExportPreview",
+      previewType: "shift",
       body: "Preview ini menjelaskan isi file export shift sebelum download, supaya user tahu data akan dibagi berdasarkan kelompok shift.",
     },
     {
@@ -881,6 +887,55 @@ const createCroscekSteps = (label) => [
       icon: ListChecks,
       action: "openCroscekHodPreview",
       body: "Modal HOD berisi filter tanggal, pilihan karyawan, tabel preview harian, dan tombol download. Ini dipakai untuk laporan detail per karyawan.",
+    },
+    {
+      target: "croscek-hod-date-start",
+      title: "Tanggal Mulai HOD",
+      icon: CalendarDays,
+      action: "openCroscekHodPreview",
+      body: "Parameter tanggal mulai menentukan hari pertama yang akan masuk ke file Rekap Harian HOD.",
+    },
+    {
+      target: "croscek-hod-date-end",
+      title: "Tanggal Selesai HOD",
+      icon: CalendarDays,
+      action: "openCroscekHodPreview",
+      body: "Parameter tanggal selesai menentukan batas akhir periode. File Excel HOD akan membuat kolom tanggal dari tanggal mulai sampai tanggal selesai.",
+    },
+    {
+      target: "croscek-hod-employee-select",
+      title: "Pilihan Karyawan HOD",
+      icon: Users,
+      action: "openCroscekHodPreview",
+      body: "Dropdown ini dipakai untuk memilih karyawan yang akan masuk ke laporan HOD. User bisa memilih satu atau beberapa karyawan sesuai kebutuhan laporan.",
+    },
+    {
+      target: "croscek-hod-employee-search",
+      title: "Search Karyawan HOD",
+      icon: Search,
+      action: "openCroscekHodPreview",
+      body: "Input search di dropdown membantu menemukan karyawan berdasarkan nama. Ini penting saat data karyawan sangat banyak.",
+    },
+    {
+      target: "croscek-hod-selected-summary",
+      title: "Ringkasan Pilihan HOD",
+      icon: CheckSquare,
+      action: "openCroscekHodPreview",
+      body: "Badge ringkasan menampilkan jumlah record dan jumlah karyawan yang sudah dipilih. Ini menjadi pemeriksaan cepat sebelum export.",
+    },
+    {
+      target: "croscek-hod-clear",
+      title: "Hapus Pilihan HOD",
+      icon: Trash2,
+      action: "openCroscekHodPreview",
+      body: "Tombol Hapus Semua membersihkan pilihan dan preview HOD. Gunakan jika user ingin mengulang pemilihan karyawan.",
+    },
+    {
+      target: "croscek-hod-table",
+      title: "Tabel Preview HOD",
+      icon: ListChecks,
+      action: "openCroscekHodPreview",
+      body: "Tabel preview HOD memperlihatkan data yang akan dibentuk ke Excel: nama, jabatan, departemen, shift, status, check-in, dan check-out per tanggal.",
     },
     {
       target: "croscek-hod-download",
@@ -1211,7 +1266,9 @@ export default function AdminOnboardingTour() {
       window.dispatchEvent(new Event(CLOSE_CROSCEK_UANG_MAKAN_PREVIEW_EVENT));
       window.dispatchEvent(new Event(CLOSE_CROSCEK_HOD_PREVIEW_EVENT));
       window.dispatchEvent(new Event(CLOSE_CROSCEK_DW_PREVIEW_EVENT));
-      window.dispatchEvent(new Event(OPEN_CROSCEK_EXPORT_PREVIEW_EVENT));
+      window.dispatchEvent(new CustomEvent(OPEN_CROSCEK_EXPORT_PREVIEW_EVENT, {
+        detail: { type: step.previewType || "hasil" }
+      }));
     }
     if (step.action === "openCroscekServicePreview") {
       window.dispatchEvent(new Event(OPEN_CROSCEK_RESULT_MODAL_EVENT));

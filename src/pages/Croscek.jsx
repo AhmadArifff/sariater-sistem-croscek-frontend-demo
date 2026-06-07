@@ -73,11 +73,15 @@ const TOUR_UANG_MAKAN_PREVIEW = [
 const TOUR_HOD_TABLE_DATA = [
   {
     id: "tour-hod-1",
+    id_absen: "tour-hod-1",
     tanggal: "2026-06-01",
+    tanggal_iso: "2026-06-01",
     nama: "AHMAD ARIF PRATAMA",
     jabatan: "STAFF ADMIN",
     departemen: "HUMAN RESOURCE",
     shift: "M1",
+    check_in: "08:02:00",
+    check_out: "17:05:00",
     actual_masuk: "08:02:00",
     actual_pulang: "17:05:00",
     status_kehadiran: "Hadir"
@@ -131,6 +135,7 @@ export default function Croscek() {
   // MODAL PREVIEW CROSCEK
   const [showModal, setShowModal] = useState(false);
   const [showTourExportPreview, setShowTourExportPreview] = useState(false);
+  const [tourExportPreviewType, setTourExportPreviewType] = useState("hasil");
 
   useEffect(() => {
     const openRosterGenerator = () => setShowRosterGeneratorModal(true);
@@ -161,7 +166,10 @@ export default function Croscek() {
     };
     const openResultModalForTour = () => setShowModal(true);
     const closeResultModalForTour = () => setShowModal(false);
-    const openExportPreviewForTour = () => setShowTourExportPreview(true);
+    const openExportPreviewForTour = (event) => {
+      setTourExportPreviewType(event?.detail?.type || "hasil");
+      setShowTourExportPreview(true);
+    };
     const closeExportPreviewForTour = () => setShowTourExportPreview(false);
     const openServicePreviewForTour = () => {
       setRekapServicePreview(TOUR_SERVICE_PREVIEW);
@@ -177,11 +185,19 @@ export default function Croscek() {
     const openHodPreviewForTour = () => {
       setHodStartDate("2026-06-01");
       setHodEndDate("2026-06-01");
+      setKaryawanOptions([{ value: "tour-hod-1", label: "AHMAD ARIF PRATAMA - STAFF ADMIN - HUMAN RESOURCE" }]);
+      setFilteredKaryawan([{ value: "tour-hod-1", label: "AHMAD ARIF PRATAMA - STAFF ADMIN - HUMAN RESOURCE" }]);
+      setSelectedKaryawan("tour-hod-1");
+      setSearchKaryawan("");
+      setIsDropdownOpen(true);
       setHodTableData(TOUR_HOD_TABLE_DATA);
       setHodSelectedIds(new Set(["tour-hod-1"]));
       setIsHodModalOpen(true);
     };
-    const closeHodPreviewForTour = () => setIsHodModalOpen(false);
+    const closeHodPreviewForTour = () => {
+      setIsHodModalOpen(false);
+      setIsDropdownOpen(false);
+    };
 
     window.addEventListener(TOUR_OPEN_CROSCEK_ROSTER_GENERATOR_EVENT, openRosterGenerator);
     window.addEventListener(TOUR_CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT, closeRosterGenerator);
@@ -6721,6 +6737,194 @@ const formatDate = (dateString) => {
 };
 
 
+const renderTourExportPreviewContent = () => {
+  const cell = "border border-gray-300 p-2 whitespace-nowrap";
+  const head = `${cell} bg-gray-100 font-bold text-gray-800 text-center`;
+  const titleMap = {
+    hasil: {
+      title: "Preview Export Excel - Hasil Croscek",
+      desc: "Mengikuti sheet Hasil Croscek pada file hasil_croscek_start_sd_end.xlsx.",
+    },
+    rekapHarian: {
+      title: "Preview Rekap Harian",
+      desc: "Mengikuti layout Rekapitulasi Harian: satu sheet per tanggal, dipisah per shift dan blok terlambat.",
+    },
+    rekapPeriode: {
+      title: "Preview Rekap Periode",
+      desc: "Mengikuti layout Rekapitulasi Kehadiran Karyawan untuk periode tanggal aktif.",
+    },
+    rekapYtd: {
+      title: "Preview Rekap YTD",
+      desc: "Mengikuti layout Rekapitulasi Kehadiran Karyawan Year To Date dengan kolom rekap yang sama.",
+    },
+    shift: {
+      title: "Preview Export Shift",
+      desc: "Mengikuti workbook Export Shift: sheet Karyawan Tidak Hadir dan sheet Karyawan Hadir.",
+    },
+  };
+  const meta = titleMap[tourExportPreviewType] || titleMap.hasil;
+
+  const renderHasilCroscek = () => (
+    <table className="min-w-full border-collapse text-xs">
+      <thead>
+        <tr>
+          {[
+            "Nama", "Tanggal", "Kode Shift", "Jabatan", "Departemen",
+            "Jadwal Masuk", "Jadwal Pulang", "Aktual Masuk", "Aktual Pulang",
+            "Keterangan Jadwal", "Status Kehadiran", "Status Masuk", "Status Pulang"
+          ].map((header) => <th key={header} className={head}>{header}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          {[
+            "AHMAD ARIF PRATAMA", "01-06-2026", "M1", "STAFF ADMIN", "HUMAN RESOURCE",
+            "08:00:00", "17:00:00", "08:02:00", "17:05:00",
+            "Sesuai Jadwal", "Hadir", "Masuk Tepat Waktu", "Pulang Tepat Waktu"
+          ].map((value, index) => <td key={`${value}-${index}`} className={cell}>{value}</td>)}
+        </tr>
+      </tbody>
+    </table>
+  );
+
+  const renderRekapHarian = () => (
+    <div className="space-y-4 text-xs">
+      <div className="border border-gray-300">
+        <div className="p-2 text-center font-bold italic border-b bg-gray-50">REKAPITULASI HARIAN</div>
+        <div className="p-2 text-center italic border-b">( Sakit, Izin, Alpa & Terlambat masuk kerja )</div>
+        <div className="p-2 text-center font-semibold border-b">01 Juni 2026</div>
+        <div className="p-2 font-bold bg-gray-100 border-b">Shift : M1</div>
+        <table className="min-w-full border-collapse">
+          <thead>
+            <tr>
+              {["No", "Nama Karyawan", "NIK", "Jabatan", "Dept", "Shift", "Keterangan"].map((header) => (
+                <th key={header} className={head}>{header}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {["1", "AHMAD ARIF PRATAMA", "92010001", "STAFF ADMIN", "HUMAN RESOURCE", "M1", "IZIN"].map((value) => (
+                <td key={value} className={cell}>{value}</td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div className="border border-gray-300">
+        <div className="p-2 text-center font-bold italic border-b">Data Karyawan yang terlambat masuk kerja</div>
+        <div className="p-2 font-bold bg-gray-100 border-b">Shift : M1</div>
+        <table className="min-w-full border-collapse">
+          <thead>
+            <tr>
+              <th className={head} rowSpan="2">No</th>
+              <th className={head} rowSpan="2">Nama Karyawan</th>
+              <th className={head} rowSpan="2">NIK</th>
+              <th className={head} rowSpan="2">Jabatan</th>
+              <th className={head} colSpan="3">Jadwal Kerja</th>
+              <th className={head} rowSpan="2">Actual</th>
+              <th className={head} rowSpan="2">Durasi Terlambat</th>
+            </tr>
+            <tr>
+              {["Dept", "Shift", "Jam Cek In"].map((header) => <th key={header} className={head}>{header}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {["1", "AHMAD ARIF PRATAMA", "92010001", "STAFF ADMIN", "HUMAN RESOURCE", "M1", "08:00:00", "08:12:00", "00:12"].map((value) => (
+                <td key={value} className={cell}>{value}</td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderRekapPeriode = () => (
+    <div className="space-y-3 text-xs">
+      <div className="border border-gray-300">
+        <div className="p-2 text-center font-bold italic border-b">REKAPITULASI KEHADIRAN KARYAWAN</div>
+        <div className="p-2 text-center font-bold italic border-b">SARI ATER HOT SPRINGS CIATER</div>
+        <div className="p-2 text-center font-semibold border-b">
+          {tourExportPreviewType === "rekapYtd" ? "Periode: 01 Januari 2026 s/d 30 Juni 2026" : "Periode: 01 Juni 2026 s/d 30 Juni 2026"}
+        </div>
+        <table className="min-w-full border-collapse">
+          <thead>
+            <tr>
+              <th className={head} rowSpan="3">NO.</th>
+              <th className={head} rowSpan="3">NAMA</th>
+              <th className={head} rowSpan="3">NIK</th>
+              <th className={head} rowSpan="3">JABATAN</th>
+              <th className={head} rowSpan="3">DEPARTEMEN</th>
+              <th className={head} colSpan="15">KEHADIRAN</th>
+            </tr>
+            <tr>
+              <th className={head} colSpan="8">REKAPITULASI</th>
+              <th className={head} colSpan="3">TERLAMBAT</th>
+              <th className={head} colSpan="2">PULANG AWAL</th>
+              <th className={head} colSpan="2">TIDAK SCAN</th>
+            </tr>
+            <tr>
+              {["H", "OFF", "S", "I", "A", "EO", "CUTI", "TGS LUAR", "TL 1-5", "TL 5-10", "TL >10", "PA Izin", "PA Tanpa Izin", "Masuk", "Pulang"].map((header) => (
+                <th key={header} className={head}>{header}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {["1", "AHMAD ARIF PRATAMA", "92010001", "STAFF ADMIN", "HUMAN RESOURCE", "22", "4", "0", "1", "0", "0", "0", "0", "1", "0", "0", "0", "0", "0", "0"].map((value, index) => (
+                <td key={`${value}-${index}`} className={cell}>{value}</td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderExportShift = () => (
+    <div className="space-y-4 text-xs">
+      <div className="border border-gray-300">
+        <div className="p-2 text-center font-bold italic border-b">Sheet: REKAPITULASI KARYAWAN TIDAK HADIR</div>
+        <div className="p-2 font-bold bg-gray-100 border-b">Shift: M1</div>
+        <table className="min-w-full border-collapse">
+          <thead>
+            <tr>{["No", "Nama", "NIK", "Jabatan", "Dept", "Shift", "Tanggal", "Keterangan"].map((header) => <th key={header} className={head}>{header}</th>)}</tr>
+          </thead>
+          <tbody>
+            <tr>{["1", "AHMAD ARIF PRATAMA", "92010001", "STAFF ADMIN", "HUMAN RESOURCE", "M1", "01-06-2026", "IZIN"].map((value) => <td key={value} className={cell}>{value}</td>)}</tr>
+          </tbody>
+        </table>
+      </div>
+      <div className="border border-gray-300">
+        <div className="p-2 text-center font-bold italic border-b">Sheet: REKAPITULASI KARYAWAN HADIR</div>
+        <table className="min-w-full border-collapse">
+          <thead>
+            <tr>{["No", "Nama", "NIK", "Jabatan", "Dept", "Shift", "Tanggal", "Jadwal Masuk", "Jadwal Pulang", "Actual Masuk", "Actual Pulang", "Terlambat Masuk", "Pulang Cepat"].map((header) => <th key={header} className={head}>{header}</th>)}</tr>
+          </thead>
+          <tbody>
+            <tr>{["1", "AHMAD ARIF PRATAMA", "92010001", "STAFF ADMIN", "HUMAN RESOURCE", "M1", "01-06-2026", "08:00:00", "17:00:00", "08:02:00", "17:05:00", "", ""].map((value, index) => <td key={`${value}-${index}`} className={cell}>{value}</td>)}</tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="mb-4">
+        <h2 className="font-bold text-xl text-gray-900">{meta.title}</h2>
+        <p className="text-sm text-gray-600 mt-1">{meta.desc}</p>
+      </div>
+      {tourExportPreviewType === "rekapHarian" && renderRekapHarian()}
+      {(tourExportPreviewType === "rekapPeriode" || tourExportPreviewType === "rekapYtd") && renderRekapPeriode()}
+      {tourExportPreviewType === "shift" && renderExportShift()}
+      {(!["rekapHarian", "rekapPeriode", "rekapYtd", "shift"].includes(tourExportPreviewType)) && renderHasilCroscek()}
+    </div>
+  );
+};
+
 
 
 
@@ -8467,50 +8671,15 @@ const formatDate = (dateString) => {
 
       {showTourExportPreview && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-4xl max-h-[86vh] rounded-2xl shadow-2xl flex flex-col border-t-4 border-emerald-500" data-tour="croscek-export-preview-modal">
+          <div className="bg-white w-full max-w-6xl max-h-[86vh] rounded-2xl shadow-2xl flex flex-col border-t-4 border-emerald-500" data-tour="croscek-export-preview-modal">
             <div className="p-5 border-b flex justify-between items-center">
-              <div>
-                <h2 className="font-bold text-xl text-gray-900">Preview Struktur File Export</h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  Contoh isi file sebelum user menekan tombol download export.
-                </p>
-              </div>
+              <p className="text-sm font-bold text-emerald-700 uppercase tracking-wide">Preview struktur file Excel</p>
               <button onClick={() => setShowTourExportPreview(false)} className="p-2 hover:bg-red-100 rounded-full">
                 <X size={24} className="text-red-500" />
               </button>
             </div>
             <div className="p-5 overflow-auto">
-              <table className="min-w-full border text-xs md:text-sm">
-                <thead className="bg-emerald-600 text-white">
-                  <tr>
-                    {["Nama", "Tanggal", "Shift", "Jadwal Masuk", "Jadwal Pulang", "Actual Masuk", "Actual Pulang", "Status"].map((header) => (
-                      <th key={header} className="border p-2 text-left whitespace-nowrap">{header}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border p-2">AHMAD ARIF PRATAMA</td>
-                    <td className="border p-2">2026-06-01</td>
-                    <td className="border p-2">M1</td>
-                    <td className="border p-2">08:00:00</td>
-                    <td className="border p-2">17:00:00</td>
-                    <td className="border p-2">08:02:00</td>
-                    <td className="border p-2">17:05:00</td>
-                    <td className="border p-2">Hadir</td>
-                  </tr>
-                </tbody>
-              </table>
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700">
-                <div className="border rounded-xl p-3 bg-gray-50">
-                  <p className="font-semibold text-gray-900">Export Excel</p>
-                  <p>Berisi hasil croscek sesuai filter aktif.</p>
-                </div>
-                <div className="border rounded-xl p-3 bg-gray-50">
-                  <p className="font-semibold text-gray-900">Rekap Harian / Periode / YTD / Shift</p>
-                  <p>Format export disesuaikan dengan jenis rekap yang dipilih user.</p>
-                </div>
-              </div>
+              {renderTourExportPreviewContent()}
             </div>
             <div className="p-4 border-t flex justify-end">
               <button onClick={() => setShowTourExportPreview(false)} className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 font-semibold">
@@ -8746,6 +8915,7 @@ const formatDate = (dateString) => {
                     type="date"
                     value={hodStartDate}
                     onChange={(e) => setHodStartDate(e.target.value)}
+                    data-tour="croscek-hod-date-start"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition duration-200 font-medium"
                   />
                 </div>
@@ -8761,6 +8931,7 @@ const formatDate = (dateString) => {
                     value={hodEndDate}
                     onChange={(e) => setHodEndDate(e.target.value)}
                     min={hodStartDate}
+                    data-tour="croscek-hod-date-end"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition duration-200 font-medium"
                   />
                 </div>
@@ -8775,6 +8946,7 @@ const formatDate = (dateString) => {
                   {/* Button Trigger */}
                   <button
                     type="button"
+                    data-tour="croscek-hod-employee-select"
                     onClick={() => {
                       if (!loadingHod && hodStartDate && hodEndDate) {
                         setIsDropdownOpen(!isDropdownOpen);
@@ -8815,6 +8987,7 @@ const formatDate = (dateString) => {
                             value={searchKaryawan}
                             onChange={(e) => setSearchKaryawan(e.target.value)}
                             placeholder="🔍 Cari nama karyawan..."
+                            data-tour="croscek-hod-employee-search"
                             className="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition duration-200 font-medium"
                             autoFocus
                           />
@@ -8899,7 +9072,7 @@ const formatDate = (dateString) => {
               {/* Info & Action Buttons */}
               <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
                 {/* Info Badge */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" data-tour="croscek-hod-selected-summary">
                   {hodTableData.length > 0 && (
                     <>
                       <div className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-100 text-cyan-800 rounded-lg text-sm font-semibold border border-cyan-200">
@@ -8918,6 +9091,7 @@ const formatDate = (dateString) => {
                   <button
                     onClick={clearAllHodData}
                     disabled={hodTableData.length === 0}
+                    data-tour="croscek-hod-clear"
                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 rounded-lg shadow-md hover:shadow-lg transition duration-300 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed"
                   >
                     <Trash2 size={16} /> Hapus Semua
