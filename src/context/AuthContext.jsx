@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
       // Store di localStorage
       localStorage.setItem("auth_token", newToken);
       localStorage.setItem("auth_user", JSON.stringify(userData));
-      if (userData?.role === "admin") {
+      if (userData?.role?.toLowerCase() === "admin") {
         try {
           sessionStorage.setItem(ADMIN_TOUR_LOGIN_TRIGGER_KEY, "open");
         } catch {

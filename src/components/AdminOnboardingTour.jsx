@@ -102,31 +102,31 @@ const MANAGEMENT_USER_STEPS = [
     target: "users-page",
     title: "Halaman Manajemen User",
     icon: Users,
-    body: "Flow ini menjelaskan cara admin mengelola akun demo atau akun internal tanpa mengubah data kehadiran. Semua aksi tetap mengikuti permission role yang sudah ada.",
+    body: "Halaman Manajemen User adalah pusat kontrol akun aplikasi. Anggap seperti ruang admin yang menyimpan beberapa bagian kecil: tombol tambah user, tabel data, status aktif, role, dan aksi akun. Setiap bagian punya tugas sendiri, lalu semuanya bekerja bersama untuk mengatur siapa yang boleh masuk dan apa yang boleh dilakukan.",
   },
   {
     target: "users-header",
     title: "Konteks Halaman",
     icon: Users,
-    body: "Header ini menandai halaman pengelolaan pengguna. Dari sini admin tahu bahwa fokus menu adalah username, nama lengkap, role, dan status aktif akun.",
+    body: "Header ini memberi konteks sebelum admin mulai bekerja. Teks judul dan deskripsi membantu user demo memahami bahwa menu ini dipakai untuk mengelola username, nama lengkap, role akses, dan status aktivitas akun.",
   },
   {
     target: "users-add-button",
     title: "Tambah Pengguna",
     icon: UserPlus,
-    body: "Tombol ini membuka form tambah user. Gunakan untuk membuat akun baru, memilih role Admin, Staff, atau Guest, lalu menyimpan akun ke database.",
+    body: "Tombol Tambah Pengguna adalah pintu masuk untuk membuat akun baru. Saat diklik, aplikasi membuka form modal sehingga admin bisa mengisi identitas user, menentukan role Admin, Staff, atau Guest, lalu menyimpan akun tanpa meninggalkan halaman ini.",
   },
   {
     target: "users-table-card",
     title: "Tabel Pengguna",
     icon: ListChecks,
-    body: "Tabel ini menjadi pusat kerja admin: mencari user, sorting kolom, membuka edit lewat baris, dan memakai action Edit, Aktifkan atau Nonaktifkan, serta Hapus.",
+    body: "Tabel ini adalah daftar kerja utama. Di sini admin bisa membaca semua akun, mencari user tertentu, sorting kolom, membuka edit lewat baris, serta memakai action seperti Edit, Aktifkan atau Nonaktifkan, dan Hapus. Jadi tabel ini bukan hanya tampilan data, tapi juga kontrol operasional akun.",
   },
   {
     target: "users-role-info",
     title: "Panduan Role",
     icon: ShieldCheck,
-    body: "Bagian ini menjelaskan batas akses role. Admin punya akses penuh, Staff fokus ke menu croscek, sedangkan Guest bisa membaca dan export tanpa mengubah data.",
+    body: "Panduan role menjelaskan batas akses setiap tipe akun. Admin punya akses penuh, Staff fokus ke proses operasional croscek, sedangkan Guest bisa membuka semua menu untuk membaca dan export saja. Ini membantu recruiter memahami desain permission aplikasi dengan cepat.",
   },
 ];
 
@@ -211,7 +211,7 @@ export default function AdminOnboardingTour() {
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState(null);
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role?.toLowerCase() === "admin";
   const activeFlow = TOUR_FLOWS[activeFlowId] || TOUR_FLOWS.dashboard;
   const activeSteps = activeFlow.steps;
   const step = activeSteps[stepIndex];
