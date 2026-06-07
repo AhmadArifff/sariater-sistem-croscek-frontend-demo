@@ -935,7 +935,7 @@ export default function Croscek() {
   const loadKodeShiftOptions = async () => {
     try {
       // Fetch all data - try with large limit value
-      const res = await fetch(`${API}/informasi-jadwal/list?limit=100&page=1`);
+      const res = await fetch(`${API}/informasi-jadwal/list/all`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       
@@ -1002,6 +1002,8 @@ export default function Croscek() {
         scheduleMap[kode] = {
           jam_masuk: item.jam_masuk || null,
           jam_pulang: item.jam_pulang || null,
+          nama_shift: item.nama_shift || null,
+          lokasi_kerja: item.lokasi_kerja || null,
         };
       });
       setShiftScheduleMap(scheduleMap);
@@ -9146,6 +9148,7 @@ const formatDate = (dateString) => {
         onClose={() => setShowRosterGeneratorModal(false)}
         employees={uniqueKaryawan}
         shiftCodes={kodeShiftOptions}
+        shiftScheduleMap={shiftScheduleMap}
         title="Generate Data Dummy Jadwal Karyawan"
         description="Pilih karyawan dari database, tentukan bulan, lalu generate roster dummy sesuai format upload jadwal."
         filePrefix="Dummy_Jadwal_Karyawan"

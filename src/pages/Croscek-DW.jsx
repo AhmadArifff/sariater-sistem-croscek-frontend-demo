@@ -1009,7 +1009,7 @@ export default function Croscek_DW() {
   const loadKodeShiftOptions = async () => {
     try {
       // Fetch all data - try with large limit value
-      const res = await fetch(`${API}/informasi-jadwal/list?limit=100&page=1`);
+      const res = await fetch(`${API}/informasi-jadwal/list/all`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       
@@ -1075,6 +1075,8 @@ export default function Croscek_DW() {
         scheduleMap[kode] = {
           jam_masuk: item.jam_masuk || null,
           jam_pulang: item.jam_pulang || null,
+          nama_shift: item.nama_shift || null,
+          lokasi_kerja: item.lokasi_kerja || null,
         };
       });
       setShiftScheduleMap(scheduleMap);
@@ -8228,6 +8230,7 @@ const handlePreviewDailyWorker = () => {
       onClose={() => setShowRosterGeneratorModal(false)}
       employees={uniqueKaryawan}
       shiftCodes={kodeShiftOptions}
+      shiftScheduleMap={shiftScheduleMap}
       title="Generate Data Dummy Jadwal Daily Worker (DW)"
       description="Pilih DW dari database, tentukan bulan, lalu generate roster dummy sesuai format upload jadwal."
       filePrefix="Dummy_Jadwal_Daily_Worker"

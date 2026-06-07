@@ -9,20 +9,42 @@ import { TopLatecomersList } from '../components/TopLatecomersList';
 import { DataQualityIndicator } from '../components/DataQualityIndicator';
 import api from '../utils/api';
 
+const DASHBOARD_FILTER_STORAGE_KEY = 'dashboard.analytics.filter';
+
+const getTodayLocal = () => {
+  const t = new Date();
+  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+};
+
+const getCurrentMonthLocal = () => {
+  const t = new Date();
+  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`;
+};
+
+const getStoredDashboardFilter = () => {
+  try {
+    if (typeof localStorage === 'undefined') return {};
+    const raw = localStorage.getItem(DASHBOARD_FILTER_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed;
+  } catch {
+    return {};
+  }
+};
+
+const storedDashboardFilter = getStoredDashboardFilter();
+
 export default function Dashboard() {
-  const [filterType, setFilterType] = useState('today');
-  const [startDate, setStartDate] = useState(() => {
-    const t = new Date();
-    return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
-  });
-  const [endDate, setEndDate] = useState(() => {
-    const t = new Date();
-    return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
-  });
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const t = new Date();
-    return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`;
-  });
+  const [filterType, setFilterType] = useState(() => (
+    ['today', 'range', 'month'].includes(storedDashboardFilter.filterType)
+      ? storedDashboardFilter.filterType
+      : 'today'
+  ));
+  const [startDate, setStartDate] = useState(() => storedDashboardFilter.startDate || getTodayLocal());
+  const [endDate, setEndDate] = useState(() => storedDashboardFilter.endDate || getTodayLocal());
+  const [selectedMonth, setSelectedMonth] = useState(() => storedDashboardFilter.selectedMonth || getCurrentMonthLocal());
 
   const [summaryData, setSummaryData] = useState({
     unique_employees: 0,
@@ -43,12 +65,24 @@ export default function Dashboard() {
   // Reset tanggal saat filter today dipilih
   useEffect(() => {
     if (filterType === 'today') {
-      const t = new Date();
-      const today = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+      const today = getTodayLocal();
       setStartDate(today);
       setEndDate(today);
     }
   }, [filterType]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DASHBOARD_FILTER_STORAGE_KEY, JSON.stringify({
+        filterType,
+        startDate,
+        endDate,
+        selectedMonth
+      }));
+    } catch {
+      // Abaikan jika browser menolak localStorage.
+    }
+  }, [filterType, startDate, endDate, selectedMonth]);
 
   // SATU-SATUNYA fetch — hapus useEffect lama
   useEffect(() => {

@@ -16,6 +16,7 @@ export default function RosterDummyGeneratorModal({
   onClose,
   employees = [],
   shiftCodes = [],
+  shiftScheduleMap = {},
   title,
   description,
   filePrefix = "Dummy_Jadwal_Karyawan"
@@ -24,6 +25,8 @@ export default function RosterDummyGeneratorModal({
   const [search, setSearch] = useState("");
   const [count, setCount] = useState(25);
   const [selectedNiks, setSelectedNiks] = useState(new Set());
+  const [shiftSearch, setShiftSearch] = useState("");
+  const [selectedShiftCodes, setSelectedShiftCodes] = useState(new Set());
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
   const [rosterRows, setRosterRows] = useState([]);
@@ -53,7 +56,25 @@ export default function RosterDummyGeneratorModal({
     return normalizedEmployees.slice(0, normalizeRosterCount(count, normalizedEmployees.length));
   }, [normalizedEmployees, selectedNiks, count]);
 
-  const { allCodes, workCodes } = useMemo(() => getRosterShiftCodes(shiftCodes), [shiftCodes]);
+  const { workCodes } = useMemo(() => getRosterShiftCodes(shiftCodes), [shiftCodes]);
+  const filteredWorkCodes = useMemo(() => {
+    const keyword = shiftSearch.trim().toLowerCase();
+    if (!keyword) return workCodes;
+
+    return workCodes.filter((code) => {
+      const schedule = shiftScheduleMap[String(code).toUpperCase()] || {};
+      return (
+        code.toLowerCase().includes(keyword) ||
+        String(schedule.nama_shift || "").toLowerCase().includes(keyword) ||
+        String(schedule.lokasi_kerja || "").toLowerCase().includes(keyword) ||
+        String(schedule.jam_masuk || "").toLowerCase().includes(keyword) ||
+        String(schedule.jam_pulang || "").toLowerCase().includes(keyword)
+      );
+    });
+  }, [shiftSearch, shiftScheduleMap, workCodes]);
+  const selectedWorkCodes = useMemo(() => {
+    return workCodes.filter((code) => selectedShiftCodes.has(code));
+  }, [selectedShiftCodes, workCodes]);
   const daysInMonth = new Date(selectedYear, Number(selectedMonth) + 1, 0).getDate();
   const previewRows = buildRosterPreviewRows(rosterRows, daysInMonth, 30);
   const previewColumns = [
@@ -68,17 +89,19 @@ export default function RosterDummyGeneratorModal({
       const safeCount = normalizeRosterCount(count, normalizedEmployees.length);
       setCount(safeCount || 1);
       setSelectedNiks(new Set());
+      setSelectedShiftCodes(new Set(workCodes));
       setRosterRows([]);
       setSearch("");
+      setShiftSearch("");
     }
-  }, [isOpen, normalizedEmployees.length]);
+  }, [isOpen, normalizedEmployees.length, workCodes]);
 
   if (!isOpen) return null;
 
   const generateRows = () => {
     const rows = generateRosterRows({
       employees: selectedEmployees,
-      shiftCodes: allCodes,
+      shiftCodes: selectedWorkCodes,
       month: Number(selectedMonth),
       year: Number(selectedYear)
     });
@@ -90,7 +113,7 @@ export default function RosterDummyGeneratorModal({
       ? rosterRows
       : generateRosterRows({
           employees: selectedEmployees,
-          shiftCodes: allCodes,
+          shiftCodes: selectedWorkCodes,
           month: Number(selectedMonth),
           year: Number(selectedYear)
         });
@@ -155,6 +178,45 @@ export default function RosterDummyGeneratorModal({
     setRosterRows([]);
   };
 
+  const toggleShift = (code) => {
+    setSelectedShiftCodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) {
+        next.delete(code);
+      } else {
+        next.add(code);
+      }
+      return next;
+    });
+    setRosterRows([]);
+  };
+
+  const selectAllFilteredShifts = () => {
+    setSelectedShiftCodes((prev) => {
+      const next = new Set(prev);
+      filteredWorkCodes.forEach((code) => next.add(code));
+      return next;
+    });
+    setRosterRows([]);
+  };
+
+  const resetShiftSelection = () => {
+    setSelectedShiftCodes(new Set(workCodes));
+    setRosterRows([]);
+  };
+
+  const clearShiftSelection = () => {
+    setSelectedShiftCodes(new Set());
+    setRosterRows([]);
+  };
+
+  const getScheduleText = (code) => {
+    const schedule = shiftScheduleMap[String(code).toUpperCase()] || {};
+    const masuk = schedule.jam_masuk || "-";
+    const pulang = schedule.jam_pulang || "-";
+    return `${masuk} - ${pulang}`;
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl max-h-[92vh] overflow-hidden flex flex-col">
@@ -173,7 +235,7 @@ export default function RosterDummyGeneratorModal({
           </button>
         </div>
 
-        <div className="p-5 border-b grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-5 overflow-hidden">
+        <div className="p-5 border-b grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-5 overflow-auto min-h-0">
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -251,7 +313,7 @@ export default function RosterDummyGeneratorModal({
             <div className="bg-gray-50 border rounded-lg p-3 text-sm text-gray-700 space-y-1">
               <p>Total database: <strong>{normalizedEmployees.length}</strong></p>
               <p>Terpilih: <strong>{selectedEmployees.length}</strong></p>
-              <p>Kode shift kerja: <strong>{workCodes.length}</strong></p>
+              <p>Kode shift kerja: <strong>{selectedWorkCodes.length}</strong> / {workCodes.length}</p>
               <p>Hari jadwal: <strong>{daysInMonth}</strong></p>
             </div>
 
@@ -259,7 +321,7 @@ export default function RosterDummyGeneratorModal({
               <button
                 type="button"
                 onClick={generateRows}
-                disabled={selectedEmployees.length === 0 || workCodes.length === 0}
+                disabled={selectedEmployees.length === 0 || selectedWorkCodes.length === 0}
                 className="flex items-center justify-center gap-2 bg-[#1BA39C] hover:bg-[#158f89] disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm"
               >
                 <RefreshCw size={16} /> Generate
@@ -267,7 +329,7 @@ export default function RosterDummyGeneratorModal({
               <button
                 type="button"
                 onClick={exportExcel}
-                disabled={selectedEmployees.length === 0 || workCodes.length === 0}
+                disabled={selectedEmployees.length === 0 || selectedWorkCodes.length === 0}
                 className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm"
               >
                 <Download size={16} /> Export Excel
@@ -330,6 +392,98 @@ export default function RosterDummyGeneratorModal({
                   )}
                 </tbody>
               </table>
+            </div>
+
+            <div className="mt-4 border rounded-xl p-3 bg-white">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <h4 className="font-bold text-gray-900 text-sm">Shift Informasi Jadwal</h4>
+                  <p className="text-xs text-gray-500">
+                    Pilih kode shift yang dipakai untuk generate jadwal.
+                  </p>
+                </div>
+                <span className="text-xs font-semibold text-gray-600 whitespace-nowrap">
+                  {selectedWorkCodes.length} dipilih
+                </span>
+              </div>
+
+              <div className="relative mb-3">
+                <Search size={16} className="absolute left-3 top-3 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Cari kode shift, nama shift, lokasi, atau jam..."
+                  value={shiftSearch}
+                  onChange={(event) => setShiftSearch(event.target.value)}
+                  className="border rounded-lg pl-9 pr-3 py-2 w-full text-sm"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={selectAllFilteredShifts}
+                  disabled={filteredWorkCodes.length === 0}
+                  className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-60"
+                >
+                  Select Filter
+                </button>
+                <button
+                  type="button"
+                  onClick={resetShiftSelection}
+                  disabled={workCodes.length === 0}
+                  className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs disabled:opacity-60"
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={clearShiftSelection}
+                  className="px-3 py-1.5 rounded-lg border text-xs"
+                >
+                  Kosongkan
+                </button>
+              </div>
+
+              <div className="border rounded-lg overflow-auto max-h-[180px]">
+                <table className="min-w-full text-xs">
+                  <thead className="bg-gray-100 sticky top-0">
+                    <tr>
+                      <th className="p-2 w-12 text-center">Pilih</th>
+                      <th className="p-2 text-left">Kode</th>
+                      <th className="p-2 text-left">Jam</th>
+                      <th className="p-2 text-left">Nama Shift</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredWorkCodes.map((code) => {
+                      const schedule = shiftScheduleMap[String(code).toUpperCase()] || {};
+                      return (
+                        <tr key={code} className="border-t hover:bg-gray-50">
+                          <td className="p-2 text-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedShiftCodes.has(code)}
+                              onChange={() => toggleShift(code)}
+                            />
+                          </td>
+                          <td className="p-2 font-semibold whitespace-nowrap">{code}</td>
+                          <td className="p-2 whitespace-nowrap">{getScheduleText(code)}</td>
+                          <td className="p-2 whitespace-nowrap">
+                            {schedule.nama_shift || schedule.lokasi_kerja || "-"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {filteredWorkCodes.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="p-4 text-center text-gray-500">
+                          Data shift tidak ditemukan.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
