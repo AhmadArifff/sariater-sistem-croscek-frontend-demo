@@ -44,6 +44,7 @@ export default function AttendanceDummyGeneratorModal({
   const [earlyCount, setEarlyCount] = useState(0);
   const [forgotCheckinCount, setForgotCheckinCount] = useState(0);
   const [forgotCheckoutCount, setForgotCheckoutCount] = useState(0);
+  const [shiftChangeCount, setShiftChangeCount] = useState(0);
   const [attendanceRows, setAttendanceRows] = useState([]);
 
   const normalizedEmployees = useMemo(() => (
@@ -82,7 +83,13 @@ export default function AttendanceDummyGeneratorModal({
   }, [normalizedEmployees, selectedNiks, count]);
 
   const selectedCount = selectedEmployees.length;
-  const specialTotal = Number(lateCount) + Number(earlyCount) + Number(forgotCheckinCount) + Number(forgotCheckoutCount);
+  const specialTotal = (
+    Number(lateCount) +
+    Number(earlyCount) +
+    Number(forgotCheckinCount) +
+    Number(forgotCheckoutCount) +
+    Number(shiftChangeCount)
+  );
   const normalCount = Math.max(0, selectedCount - specialTotal);
   const previewRows = attendanceRows.slice(0, 100);
 
@@ -107,13 +114,16 @@ export default function AttendanceDummyGeneratorModal({
     const forgotIn = normalizeAttendanceCount(forgotCheckinCount, remaining);
     remaining -= forgotIn;
     const forgotOut = normalizeAttendanceCount(forgotCheckoutCount, remaining);
+    remaining -= forgotOut;
+    const shiftChange = normalizeAttendanceCount(shiftChangeCount, remaining);
 
     setLateCount(late);
     setEarlyCount(early);
     setForgotCheckinCount(forgotIn);
     setForgotCheckoutCount(forgotOut);
+    setShiftChangeCount(shiftChange);
 
-    return { late, early, forgotIn, forgotOut };
+    return { late, early, forgotIn, forgotOut, shiftChange };
   };
 
   const generateRows = () => {
@@ -128,6 +138,7 @@ export default function AttendanceDummyGeneratorModal({
       earlyCount: categoryCounts.early,
       forgotCheckinCount: categoryCounts.forgotIn,
       forgotCheckoutCount: categoryCounts.forgotOut,
+      shiftChangeCount: categoryCounts.shiftChange,
       machineName
     });
     setAttendanceRows(rows);
@@ -145,6 +156,7 @@ export default function AttendanceDummyGeneratorModal({
       earlyCount: categoryCounts.early,
       forgotCheckinCount: categoryCounts.forgotIn,
       forgotCheckoutCount: categoryCounts.forgotOut,
+      shiftChangeCount: categoryCounts.shiftChange,
       machineName
     });
     setAttendanceRows(rows);
@@ -293,6 +305,13 @@ export default function AttendanceDummyGeneratorModal({
                 <label className="block text-xs font-medium text-gray-700 mb-1">Lupa check-out</label>
                 <input type="number" min="0" value={forgotCheckoutCount} onChange={(event) => {
                   setForgotCheckoutCount(event.target.value);
+                  setAttendanceRows([]);
+                }} className="border rounded-lg px-3 py-2 w-full" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Pindah shift</label>
+                <input type="number" min="0" value={shiftChangeCount} onChange={(event) => {
+                  setShiftChangeCount(event.target.value);
                   setAttendanceRows([]);
                 }} className="border rounded-lg px-3 py-2 w-full" />
               </div>

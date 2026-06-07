@@ -142,7 +142,8 @@ export const assignAttendanceCategories = ({
   lateCount,
   earlyCount,
   forgotCheckinCount,
-  forgotCheckoutCount
+  forgotCheckoutCount,
+  shiftChangeCount
 }) => {
   const random = createSeededRandom(Date.now() + employees.length);
   const selected = employees.map((employee) => employee.nik);
@@ -164,6 +165,7 @@ export const assignAttendanceCategories = ({
   apply("early", earlyCount);
   apply("forgotCheckin", forgotCheckinCount);
   apply("forgotCheckout", forgotCheckoutCount);
+  apply("shiftChange", shiftChangeCount);
 
   selected.forEach((nik) => {
     if (!assignments.has(nik)) assignments.set(nik, "normal");
@@ -184,6 +186,27 @@ const getScheduleTimes = ({ employee, date, scheduleLookup, shiftScheduleMap }) 
     startTime: normalizeTime(schedule?.jam_masuk, DEFAULT_START_TIME),
     endTime: normalizeTime(schedule?.jam_pulang, DEFAULT_END_TIME)
   };
+};
+
+const getShiftChangeSchedule = ({ currentKodeShift, currentStartTime, currentEndTime, shiftScheduleMap, random }) => {
+  const currentCode = String(currentKodeShift || "").trim().toUpperCase();
+  const candidates = Object.entries(shiftScheduleMap || {})
+    .map(([kode, schedule]) => ({
+      kodeShift: String(kode || "").trim().toUpperCase(),
+      startTime: normalizeTime(schedule?.jam_masuk, ""),
+      endTime: normalizeTime(schedule?.jam_pulang, "")
+    }))
+    .filter((schedule) => (
+      schedule.kodeShift &&
+      schedule.kodeShift !== currentCode &&
+      (schedule.startTime !== currentStartTime || schedule.endTime !== currentEndTime) &&
+      !SKIP_SHIFT_CODES.has(schedule.kodeShift) &&
+      schedule.startTime &&
+      schedule.endTime
+    ));
+
+  if (candidates.length === 0) return null;
+  return candidates[randomInt(random, 0, candidates.length - 1)];
 };
 
 const buildScanRow = ({ employee, date, time, machineName, io = 1 }) => ({
@@ -213,6 +236,7 @@ export const generateAttendanceRows = ({
   earlyCount,
   forgotCheckinCount,
   forgotCheckoutCount,
+  shiftChangeCount,
   machineName = "Karyawan 2"
 }) => {
   const normalizedEmployees = (employees || [])
@@ -225,7 +249,8 @@ export const generateAttendanceRows = ({
     lateCount,
     earlyCount,
     forgotCheckinCount,
-    forgotCheckoutCount
+    forgotCheckoutCount,
+    shiftChangeCount
   });
   const random = createSeededRandom(Date.now() + normalizedEmployees.length + dates.length);
   const rows = [];
@@ -239,6 +264,20 @@ export const generateAttendanceRows = ({
 
       let checkInTime = addMinutes(schedule.startTime, -randomInt(random, 5, 25));
       let checkOutTime = addMinutes(schedule.endTime, randomInt(random, 5, 25));
+
+      if (category === "shiftChange") {
+        const alternateSchedule = getShiftChangeSchedule({
+          currentKodeShift: schedule.kodeShift,
+          currentStartTime: schedule.startTime,
+          currentEndTime: schedule.endTime,
+          shiftScheduleMap,
+          random
+        });
+        if (alternateSchedule) {
+          checkInTime = addMinutes(alternateSchedule.startTime, -randomInt(random, 5, 20));
+          checkOutTime = addMinutes(alternateSchedule.endTime, randomInt(random, 5, 20));
+        }
+      }
 
       if (category === "late") {
         checkInTime = addMinutes(schedule.startTime, randomInt(random, 10, 60));
