@@ -65,6 +65,7 @@ export default function Croscek() {
   // TAMBAHAN: STATE UNTUK FILTER TANGGAL (diperlukan untuk input tanggal awal dan akhir)
   const [startDate, setStartDate] = useState(''); // State untuk tanggal awal
   const [endDate, setEndDate] = useState(''); // State untuk tanggal akhir
+  const [indicatorFilter, setIndicatorFilter] = useState("ALL");
 
   // TAMBAHAN: STATE UNTUK CRUD JADWAL KARYAWAN (DISESUAIKAN DENGAN KOLOM BARU, nik MANUAL)
   const [jadwalKaryawanList, setJadwalKaryawanList] = useState([]);
@@ -673,7 +674,7 @@ export default function Croscek() {
   // PAGINATION + SEARCH + FILTER TANGGAL
   // -----------------------------------------
   // Filter data berdasarkan search dan tanggal
-  const filteredData = croscekData.filter(row => {
+  const baseFilteredData = croscekData.filter(row => {
     const keyword = String(search || "").toLowerCase();
     const contains = (val) => String(val ?? "").toLowerCase().includes(keyword);
     const matchesSearch =
@@ -695,14 +696,6 @@ export default function Croscek() {
       (isRowDateValid && (!start || rowDate >= start) && (!end || rowDate <= end));
     return matchesSearch && matchesDate;
   });
-
-  // Pagination untuk filteredData
-  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
-  const paginated = filteredData.slice((page - 1) * rowsPerPage, page * rowsPerPage);
-  const paginatedRows = filteredData.slice(
-    (page - 1) * rowsPerPage,
-    page * rowsPerPage
-  );
 
   // ============================================
   // HELPER FUNCTIONS UNTUK FORM BULK JADWAL
@@ -4035,6 +4028,16 @@ export default function Croscek() {
     );
   };
 
+  const getRowIndicator = (row) => {
+    if (isPindahShiftRow(row)) return "kuning";
+    if (isTidakHadir(row)) return "merah";
+    if (isLiburAdaPrediksi(row) || isActualKosong(row)) return "kuning";
+    if (isSelisihBesar(row)) return "ungu";
+    if (isHijauSesuaiJadwal(row)) return "hijau";
+    if (isHadirBermasalah(row)) return "orange";
+    return "hijau";
+  };
+
   /** Hitung selisih menit antara dua waktu string "HH:MM" */
   // const diffMinutes = (actual, jadwal) => {
   //   const toMin = (t) => {
@@ -4063,49 +4066,34 @@ export default function Croscek() {
   // ROW COLOR LOGIC â€” selaras 1-to-1 dengan legend
   // 
   const getRowClass = (row) => {
-    if (isPindahShiftRow(row))
-      // return "bg-[#ffff00] hover:bg-[#f2f200] border-l-4 border-l-yellow-500";
-      return "bg-[#ffff00] hover:bg-[#f2f200] border-l-4 border-l-yellow-500";
-
-    if (isTidakHadir(row))
-      return "bg-red-200 hover:bg-red-300 border-l-4 border-l-red-500";
-
-    if (isLiburAdaPrediksi(row) || isActualKosong(row))
-      return "bg-yellow-200 hover:bg-yellow-300 border-l-4 border-l-yellow-400";
-
-    if (isSelisihBesar(row))
-      return "bg-purple-300 hover:bg-purple-500 border-l-4 border-l-purple-600";
-
-    if (isHijauSesuaiJadwal(row))
-      return "bg-white hover:bg-green-300 border-l-4 border-l-green-500";
-
-    if (isHadirBermasalah(row))
-      return "bg-orange-200 hover:bg-orange-300 border-l-4 border-l-orange-500";
-
+    const indicator = getRowIndicator(row);
+    if (indicator === "merah") return "bg-red-200 hover:bg-red-300 border-l-4 border-l-red-500";
+    if (indicator === "kuning") return "bg-yellow-200 hover:bg-yellow-300 border-l-4 border-l-yellow-400";
+    if (indicator === "orange") return "bg-orange-200 hover:bg-orange-300 border-l-4 border-l-orange-500";
+    if (indicator === "ungu") return "bg-purple-300 hover:bg-purple-500 border-l-4 border-l-purple-600";
     return "bg-white hover:bg-green-300 border-l-4 border-l-green-500";
   };
   // 
-  // HITUNG JUMLAH PER KATEGORI dari data halaman aktif (paginated)
+  // HITUNG JUMLAH PER KATEGORI dari data hasil search dan tanggal
   // 
   const countByCategory = (data) => {
     let merah = 0, kuning = 0, orange = 0, ungu = 0, hijau = 0;
     data.forEach((row) => {
-      if      (isPindahShiftRow(row))                          kuning++;
-      else if (isTidakHadir(row))                              merah++;
-      else if (isLiburAdaPrediksi(row) || isActualKosong(row)) kuning++;
-      else if (isSelisihBesar(row))                            ungu++;
-      else if (isHijauSesuaiJadwal(row))                       hijau++;
-      else if (isHadirBermasalah(row))                         orange++;
-      else                                                     hijau++;
+      const indicator = getRowIndicator(row);
+      if (indicator === "merah") merah++;
+      else if (indicator === "kuning") kuning++;
+      else if (indicator === "orange") orange++;
+      else if (indicator === "ungu") ungu++;
+      else hijau++;
     });
     return { merah, kuning, orange, ungu, hijau };
   };
 
   // 
-  // LEGEND COMPONENT â€” sticky, dengan counter per halaman
+  // LEGEND COMPONENT â€” sticky, sekaligus filter indikator warna
   // 
-  function AttendanceLegend({ paginated }) {
-    const counts = countByCategory(paginated);
+  function AttendanceLegend({ data, activeIndicator, onSelectIndicator, currentPageCount, filteredCount }) {
+    const counts = countByCategory(data);
     const countMap = {
       "Merah":  counts.merah,
       "Kuning": counts.kuning,
@@ -4124,16 +4112,25 @@ export default function Croscek() {
 
         {LEGEND_ITEMS.map((item) => {
           const count = countMap[item.label] ?? 0;
+          const indicatorKey = item.label.toLowerCase();
+          const isActive = activeIndicator === indicatorKey;
           return (
-            <div
+            <button
               key={item.label}
+              type="button"
+              onClick={() => {
+                onSelectIndicator(isActive ? "ALL" : indicatorKey);
+                setPage(1);
+              }}
               className={`
                 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg
                 ${item.bg} ${item.hover} text-white
                 font-semibold text-xs shadow-sm
-                ring-1 ring-inset ring-white/20
-                transition-all duration-150 cursor-default select-none
+                ring-1 ring-inset ${isActive ? "ring-white ring-offset-2 ring-offset-gray-900 scale-[1.03]" : "ring-white/20"}
+                transition-all duration-150 select-none
+                ${count === 0 ? "opacity-55" : "opacity-100"}
               `}
+              title={`Filter ${item.label}: ${item.desc}`}
             >
               <span className="w-2 h-2 rounded-full bg-white opacity-80 flex-shrink-0" />
               <span>
@@ -4145,32 +4142,31 @@ export default function Croscek() {
               <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-black/25 font-bold text-white text-xs">
                 {count}
               </span>
-            </div>
+            </button>
           );
         })}
+
+        {activeIndicator !== "ALL" && (
+          <button
+            type="button"
+            onClick={() => {
+              onSelectIndicator("ALL");
+              setPage(1);
+            }}
+            className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-300 text-xs font-semibold text-gray-700 transition"
+          >
+            Semua
+          </button>
+        )}
 
         {/* Total data halaman ini */}
         <div className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-lg">
           <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-          <span className="text-xs font-semibold text-indigo-700">{paginated.length} Data / Halaman</span>
+          <span className="text-xs font-semibold text-indigo-700">{currentPageCount} / {filteredCount} Data</span>
         </div>
       </div>
     );
   }
-
-
-
-  const dataWithUid = useMemo(() => {
-    return paginated.map((row) => ({
-      ...row,
-      __uid: row.__uid || buildRowUid(row)
-    }));
-  }, [paginated]);
-
-
-
-
-  
   // const [paginated, setPaginated] = useState([]); // tampilan halaman
   const [savingCroscek, setSavingCroscek] = useState(false);
   const [progressCroscek, setProgressCroscek] = useState(0);
@@ -4902,6 +4898,15 @@ const getEffectiveTimeContext = (row) => {
 };
 
 const isPindahShiftRow = (row) => getEffectiveTimeContext(row).isPindahShift;
+
+const filteredData = indicatorFilter === "ALL"
+  ? baseFilteredData
+  : baseFilteredData.filter((row) => getRowIndicator(row) === indicatorFilter);
+
+const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
+const currentPage = Math.min(Math.max(page, 1), totalPages);
+const paginated = filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+const paginatedRows = paginated;
 
 const canShowPrediksiActualTimes = (row) => {
   if (!hasValidPrediksiActualPair(row)) return false;
@@ -7784,7 +7789,13 @@ const formatDate = (dateString) => {
               </div>
             </div>
 
-                <AttendanceLegend paginated={paginated} />
+                <AttendanceLegend
+                  data={baseFilteredData}
+                  activeIndicator={indicatorFilter}
+                  onSelectIndicator={setIndicatorFilter}
+                  currentPageCount={paginated.length}
+                  filteredCount={filteredData.length}
+                />
             {/* TABLE CONTAINER */}
             <div className="overflow-auto flex-1 p-4">
               {/* â”€â”€ Legend â€” sticky di dalam overflow container â”€â”€ */}
@@ -8139,20 +8150,20 @@ const formatDate = (dateString) => {
                 {/* Navigasi halaman - kanan saja */}
                 <div className="flex items-center gap-3 flex-shrink-0">
                   <button
-                    disabled={page === 1}
-                    onClick={() => setPage(page - 1)}
+                    disabled={currentPage === 1}
+                    onClick={() => setPage(currentPage - 1)}
                     className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg font-semibold transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     ◀ Prev
                   </button>
 
                   <span className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-bold">
-                    {page} / {totalPages}
+                    {currentPage} / {totalPages}
                   </span>
 
                   <button
-                    disabled={page === totalPages}
-                    onClick={() => setPage(page + 1)}
+                    disabled={currentPage === totalPages}
+                    onClick={() => setPage(currentPage + 1)}
                     className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg font-semibold transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Next ▶
