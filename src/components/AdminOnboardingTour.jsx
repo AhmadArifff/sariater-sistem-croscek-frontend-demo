@@ -18,6 +18,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 const STORAGE_KEY = "croscek.admin.tour.v2";
+const LOGIN_TRIGGER_KEY = "croscek.admin.tour.login-trigger";
 const OPEN_EVENT = "croscek:open-admin-tour";
 
 const DASHBOARD_STEPS = [
@@ -173,7 +174,19 @@ export default function AdminOnboardingTour() {
   }, []);
 
   useEffect(() => {
-    if (!isAdmin || hasStoredDecision) return;
+    if (!isAdmin) return;
+
+    try {
+      if (sessionStorage.getItem(LOGIN_TRIGGER_KEY) === "open") {
+        sessionStorage.removeItem(LOGIN_TRIGGER_KEY);
+        setMode("launcher");
+        return;
+      }
+    } catch {
+      // Abaikan jika sessionStorage tidak tersedia.
+    }
+
+    if (hasStoredDecision) return;
     setMode("launcher");
   }, [hasStoredDecision, isAdmin]);
 

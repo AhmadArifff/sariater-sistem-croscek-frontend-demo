@@ -3,6 +3,7 @@ import api from "../utils/api";
 
 // Create Auth Context
 const AuthContext = createContext(null);
+const ADMIN_TOUR_LOGIN_TRIGGER_KEY = "croscek.admin.tour.login-trigger";
 
 // Auth Provider Component
 export const AuthProvider = ({ children }) => {
@@ -38,6 +39,13 @@ export const AuthProvider = ({ children }) => {
       // Store di localStorage
       localStorage.setItem("auth_token", newToken);
       localStorage.setItem("auth_user", JSON.stringify(userData));
+      if (userData?.role === "admin") {
+        try {
+          sessionStorage.setItem(ADMIN_TOUR_LOGIN_TRIGGER_KEY, "open");
+        } catch {
+          // Abaikan jika sessionStorage tidak tersedia.
+        }
+      }
 
       // Update state
       setToken(newToken);
