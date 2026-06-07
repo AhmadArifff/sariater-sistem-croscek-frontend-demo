@@ -4056,22 +4056,54 @@ export default function Croscek() {
     return selisihPulang !== null && selisihPulang >= 60;
   };
 
+  const normalizeStatusText = (value) => String(value || "").trim().toUpperCase();
+
+  const isIndicatorPindahShift = (row) => {
+    const currentShift = normalizeShiftCode(row?.Kode_Shift);
+    const predShift = normalizeShiftCode(row?.Prediksi_Shift);
+    return hasPrediksiShiftValue(row?.Prediksi_Shift) && predShift && predShift !== currentShift;
+  };
+
+  const isStatusMasukTepat = (row) => normalizeStatusText(row.Status_Masuk).includes("TEPAT");
+  const isStatusPulangTepat = (row) => normalizeStatusText(row.Status_Pulang).includes("TEPAT");
+  const isStatusMasukTelat = (row) => {
+    const status = normalizeStatusText(row.Status_Masuk);
+    return status.includes("TELAT") || status.includes("TL ");
+  };
+  const isStatusPulangCepat = (row) => {
+    const status = normalizeStatusText(row.Status_Pulang);
+    return status.includes("TERLALU CEPAT") || status.includes("PULANG AWAL");
+  };
+  const isStatusTidakScanMasuk = (row) => normalizeStatusText(row.Status_Masuk).includes("TIDAK SCAN");
+  const isStatusTidakScanPulang = (row) => normalizeStatusText(row.Status_Pulang).includes("TIDAK SCAN");
+
   const getRowIndicator = (row) => {
     const scanContext = getIndicatorScanContext(row);
+    const statusKehadiran = normalizeStatusText(row.Status_Kehadiran);
+    const noScanMasuk = !scanContext.hasActualMasuk || isStatusTidakScanMasuk(row);
+    const noScanPulang = !scanContext.hasActualPulang || isStatusTidakScanPulang(row);
 
-    if (scanContext.hasPartialScan || isPindahShiftRow(row) || isLiburAdaPrediksi(row)) return "kuning";
-    if ((isTidakHadir(row) || !scanContext.isLiburShift) && scanContext.hasNoScan) return "merah";
+    if (isIndicatorPindahShift(row) || isLiburAdaPrediksi(row)) return "kuning";
+    if (noScanMasuk && noScanPulang) {
+      if (scanContext.isLiburShift || statusKehadiran.includes("LIBUR") || statusKehadiran.includes("CUTI") || statusKehadiran.includes("EXTRAOFF")) {
+        return "hijau";
+      }
+      return "merah";
+    }
+    if (noScanMasuk || noScanPulang) return "kuning";
+
+    if (isStatusMasukTepat(row) && isStatusPulangTepat(row)) return "hijau";
 
     const selisihMasuk = getSelisihMasukMenit(row);
     const selisihPulang = getSelisihPulangMenit(row);
 
-    if (selisihMasuk !== null && selisihMasuk > 120) return "ungu";
+    if (!isStatusMasukTepat(row) && selisihMasuk !== null && selisihMasuk > 120) return "ungu";
 
-    if (selisihMasuk !== null && selisihMasuk > 0) {
+    if (isStatusMasukTelat(row) || (selisihMasuk !== null && selisihMasuk > 0 && !isStatusMasukTepat(row))) {
       return isPulangKompensasiSatuJam(row) ? "hijau" : "orange";
     }
 
-    if (selisihPulang !== null && selisihPulang < 0) return "orange";
+    if (isStatusPulangCepat(row) || (selisihPulang !== null && selisihPulang < 0 && !isStatusPulangTepat(row))) return "orange";
 
     return "hijau";
   };
