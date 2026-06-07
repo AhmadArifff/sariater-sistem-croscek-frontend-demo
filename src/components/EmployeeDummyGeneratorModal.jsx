@@ -14,7 +14,8 @@ export default function EmployeeDummyGeneratorModal({
   title,
   description,
   typeKey = "karyawan",
-  fileName = "Dummy_Data_Karyawan.xlsx"
+  fileName = "Dummy_Data_Karyawan.xlsx",
+  tourPrefix = "employee-generator"
 }) {
   const [count, setCount] = useState(25);
   const [rows, setRows] = useState([]);
@@ -54,7 +55,10 @@ export default function EmployeeDummyGeneratorModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div
+        className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
+        data-tour={`${tourPrefix}-shell`}
+      >
         <div className="p-5 border-b flex items-start justify-between gap-4">
           <div>
             <h3 className="text-lg md:text-xl font-bold text-gray-900">{title}</h3>
@@ -82,6 +86,7 @@ export default function EmployeeDummyGeneratorModal({
               value={count}
               onChange={(event) => setCount(event.target.value)}
               className="border rounded-lg px-3 py-2 w-full"
+              data-tour={`${tourPrefix}-count`}
             />
             <p className="text-xs text-gray-500 mt-1">Maksimal {EMPLOYEE_DUMMY_MAX_ROWS} baris per export.</p>
           </div>
@@ -90,6 +95,7 @@ export default function EmployeeDummyGeneratorModal({
             type="button"
             onClick={generateRows}
             className="flex items-center justify-center gap-2 bg-[#1BA39C] hover:bg-[#158f89] text-white px-4 py-2 rounded-lg shadow text-sm"
+            data-tour={`${tourPrefix}-generate`}
           >
             <RefreshCw size={16} /> Generate
           </button>
@@ -99,12 +105,13 @@ export default function EmployeeDummyGeneratorModal({
             onClick={exportExcel}
             disabled={rows.length === 0}
             className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm"
+            data-tour={`${tourPrefix}-export`}
           >
             <Download size={16} /> Export Excel
           </button>
         </div>
 
-        <div className="p-5 overflow-auto">
+        <div className="p-5 overflow-auto" data-tour={`${tourPrefix}-table`}>
           <table className="min-w-full border text-xs md:text-sm">
             <thead className="bg-gray-100 sticky top-0">
               <tr>

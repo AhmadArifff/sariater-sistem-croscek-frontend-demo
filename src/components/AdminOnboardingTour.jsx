@@ -31,6 +31,12 @@ const OPEN_SCHEDULE_CREATE_MODAL_EVENT = "croscek:tour-open-schedule-create-moda
 const CLOSE_SCHEDULE_MODAL_EVENT = "croscek:tour-close-schedule-modal";
 const SHOW_SCHEDULE_PREVIEW_EVENT = "croscek:tour-show-schedule-preview";
 const CLEAR_SCHEDULE_PREVIEW_EVENT = "croscek:tour-clear-schedule-preview";
+const OPEN_EMPLOYEE_CREATE_MODAL_EVENT = "croscek:tour-open-employee-create-modal";
+const CLOSE_EMPLOYEE_MODAL_EVENT = "croscek:tour-close-employee-modal";
+const OPEN_EMPLOYEE_GENERATOR_EVENT = "croscek:tour-open-employee-generator";
+const CLOSE_EMPLOYEE_GENERATOR_EVENT = "croscek:tour-close-employee-generator";
+const SHOW_EMPLOYEE_PREVIEW_EVENT = "croscek:tour-show-employee-preview";
+const CLEAR_EMPLOYEE_PREVIEW_EVENT = "croscek:tour-clear-employee-preview";
 
 const DASHBOARD_STEPS = [
   {
@@ -332,6 +338,156 @@ const SCHEDULE_STEPS = [
   },
 ];
 
+const createEmployeeDataSteps = (label) => [
+  {
+    target: "employee-upload-dropzone",
+    title: "Upload Excel",
+    icon: UploadCloud,
+    action: "closeEmployeeHelpers",
+    body: `Dropzone ini dipakai untuk upload file Excel ${label}. User bisa klik atau drag and drop file, lalu sistem membaca file dan menampilkan preview sebelum data disimpan.`,
+  },
+  {
+    target: "employee-template-button",
+    title: "Download Template",
+    icon: Download,
+    action: "closeEmployeeHelpers",
+    body: "Tombol ini mengunduh template Excel dengan format kolom yang benar: NAMA, NIK, JABATAN, DEPT, dan ID ABSEN. Ini penting agar upload tidak salah format.",
+  },
+  {
+    target: "employee-generator-button",
+    title: "Generate Dummy Data",
+    icon: FileSpreadsheet,
+    action: "closeEmployeeHelpers",
+    body: `Tombol ini membuka generator data dummy ${label}. Fitur ini berguna untuk test manual dan demo tanpa memakai data real.`,
+  },
+  {
+    target: "employee-generator-count",
+    title: "Jumlah Data Dummy",
+    icon: Filter,
+    action: "openEmployeeGenerator",
+    body: "Input jumlah data menentukan berapa baris dummy yang dibuat. User bisa memakai jumlah kecil untuk demo cepat atau jumlah besar untuk test upload.",
+  },
+  {
+    target: "employee-generator-generate",
+    title: "Generate Preview Dummy",
+    icon: CheckSquare,
+    action: "openEmployeeGenerator",
+    body: "Tombol Generate membuat ulang data dummy sesuai jumlah yang dipilih. Tutorial hanya menjelaskan tombol ini, tidak mengubah database.",
+  },
+  {
+    target: "employee-generator-export",
+    title: "Export Dummy ke Excel",
+    icon: Download,
+    action: "openEmployeeGenerator",
+    body: "Tombol Export Excel mengunduh hasil dummy dalam format yang bisa langsung diuji di upload data. Ini membantu user menjalankan test case manual.",
+  },
+  {
+    target: "employee-preview-card",
+    title: "Preview Excel",
+    icon: FileSpreadsheet,
+    action: "showEmployeePreview",
+    body: "Preview muncul setelah file Excel dipilih. User bisa memeriksa isi data sebelum menekan tombol simpan ke database.",
+  },
+  {
+    target: "employee-preview-save",
+    title: "Simpan Upload",
+    icon: CheckSquare,
+    action: "showEmployeePreview",
+    body: "Tombol Simpan mengirim file Excel yang sudah dipreview ke backend. Dalam tutorial tombol ini hanya dijelaskan dan tidak ditekan, jadi data tetap aman.",
+  },
+  {
+    target: "employee-preview-table",
+    title: "Isi Preview",
+    icon: ListChecks,
+    action: "showEmployeePreview",
+    body: "Tabel preview memperlihatkan hasil pembacaan Excel. Informasi penting seperti NIK dan ID ABSEN bisa dicek sebelum proses upload final.",
+  },
+  {
+    target: "employee-search-input",
+    title: "Search Data",
+    icon: Filter,
+    action: "clearEmployeePreview",
+    body: `Input search membantu mencari ${label} berdasarkan data yang tampil di tabel. Saat user mengetik, halaman kembali ke page pertama agar hasil pencarian mudah dibaca.`,
+  },
+  {
+    target: "employee-add-button",
+    title: "Tambah Manual",
+    icon: UserPlus,
+    action: "closeEmployeeHelpers",
+    body: `Tombol Tambah membuka form manual untuk membuat satu data ${label}. Ini berguna saat admin hanya perlu menambahkan satu orang tanpa upload Excel.`,
+  },
+  {
+    target: "employee-modal-field-nama",
+    title: "Field Nama",
+    icon: Users,
+    action: "openEmployeeModal",
+    body: "Field NAMA menyimpan nama lengkap orang yang akan dipakai di tabel dan proses croscek.",
+  },
+  {
+    target: "employee-modal-field-nik",
+    title: "Field NIK",
+    icon: Users,
+    action: "openEmployeeModal",
+    body: "Field NIK adalah identitas karyawan di data master. Nilai ini dipakai untuk membedakan data setiap orang.",
+  },
+  {
+    target: "employee-modal-field-jabatan",
+    title: "Field Jabatan",
+    icon: ListChecks,
+    action: "openEmployeeModal",
+    body: "Field JABATAN menjelaskan posisi kerja. Informasi ini penting untuk laporan dan pembacaan data oleh recruiter atau admin.",
+  },
+  {
+    target: "employee-modal-field-dept",
+    title: "Field Departemen",
+    icon: ListChecks,
+    action: "openEmployeeModal",
+    body: "Field DEPT menyimpan departemen. Data ini membantu filter, rekap, dan analisis lintas bagian.",
+  },
+  {
+    target: "employee-modal-field-id_absen",
+    title: "Field ID Absen",
+    icon: ShieldCheck,
+    action: "openEmployeeModal",
+    body: "Field ID ABSEN menjadi penghubung penting ke data jadwal dan scanlog. Proses croscek memakai ID absen atau PIN agar data kehadiran bisa cocok.",
+  },
+  {
+    target: "employee-modal-cancel",
+    title: "Tombol Batal",
+    icon: X,
+    action: "openEmployeeModal",
+    body: "Tombol Batal menutup form tanpa menyimpan perubahan. Ini aman untuk keluar dari form saat user hanya ingin melihat alurnya.",
+  },
+  {
+    target: "employee-modal-save",
+    title: "Tombol Simpan",
+    icon: CheckSquare,
+    action: "openEmployeeModal",
+    body: "Tombol Simpan menjalankan proses create atau update. Tutorial hanya menjelaskan tombol ini dan tidak menekannya, sehingga database tidak berubah.",
+  },
+  {
+    target: "employee-table-head",
+    title: "Kolom Tabel",
+    icon: ListChecks,
+    action: "closeEmployeeHelpers",
+    body: "Header tabel menunjukkan struktur data utama: nama, NIK, jabatan, departemen, dan ID absen. Ini adalah format yang sama dengan file upload.",
+  },
+  {
+    target: "employee-table-actions",
+    title: "Action Edit dan Hapus",
+    icon: Trash2,
+    action: "closeEmployeeHelpers",
+    body: "Kolom Action berisi Edit dan Hapus untuk admin. Edit membuka data untuk diperbaiki, sedangkan Hapus meminta konfirmasi sebelum data dihapus.",
+  },
+  {
+    target: "employee-pagination",
+    title: "Pagination",
+    icon: ListChecks,
+    action: "closeEmployeeHelpers",
+    body: "Pagination membagi data menjadi beberapa halaman agar tabel tetap ringan saat jumlah data semakin banyak.",
+  },
+];
+
 const TOUR_FLOWS = {
   dashboard: {
     id: "dashboard",
@@ -363,12 +519,34 @@ const TOUR_FLOWS = {
     steps: SCHEDULE_STEPS,
     enabled: true,
   },
+  employees: {
+    id: "employees",
+    title: "Data Karyawan",
+    label: "Data Karyawan Tutorial",
+    subtitle: "Pelajari upload, template, generator dummy, preview, tambah manual, tabel, action, dan pagination.",
+    icon: Users,
+    route: "/karyawan",
+    steps: createEmployeeDataSteps("karyawan"),
+    enabled: true,
+  },
+  dw: {
+    id: "dw",
+    title: "Data Daily Worker (DW)",
+    label: "Data Daily Worker Tutorial",
+    subtitle: "Pelajari upload, template, generator dummy, preview, tambah manual, tabel, action, dan pagination.",
+    icon: Users,
+    route: "/dw",
+    steps: createEmployeeDataSteps("daily worker"),
+    enabled: true,
+  },
 };
 
 const FLOW_OPTIONS = [
   TOUR_FLOWS.dashboard,
   TOUR_FLOWS.users,
   TOUR_FLOWS.schedule,
+  TOUR_FLOWS.employees,
+  TOUR_FLOWS.dw,
   {
     id: "croscek",
     title: "Croscek Karyawan",
@@ -488,6 +666,31 @@ export default function AdminOnboardingTour() {
       window.dispatchEvent(new Event(CLOSE_SCHEDULE_MODAL_EVENT));
       window.dispatchEvent(new Event(CLEAR_SCHEDULE_PREVIEW_EVENT));
     }
+    if (step.action === "openEmployeeModal") {
+      window.dispatchEvent(new Event(CLOSE_EMPLOYEE_GENERATOR_EVENT));
+      window.dispatchEvent(new Event(CLEAR_EMPLOYEE_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(OPEN_EMPLOYEE_CREATE_MODAL_EVENT));
+    }
+    if (step.action === "openEmployeeGenerator") {
+      window.dispatchEvent(new Event(CLOSE_EMPLOYEE_MODAL_EVENT));
+      window.dispatchEvent(new Event(CLEAR_EMPLOYEE_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(OPEN_EMPLOYEE_GENERATOR_EVENT));
+    }
+    if (step.action === "showEmployeePreview") {
+      window.dispatchEvent(new Event(CLOSE_EMPLOYEE_MODAL_EVENT));
+      window.dispatchEvent(new Event(CLOSE_EMPLOYEE_GENERATOR_EVENT));
+      window.dispatchEvent(new Event(SHOW_EMPLOYEE_PREVIEW_EVENT));
+    }
+    if (step.action === "clearEmployeePreview") {
+      window.dispatchEvent(new Event(CLOSE_EMPLOYEE_MODAL_EVENT));
+      window.dispatchEvent(new Event(CLOSE_EMPLOYEE_GENERATOR_EVENT));
+      window.dispatchEvent(new Event(CLEAR_EMPLOYEE_PREVIEW_EVENT));
+    }
+    if (step.action === "closeEmployeeHelpers") {
+      window.dispatchEvent(new Event(CLOSE_EMPLOYEE_MODAL_EVENT));
+      window.dispatchEvent(new Event(CLOSE_EMPLOYEE_GENERATOR_EVENT));
+      window.dispatchEvent(new Event(CLEAR_EMPLOYEE_PREVIEW_EVENT));
+    }
 
     const updateRect = () => {
       const target = document.querySelector(`[data-tour="${step.target}"]`);
@@ -540,6 +743,9 @@ export default function AdminOnboardingTour() {
     window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
     window.dispatchEvent(new Event(CLOSE_SCHEDULE_MODAL_EVENT));
     window.dispatchEvent(new Event(CLEAR_SCHEDULE_PREVIEW_EVENT));
+    window.dispatchEvent(new Event(CLOSE_EMPLOYEE_MODAL_EVENT));
+    window.dispatchEvent(new Event(CLOSE_EMPLOYEE_GENERATOR_EVENT));
+    window.dispatchEvent(new Event(CLEAR_EMPLOYEE_PREVIEW_EVENT));
     setMode("closed");
   };
 
@@ -548,6 +754,9 @@ export default function AdminOnboardingTour() {
     window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
     window.dispatchEvent(new Event(CLOSE_SCHEDULE_MODAL_EVENT));
     window.dispatchEvent(new Event(CLEAR_SCHEDULE_PREVIEW_EVENT));
+    window.dispatchEvent(new Event(CLOSE_EMPLOYEE_MODAL_EVENT));
+    window.dispatchEvent(new Event(CLOSE_EMPLOYEE_GENERATOR_EVENT));
+    window.dispatchEvent(new Event(CLEAR_EMPLOYEE_PREVIEW_EVENT));
     setActiveFlowId(selectedFlow.id);
     setStepIndex(0);
     setTargetRect(null);
@@ -564,6 +773,9 @@ export default function AdminOnboardingTour() {
       window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
       window.dispatchEvent(new Event(CLOSE_SCHEDULE_MODAL_EVENT));
       window.dispatchEvent(new Event(CLEAR_SCHEDULE_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_EMPLOYEE_MODAL_EVENT));
+      window.dispatchEvent(new Event(CLOSE_EMPLOYEE_GENERATOR_EVENT));
+      window.dispatchEvent(new Event(CLEAR_EMPLOYEE_PREVIEW_EVENT));
       setStepIndex(0);
       setTargetRect(null);
       setMode("launcher");
@@ -720,6 +932,9 @@ export default function AdminOnboardingTour() {
                   window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
                   window.dispatchEvent(new Event(CLOSE_SCHEDULE_MODAL_EVENT));
                   window.dispatchEvent(new Event(CLEAR_SCHEDULE_PREVIEW_EVENT));
+                  window.dispatchEvent(new Event(CLOSE_EMPLOYEE_MODAL_EVENT));
+                  window.dispatchEvent(new Event(CLOSE_EMPLOYEE_GENERATOR_EVENT));
+                  window.dispatchEvent(new Event(CLEAR_EMPLOYEE_PREVIEW_EVENT));
                   setMode("launcher");
                 }}
                 className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold"
