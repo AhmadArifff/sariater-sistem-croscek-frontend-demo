@@ -50,7 +50,14 @@ export default function AttendanceDummyGeneratorModal({
     employees
       .map((employee) => ({
         ...normalizeEmployeeForRoster(employee),
-        id_absen: String(employee?.id_absen || "").trim()
+        id_absen: String(
+          employee?.id_absen ||
+          employee?.ID_ABSEN ||
+          employee?.["ID ABSEN"] ||
+          employee?.pin ||
+          employee?.PIN ||
+          ""
+        ).trim()
       }))
       .filter((employee) => employee.nik && employee.nama)
   ), [employees]);

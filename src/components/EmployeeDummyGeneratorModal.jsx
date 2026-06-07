@@ -47,7 +47,7 @@ export default function EmployeeDummyGeneratorModal({
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
-    ws["!cols"] = [{ wch: 34 }, { wch: 14 }, { wch: 24 }, { wch: 22 }];
+    ws["!cols"] = [{ wch: 34 }, { wch: 14 }, { wch: 24 }, { wch: 22 }, { wch: 14 }];
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
     XLSX.writeFile(wb, fileName);
   };

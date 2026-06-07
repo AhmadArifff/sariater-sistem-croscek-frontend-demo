@@ -41,6 +41,7 @@ export default function RosterDummyGeneratorModal({
     return normalizedEmployees.filter((employee) => (
       employee.nama.toLowerCase().includes(keyword) ||
       employee.nik.toLowerCase().includes(keyword) ||
+      employee.id_absen.toLowerCase().includes(keyword) ||
       employee.dept.toLowerCase().includes(keyword) ||
       employee.jabatan.toLowerCase().includes(keyword)
     ));
@@ -293,6 +294,7 @@ export default function RosterDummyGeneratorModal({
                 <thead className="bg-gray-100 sticky top-0">
                   <tr>
                     <th className="p-2 w-12 text-center">Pilih</th>
+                    <th className="p-2 text-left">ID ABSEN</th>
                     <th className="p-2 text-left">NIK</th>
                     <th className="p-2 text-left">Nama</th>
                     <th className="p-2 text-left">Jabatan</th>
@@ -312,6 +314,7 @@ export default function RosterDummyGeneratorModal({
                           }}
                         />
                       </td>
+                      <td className="p-2 whitespace-nowrap">{employee.id_absen || employee.nik}</td>
                       <td className="p-2 whitespace-nowrap">{employee.nik}</td>
                       <td className="p-2 whitespace-nowrap">{employee.nama}</td>
                       <td className="p-2 whitespace-nowrap">{employee.jabatan}</td>
@@ -320,7 +323,7 @@ export default function RosterDummyGeneratorModal({
                   ))}
                   {filteredEmployees.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="p-4 text-center text-gray-500">
+                      <td colSpan={6} className="p-4 text-center text-gray-500">
                         Data tidak ditemukan.
                       </td>
                     </tr>

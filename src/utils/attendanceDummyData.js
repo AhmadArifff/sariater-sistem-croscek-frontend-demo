@@ -34,7 +34,15 @@ const formatDateId = (dateValue) => {
 
 const normalizeEmployee = (employee) => ({
   nik: String(employee?.nik || "").trim(),
-  pin: String(employee?.id_absen || employee?.pin || employee?.nik || "").trim(),
+  pin: String(
+    employee?.id_absen ||
+    employee?.ID_ABSEN ||
+    employee?.["ID ABSEN"] ||
+    employee?.pin ||
+    employee?.PIN ||
+    employee?.nik ||
+    ""
+  ).trim(),
   nama: String(employee?.nama || "").trim(),
   jabatan: String(employee?.jabatan || "").trim(),
   dept: String(employee?.dept || employee?.departemen || "").trim()
@@ -119,10 +127,12 @@ export const buildScheduleLookup = (schedules = []) => {
   const lookup = new Map();
   schedules.forEach((schedule) => {
     const nik = String(schedule?.nik || "").trim();
+    const idAbsen = String(schedule?.id_absen || schedule?.pin || schedule?.PIN || "").trim();
     const tanggal = normalizeDateOnly(schedule?.tanggal);
     const kodeShift = String(schedule?.kode_shift || "").trim().toUpperCase();
-    if (!nik || !tanggal || !kodeShift) return;
-    lookup.set(`${nik}|${tanggal}`, kodeShift);
+    if (!tanggal || !kodeShift) return;
+    if (nik) lookup.set(`${nik}|${tanggal}`, kodeShift);
+    if (idAbsen) lookup.set(`${idAbsen}|${tanggal}`, kodeShift);
   });
   return lookup;
 };
@@ -163,7 +173,7 @@ export const assignAttendanceCategories = ({
 };
 
 const getScheduleTimes = ({ employee, date, scheduleLookup, shiftScheduleMap }) => {
-  const kodeShift = scheduleLookup.get(`${employee.nik}|${date}`);
+  const kodeShift = scheduleLookup.get(`${employee.pin}|${date}`) || scheduleLookup.get(`${employee.nik}|${date}`);
   if (kodeShift && SKIP_SHIFT_CODES.has(String(kodeShift).toUpperCase())) {
     return null;
   }

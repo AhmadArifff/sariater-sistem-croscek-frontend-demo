@@ -30,6 +30,14 @@ export const normalizeRosterCount = (value, max) => {
 
 export const normalizeEmployeeForRoster = (employee) => ({
   nik: String(employee?.nik || "").trim(),
+  id_absen: String(
+    employee?.id_absen ||
+    employee?.ID_ABSEN ||
+    employee?.["ID ABSEN"] ||
+    employee?.pin ||
+    employee?.PIN ||
+    ""
+  ).trim(),
   nama: String(employee?.nama || "").trim(),
   jabatan: String(employee?.jabatan || "").trim(),
   dept: String(employee?.dept || employee?.departemen || "").trim()
@@ -137,7 +145,7 @@ export const buildRosterSheetData = ({ rosterRows, month, year }) => {
   rosterRows.forEach((row) => {
     sheetData.push(padRow([
       row.no,
-      row.nik,
+      row.id_absen || row.nik,
       row.nama,
       ...row.shifts
     ]));
@@ -150,7 +158,7 @@ export const buildRosterPreviewRows = (rosterRows, daysInMonth, maxRows = 30) =>
   rosterRows.slice(0, maxRows).map((row) => {
     const preview = {
       NO: row.no,
-      "ID ABSEN": row.nik,
+      "ID ABSEN": row.id_absen || row.nik,
       NAMA: row.nama
     };
 

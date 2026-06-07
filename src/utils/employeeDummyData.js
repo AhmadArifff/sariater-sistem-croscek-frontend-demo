@@ -1,4 +1,4 @@
-export const EMPLOYEE_DUMMY_HEADERS = ["NAMA", "NIK", "JABATAN", "DEPT"];
+export const EMPLOYEE_DUMMY_HEADERS = ["NAMA", "NIK", "JABATAN", "DEPT", "ID ABSEN"];
 export const EMPLOYEE_DUMMY_MAX_ROWS = 1000;
 
 const FIRST_NAMES = [
@@ -351,11 +351,17 @@ const buildNikPool = (count, typeKey, random) => {
   return [...nicks];
 };
 
+const buildIdAbsenPool = (count, typeKey) => {
+  const base = typeKey === "dw" ? 810000 : 710000;
+  return Array.from({ length: count }, (_, index) => base + index + 1);
+};
+
 export const generateEmployeeDummyRows = (count, typeKey = "karyawan") => {
   const safeCount = clampCount(count);
   const random = createSeededRandom(Date.now() + Math.floor(Math.random() * 100000));
   const namePool = shuffle(buildNamePool(), random);
   const nikPool = buildNikPool(safeCount, typeKey, random);
+  const idAbsenPool = buildIdAbsenPool(safeCount, typeKey);
   const jobPool = shuffle(JOBS, random);
   const deptPool = shuffle(DEPTS, random);
 
@@ -363,7 +369,8 @@ export const generateEmployeeDummyRows = (count, typeKey = "karyawan") => {
     NAMA: namePool[index],
     NIK: nikPool[index],
     JABATAN: jobPool[index % jobPool.length],
-    DEPT: deptPool[index % deptPool.length]
+    DEPT: deptPool[index % deptPool.length],
+    "ID ABSEN": idAbsenPool[index]
   }));
 };
 
