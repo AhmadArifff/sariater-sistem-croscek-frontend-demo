@@ -2,6 +2,7 @@ import Sidebar from "../components/Sidebar";
 import { Outlet, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useEffect, useState } from "react";
+import AdminOnboardingTour from "../components/AdminOnboardingTour";
 
 export default function DashboardLayout() {
   const { isAuthenticated, loading } = useAuth();
@@ -81,6 +82,7 @@ export default function DashboardLayout() {
           </div>
         </div>
       </main>
+      <AdminOnboardingTour />
     </div>
   );
 }
