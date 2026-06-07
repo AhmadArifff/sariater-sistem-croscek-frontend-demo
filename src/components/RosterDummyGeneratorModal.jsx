@@ -452,6 +452,7 @@ export default function RosterDummyGeneratorModal({
                       <th className="p-2 text-left">Kode</th>
                       <th className="p-2 text-left">Jam</th>
                       <th className="p-2 text-left">Nama Shift</th>
+                      <th className="p-2 text-left">Lokasi</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -469,14 +470,15 @@ export default function RosterDummyGeneratorModal({
                           <td className="p-2 font-semibold whitespace-nowrap">{code}</td>
                           <td className="p-2 whitespace-nowrap">{getScheduleText(code)}</td>
                           <td className="p-2 whitespace-nowrap">
-                            {schedule.nama_shift || schedule.lokasi_kerja || "-"}
+                            {schedule.nama_shift || "-"}
                           </td>
+                          <td className="p-2 whitespace-nowrap">{schedule.lokasi_kerja || "-"}</td>
                         </tr>
                       );
                     })}
                     {filteredWorkCodes.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="p-4 text-center text-gray-500">
+                        <td colSpan={5} className="p-4 text-center text-gray-500">
                           Data shift tidak ditemukan.
                         </td>
                       </tr>
