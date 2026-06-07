@@ -3845,11 +3845,11 @@ export default function Croscek() {
   // const LIBUR_SHIFTS = ["LIBUR", "OFF", "EO", "EXTRAOFF"];
 
   const LEGEND_ITEMS = [
-    { bg: "bg-red-500",    hover: "hover:bg-red-600",    label: "Merah",  desc: "Tidak Masuk"            },
-    { bg: "bg-yellow-400", hover: "hover:bg-yellow-500", label: "Kuning", desc: "Kendala / Data Kosong"  },
-    { bg: "bg-orange-500", hover: "hover:bg-orange-600", label: "Orange", desc: "Masuk Telat (<= 2 Jam) / Pulang Cepat" },
-    { bg: "bg-purple-600", hover: "hover:bg-purple-700", label: "Ungu",   desc: "Selisih Masuk > 2 Jam" },
-    { bg: "bg-green-500",  hover: "hover:bg-green-600",  label: "Hijau",  desc: "Normal / Sesuai Jadwal / Kompensasi OK" },
+    { bg: "bg-red-500",    hover: "hover:bg-red-600",    label: "Merah",  desc: "Tidak Ada Check-in & Check-out" },
+    { bg: "bg-yellow-400", hover: "hover:bg-yellow-500", label: "Kuning", desc: "Scan Tidak Lengkap / Pindah Shift" },
+    { bg: "bg-orange-500", hover: "hover:bg-orange-600", label: "Orange", desc: "Telat / Pulang Cepat Tanpa Kompensasi" },
+    { bg: "bg-purple-600", hover: "hover:bg-purple-700", label: "Ungu",   desc: "Check-in Telat > 2 Jam" },
+    { bg: "bg-green-500",  hover: "hover:bg-green-600",  label: "Hijau",  desc: "Aman / Sesuai Jadwal / Kompensasi OK" },
   ];
 
   // 
@@ -4028,13 +4028,51 @@ export default function Croscek() {
     );
   };
 
+  const isIndicatorTimeEmpty = (value) => {
+    if (isEmptyTime(value)) return true;
+    const text = String(value).trim().toUpperCase();
+    return text === "-" || text === "NULL" || text === "UNDEFINED";
+  };
+
+  const getIndicatorScanContext = (row) => {
+    const context = getEffectiveTimeContext(row);
+    const hasActualMasuk = !isIndicatorTimeEmpty(context.actualMasuk);
+    const hasActualPulang = !isIndicatorTimeEmpty(context.actualPulang);
+    const shiftCode = normalizeShiftCode(context.shiftCode || row?.Kode_Shift);
+    const isLiburShift = LIBUR_SHIFTS.includes(shiftCode);
+
+    return {
+      ...context,
+      hasActualMasuk,
+      hasActualPulang,
+      hasNoScan: !hasActualMasuk && !hasActualPulang,
+      hasPartialScan: hasActualMasuk !== hasActualPulang,
+      isLiburShift
+    };
+  };
+
+  const isPulangKompensasiSatuJam = (row) => {
+    const selisihPulang = getSelisihPulangMenit(row);
+    return selisihPulang !== null && selisihPulang >= 60;
+  };
+
   const getRowIndicator = (row) => {
-    if (isPindahShiftRow(row)) return "kuning";
-    if (isTidakHadir(row)) return "merah";
-    if (isLiburAdaPrediksi(row) || isActualKosong(row)) return "kuning";
-    if (isSelisihBesar(row)) return "ungu";
-    if (isHijauSesuaiJadwal(row)) return "hijau";
-    if (isHadirBermasalah(row)) return "orange";
+    const scanContext = getIndicatorScanContext(row);
+
+    if (scanContext.hasPartialScan || isPindahShiftRow(row) || isLiburAdaPrediksi(row)) return "kuning";
+    if ((isTidakHadir(row) || !scanContext.isLiburShift) && scanContext.hasNoScan) return "merah";
+
+    const selisihMasuk = getSelisihMasukMenit(row);
+    const selisihPulang = getSelisihPulangMenit(row);
+
+    if (selisihMasuk !== null && selisihMasuk > 120) return "ungu";
+
+    if (selisihMasuk !== null && selisihMasuk > 0) {
+      return isPulangKompensasiSatuJam(row) ? "hijau" : "orange";
+    }
+
+    if (selisihPulang !== null && selisihPulang < 0) return "orange";
+
     return "hijau";
   };
 
