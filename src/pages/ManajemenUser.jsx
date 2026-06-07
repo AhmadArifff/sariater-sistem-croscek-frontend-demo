@@ -183,9 +183,9 @@ export default function ManajemenUser() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-tour="users-page">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" data-tour="users-header">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Manajemen Pengguna</h1>
           <p className="text-gray-600 mt-1">
@@ -198,6 +198,7 @@ export default function ManajemenUser() {
             size="md"
             onClick={handleOpenCreateModal}
             className="flex items-center gap-2"
+            data-tour="users-add-button"
           >
             <Plus size={18} />
             Tambah Pengguna
@@ -221,7 +222,7 @@ export default function ManajemenUser() {
       )}
 
       {/* Users Table Card */}
-      <Card>
+      <Card data-tour="users-table-card">
         <CardBody className="p-0">
           <DataTable
             data={users}
@@ -237,7 +238,7 @@ export default function ManajemenUser() {
       </Card>
 
       {/* Info Card */}
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="bg-blue-50 border-blue-200" data-tour="users-role-info">
         <CardBody className="flex items-start gap-3">
           <AlertCircle className="text-blue-600 flex-shrink-0 mt-0.5" size={20} />
           <div>

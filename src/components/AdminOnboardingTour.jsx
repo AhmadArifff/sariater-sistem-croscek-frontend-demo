@@ -12,6 +12,7 @@ import {
   ListChecks,
   Play,
   ShieldCheck,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
@@ -96,21 +97,71 @@ const DASHBOARD_STEPS = [
   },
 ];
 
-const FLOW_OPTIONS = [
+const MANAGEMENT_USER_STEPS = [
   {
+    target: "users-page",
+    title: "Halaman Manajemen User",
+    icon: Users,
+    body: "Flow ini menjelaskan cara admin mengelola akun demo atau akun internal tanpa mengubah data kehadiran. Semua aksi tetap mengikuti permission role yang sudah ada.",
+  },
+  {
+    target: "users-header",
+    title: "Konteks Halaman",
+    icon: Users,
+    body: "Header ini menandai halaman pengelolaan pengguna. Dari sini admin tahu bahwa fokus menu adalah username, nama lengkap, role, dan status aktif akun.",
+  },
+  {
+    target: "users-add-button",
+    title: "Tambah Pengguna",
+    icon: UserPlus,
+    body: "Tombol ini membuka form tambah user. Gunakan untuk membuat akun baru, memilih role Admin, Staff, atau Guest, lalu menyimpan akun ke database.",
+  },
+  {
+    target: "users-table-card",
+    title: "Tabel Pengguna",
+    icon: ListChecks,
+    body: "Tabel ini menjadi pusat kerja admin: mencari user, sorting kolom, membuka edit lewat baris, dan memakai action Edit, Aktifkan atau Nonaktifkan, serta Hapus.",
+  },
+  {
+    target: "users-role-info",
+    title: "Panduan Role",
+    icon: ShieldCheck,
+    body: "Bagian ini menjelaskan batas akses role. Admin punya akses penuh, Staff fokus ke menu croscek, sedangkan Guest bisa membaca dan export tanpa mengubah data.",
+  },
+];
+
+const TOUR_FLOWS = {
+  dashboard: {
     id: "dashboard",
     title: "Dashboard Analytics",
+    label: "Dashboard Tutorial",
     subtitle: "Pelajari filter, KPI, kualitas data, daftar terlambat, dan chart satu per satu.",
     icon: BarChart3,
-    steps: DASHBOARD_STEPS.length,
+    route: "/dashboard",
+    steps: DASHBOARD_STEPS,
     enabled: true,
   },
+  users: {
+    id: "users",
+    title: "Manajemen User",
+    label: "Manajemen User Tutorial",
+    subtitle: "Pelajari tambah user, tabel, pencarian, action akun, dan panduan role.",
+    icon: Users,
+    route: "/manajemen-user",
+    steps: MANAGEMENT_USER_STEPS,
+    enabled: true,
+  },
+};
+
+const FLOW_OPTIONS = [
+  TOUR_FLOWS.dashboard,
+  TOUR_FLOWS.users,
   {
     id: "jadwal",
     title: "Informasi Jadwal",
-    subtitle: "Flow master shift dan upload jadwal akan ditambahkan setelah Dashboard selesai.",
+    subtitle: "Flow master shift dan upload jadwal akan ditambahkan pada tahap berikutnya.",
     icon: CalendarDays,
-    steps: 0,
+    steps: [],
     enabled: false,
   },
   {
@@ -118,7 +169,7 @@ const FLOW_OPTIONS = [
     title: "Croscek Karyawan",
     subtitle: "Flow upload, generate dummy, indikator, dan export akan dibuat berikutnya.",
     icon: CheckSquare,
-    steps: 0,
+    steps: [],
     enabled: false,
   },
 ];
@@ -156,13 +207,16 @@ export default function AdminOnboardingTour() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mode, setMode] = useState("closed");
+  const [activeFlowId, setActiveFlowId] = useState("dashboard");
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState(null);
 
   const isAdmin = user?.role === "admin";
-  const step = DASHBOARD_STEPS[stepIndex];
+  const activeFlow = TOUR_FLOWS[activeFlowId] || TOUR_FLOWS.dashboard;
+  const activeSteps = activeFlow.steps;
+  const step = activeSteps[stepIndex];
   const StepIcon = step?.icon || BarChart3;
-  const progress = Math.round(((stepIndex + 1) / DASHBOARD_STEPS.length) * 100);
+  const progress = Math.round(((stepIndex + 1) / activeSteps.length) * 100);
   const tooltipPosition = getPlacement(targetRect);
 
   const hasStoredDecision = useMemo(() => {
@@ -255,17 +309,24 @@ export default function AdminOnboardingTour() {
     setMode("closed");
   };
 
-  const startDashboardFlow = () => {
+  const startFlow = (flowId) => {
+    const selectedFlow = TOUR_FLOWS[flowId] || TOUR_FLOWS.dashboard;
+    setActiveFlowId(selectedFlow.id);
     setStepIndex(0);
+    setTargetRect(null);
     setMode("walkthrough");
-    if (location.pathname !== "/dashboard") {
-      navigate("/dashboard");
+    if (location.pathname !== selectedFlow.route) {
+      navigate(selectedFlow.route);
     }
   };
 
+  const startDashboardFlow = () => startFlow("dashboard");
+
   const nextStep = () => {
-    if (stepIndex >= DASHBOARD_STEPS.length - 1) {
-      closeTour();
+    if (stepIndex >= activeSteps.length - 1) {
+      setStepIndex(0);
+      setTargetRect(null);
+      setMode("launcher");
       return;
     }
     setStepIndex((current) => current + 1);
@@ -285,7 +346,7 @@ export default function AdminOnboardingTour() {
             </p>
             <h2 className="text-2xl font-bold text-slate-900 mt-1">Pilih flow tutorial</h2>
             <p className="text-sm text-slate-600 mt-2">
-              Untuk sementara flow lengkap dibuat dulu untuk halaman Dashboard. Menu lain disiapkan sebagai pilihan berikutnya.
+              Pilih halaman yang ingin dipandu. Setelah satu flow selesai, modal ini akan muncul lagi supaya admin bisa lanjut ke tutorial halaman lain.
             </p>
           </div>
           <button
@@ -305,7 +366,7 @@ export default function AdminOnboardingTour() {
               <button
                 key={flow.id}
                 type="button"
-                onClick={flow.enabled ? startDashboardFlow : undefined}
+                onClick={flow.enabled ? () => startFlow(flow.id) : undefined}
                 disabled={!flow.enabled}
                 className={`text-left rounded-xl border p-4 transition-all ${
                   flow.enabled
@@ -321,7 +382,7 @@ export default function AdminOnboardingTour() {
                 <h3 className="font-bold text-slate-900">{flow.title}</h3>
                 <p className="text-xs leading-5 text-slate-600 mt-2">{flow.subtitle}</p>
                 <div className="mt-4 text-xs font-semibold text-slate-500">
-                  {flow.enabled ? `${flow.steps} langkah` : "Segera dibuat"}
+                  {flow.enabled ? `${flow.steps.length} langkah` : "Segera dibuat"}
                 </div>
               </button>
             );
@@ -385,7 +446,7 @@ export default function AdminOnboardingTour() {
               </div>
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-700">
-                  Dashboard Tutorial
+                  {activeFlow.label}
                 </p>
                 <h2 className="text-base font-bold text-slate-900">{step.title}</h2>
               </div>
@@ -402,7 +463,7 @@ export default function AdminOnboardingTour() {
 
           <div className="p-4">
             <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-2">
-              <span>Elemen {stepIndex + 1} dari {DASHBOARD_STEPS.length}</span>
+              <span>Elemen {stepIndex + 1} dari {activeSteps.length}</span>
               <span>{progress}%</span>
             </div>
             <div className="h-2 rounded-full bg-slate-100 overflow-hidden mb-4">
@@ -442,7 +503,7 @@ export default function AdminOnboardingTour() {
                 onClick={nextStep}
                 className="px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-xs font-semibold inline-flex items-center gap-2"
               >
-                {stepIndex >= DASHBOARD_STEPS.length - 1 ? "Selesai" : "Next"}
+                {stepIndex >= activeSteps.length - 1 ? "Selesai Flow" : "Next"}
                 <ArrowRight size={14} />
               </button>
             </div>
