@@ -21,12 +21,68 @@ const TOUR_SHOW_CROSCEK_KEHADIRAN_PREVIEW_EVENT = "croscek:tour-show-croscek-keh
 const TOUR_CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT = "croscek:tour-clear-croscek-kehadiran-preview";
 const TOUR_OPEN_CROSCEK_RESULT_MODAL_EVENT = "croscek:tour-open-croscek-result-modal";
 const TOUR_CLOSE_CROSCEK_RESULT_MODAL_EVENT = "croscek:tour-close-croscek-result-modal";
+const TOUR_OPEN_CROSCEK_EXPORT_PREVIEW_EVENT = "croscek:tour-open-croscek-export-preview";
+const TOUR_CLOSE_CROSCEK_EXPORT_PREVIEW_EVENT = "croscek:tour-close-croscek-export-preview";
+const TOUR_OPEN_CROSCEK_SERVICE_PREVIEW_EVENT = "croscek:tour-open-croscek-service-preview";
+const TOUR_CLOSE_CROSCEK_SERVICE_PREVIEW_EVENT = "croscek:tour-close-croscek-service-preview";
+const TOUR_OPEN_CROSCEK_UANG_MAKAN_PREVIEW_EVENT = "croscek:tour-open-croscek-uang-makan-preview";
+const TOUR_CLOSE_CROSCEK_UANG_MAKAN_PREVIEW_EVENT = "croscek:tour-close-croscek-uang-makan-preview";
+const TOUR_OPEN_CROSCEK_HOD_PREVIEW_EVENT = "croscek:tour-open-croscek-hod-preview";
+const TOUR_CLOSE_CROSCEK_HOD_PREVIEW_EVENT = "croscek:tour-close-croscek-hod-preview";
 const TOUR_JADWAL_PREVIEW_HTML = `
   <table class='min-w-full border text-xs bg-white'>
     <thead><tr><th class='border p-2'>NO</th><th class='border p-2'>ID ABSEN</th><th class='border p-2'>NAMA</th><th class='border p-2'>1</th><th class='border p-2'>2</th></tr></thead>
     <tbody><tr><td class='border p-2'>1</td><td class='border p-2'>710001</td><td class='border p-2'>AHMAD ARIF PRATAMA</td><td class='border p-2'>M1</td><td class='border p-2'>1A</td></tr></tbody>
   </table>
 `;
+const TOUR_SERVICE_PREVIEW = {
+  "HUMAN RESOURCE": [
+    {
+      no: 1,
+      nama: "AHMAD ARIF PRATAMA",
+      jabatan: "STAFF ADMIN",
+      nik: "92010001",
+      totalHari: 26,
+      libur: 4,
+      hk: 22,
+      sakit: 0,
+      izin: 1,
+      alpa: 0,
+      eo: 0,
+      cuti: 0,
+      service: 21
+    }
+  ]
+};
+const TOUR_UANG_MAKAN_PREVIEW = [
+  {
+    nama: "AHMAD ARIF PRATAMA",
+    jabatan: "STAFF ADMIN",
+    dept: "HUMAN RESOURCE",
+    H: 22,
+    OFF: 4,
+    S: 0,
+    I: 1,
+    A: 0,
+    EO: 0,
+    CUTI: 0,
+    TGS: 0,
+    TOTAL: 21
+  }
+];
+const TOUR_HOD_TABLE_DATA = [
+  {
+    id: "tour-hod-1",
+    tanggal: "2026-06-01",
+    nama: "AHMAD ARIF PRATAMA",
+    jabatan: "STAFF ADMIN",
+    departemen: "HUMAN RESOURCE",
+    shift: "M1",
+    actual_masuk: "08:02:00",
+    actual_pulang: "17:05:00",
+    status_kehadiran: "Hadir"
+  }
+];
 const TOUR_KEHADIRAN_PREVIEW_HTML = `
   <table class='min-w-full border text-xs bg-white'>
     <thead><tr><th class='border p-2'>Tanggal scan</th><th class='border p-2'>Tanggal</th><th class='border p-2'>Jam</th><th class='border p-2'>PIN</th><th class='border p-2'>Nama</th></tr></thead>
@@ -74,6 +130,7 @@ export default function Croscek() {
 
   // MODAL PREVIEW CROSCEK
   const [showModal, setShowModal] = useState(false);
+  const [showTourExportPreview, setShowTourExportPreview] = useState(false);
 
   useEffect(() => {
     const openRosterGenerator = () => setShowRosterGeneratorModal(true);
@@ -104,6 +161,27 @@ export default function Croscek() {
     };
     const openResultModalForTour = () => setShowModal(true);
     const closeResultModalForTour = () => setShowModal(false);
+    const openExportPreviewForTour = () => setShowTourExportPreview(true);
+    const closeExportPreviewForTour = () => setShowTourExportPreview(false);
+    const openServicePreviewForTour = () => {
+      setRekapServicePreview(TOUR_SERVICE_PREVIEW);
+      setActiveDept("HUMAN RESOURCE");
+      setShowPreviewRekap(true);
+    };
+    const closeServicePreviewForTour = () => setShowPreviewRekap(false);
+    const openUangMakanPreviewForTour = () => {
+      setPreviewUangMakan(TOUR_UANG_MAKAN_PREVIEW);
+      setShowPreviewUangMakan(true);
+    };
+    const closeUangMakanPreviewForTour = () => setShowPreviewUangMakan(false);
+    const openHodPreviewForTour = () => {
+      setHodStartDate("2026-06-01");
+      setHodEndDate("2026-06-01");
+      setHodTableData(TOUR_HOD_TABLE_DATA);
+      setHodSelectedIds(new Set(["tour-hod-1"]));
+      setIsHodModalOpen(true);
+    };
+    const closeHodPreviewForTour = () => setIsHodModalOpen(false);
 
     window.addEventListener(TOUR_OPEN_CROSCEK_ROSTER_GENERATOR_EVENT, openRosterGenerator);
     window.addEventListener(TOUR_CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT, closeRosterGenerator);
@@ -115,6 +193,14 @@ export default function Croscek() {
     window.addEventListener(TOUR_CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT, clearKehadiranPreviewForTour);
     window.addEventListener(TOUR_OPEN_CROSCEK_RESULT_MODAL_EVENT, openResultModalForTour);
     window.addEventListener(TOUR_CLOSE_CROSCEK_RESULT_MODAL_EVENT, closeResultModalForTour);
+    window.addEventListener(TOUR_OPEN_CROSCEK_EXPORT_PREVIEW_EVENT, openExportPreviewForTour);
+    window.addEventListener(TOUR_CLOSE_CROSCEK_EXPORT_PREVIEW_EVENT, closeExportPreviewForTour);
+    window.addEventListener(TOUR_OPEN_CROSCEK_SERVICE_PREVIEW_EVENT, openServicePreviewForTour);
+    window.addEventListener(TOUR_CLOSE_CROSCEK_SERVICE_PREVIEW_EVENT, closeServicePreviewForTour);
+    window.addEventListener(TOUR_OPEN_CROSCEK_UANG_MAKAN_PREVIEW_EVENT, openUangMakanPreviewForTour);
+    window.addEventListener(TOUR_CLOSE_CROSCEK_UANG_MAKAN_PREVIEW_EVENT, closeUangMakanPreviewForTour);
+    window.addEventListener(TOUR_OPEN_CROSCEK_HOD_PREVIEW_EVENT, openHodPreviewForTour);
+    window.addEventListener(TOUR_CLOSE_CROSCEK_HOD_PREVIEW_EVENT, closeHodPreviewForTour);
 
     return () => {
       window.removeEventListener(TOUR_OPEN_CROSCEK_ROSTER_GENERATOR_EVENT, openRosterGenerator);
@@ -127,6 +213,14 @@ export default function Croscek() {
       window.removeEventListener(TOUR_CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT, clearKehadiranPreviewForTour);
       window.removeEventListener(TOUR_OPEN_CROSCEK_RESULT_MODAL_EVENT, openResultModalForTour);
       window.removeEventListener(TOUR_CLOSE_CROSCEK_RESULT_MODAL_EVENT, closeResultModalForTour);
+      window.removeEventListener(TOUR_OPEN_CROSCEK_EXPORT_PREVIEW_EVENT, openExportPreviewForTour);
+      window.removeEventListener(TOUR_CLOSE_CROSCEK_EXPORT_PREVIEW_EVENT, closeExportPreviewForTour);
+      window.removeEventListener(TOUR_OPEN_CROSCEK_SERVICE_PREVIEW_EVENT, openServicePreviewForTour);
+      window.removeEventListener(TOUR_CLOSE_CROSCEK_SERVICE_PREVIEW_EVENT, closeServicePreviewForTour);
+      window.removeEventListener(TOUR_OPEN_CROSCEK_UANG_MAKAN_PREVIEW_EVENT, openUangMakanPreviewForTour);
+      window.removeEventListener(TOUR_CLOSE_CROSCEK_UANG_MAKAN_PREVIEW_EVENT, closeUangMakanPreviewForTour);
+      window.removeEventListener(TOUR_OPEN_CROSCEK_HOD_PREVIEW_EVENT, openHodPreviewForTour);
+      window.removeEventListener(TOUR_CLOSE_CROSCEK_HOD_PREVIEW_EVENT, closeHodPreviewForTour);
     };
   }, []);
 
@@ -8251,6 +8345,7 @@ const formatDate = (dateString) => {
 
                 <button
                   onClick={exportRekapPerhari}
+                  data-tour="croscek-result-rekap-harian"
                   className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
                 >
                   <FileSpreadsheet size={16} /> Rekap Harian
@@ -8258,6 +8353,7 @@ const formatDate = (dateString) => {
 
                 <button
                   onClick={exportRekapKehadiran}
+                  data-tour="croscek-result-rekap-periode"
                   className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
                 >
                   <FileSpreadsheet size={16} /> Rekap Periode
@@ -8265,6 +8361,7 @@ const formatDate = (dateString) => {
 
                 <button
                   onClick={exportRekapKehadiranYeartoDate}
+                  data-tour="croscek-result-rekap-ytd"
                   className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
                 >
                   <FileSpreadsheet size={16} /> Rekap YTD
@@ -8272,6 +8369,7 @@ const formatDate = (dateString) => {
 
                 <button
                   onClick={exportFilteredDatabyshift}
+                  data-tour="croscek-result-export-shift"
                   className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-emerald-700 to-emerald-800 hover:from-emerald-800 hover:to-emerald-900 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
                 >
                   <FileSpreadsheet size={16} /> Export Shift
@@ -8285,6 +8383,7 @@ const formatDate = (dateString) => {
                     setActiveDept(Object.keys(data)[0]);
                     setShowPreviewRekap(true);
                     }}
+                    data-tour="croscek-result-rekap-service"
                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
                   >
                     <FileSpreadsheet size={16} /> Rekap Service
@@ -8296,6 +8395,7 @@ const formatDate = (dateString) => {
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={openHodModal}
+                    data-tour="croscek-result-rekap-hod"
                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
                   >
                     <FileSpreadsheet size={16} /> Rekap Harian HOD
@@ -8312,6 +8412,7 @@ const formatDate = (dateString) => {
                       setPreviewUangMakan(hasil);
                       setShowPreviewUangMakan(true);
                     }}
+                    data-tour="croscek-result-rekap-uang-makan"
                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
                   >
                     <FileSpreadsheet size={16} /> Rekap Uang Makan
@@ -8329,6 +8430,7 @@ const formatDate = (dateString) => {
 
                   <button
                     onClick={handleTruncateCroscek}
+                    data-tour="croscek-result-truncate"
                     className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 rounded-xl shadow-md hover:shadow-lg transition duration-300 transform hover:scale-105"
                   >
                     <Trash2 size={16} /> Kosongkan Croscek
@@ -8363,10 +8465,66 @@ const formatDate = (dateString) => {
         </div>
       )}
 
+      {showTourExportPreview && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-4xl max-h-[86vh] rounded-2xl shadow-2xl flex flex-col border-t-4 border-emerald-500" data-tour="croscek-export-preview-modal">
+            <div className="p-5 border-b flex justify-between items-center">
+              <div>
+                <h2 className="font-bold text-xl text-gray-900">Preview Struktur File Export</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Contoh isi file sebelum user menekan tombol download export.
+                </p>
+              </div>
+              <button onClick={() => setShowTourExportPreview(false)} className="p-2 hover:bg-red-100 rounded-full">
+                <X size={24} className="text-red-500" />
+              </button>
+            </div>
+            <div className="p-5 overflow-auto">
+              <table className="min-w-full border text-xs md:text-sm">
+                <thead className="bg-emerald-600 text-white">
+                  <tr>
+                    {["Nama", "Tanggal", "Shift", "Jadwal Masuk", "Jadwal Pulang", "Actual Masuk", "Actual Pulang", "Status"].map((header) => (
+                      <th key={header} className="border p-2 text-left whitespace-nowrap">{header}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border p-2">AHMAD ARIF PRATAMA</td>
+                    <td className="border p-2">2026-06-01</td>
+                    <td className="border p-2">M1</td>
+                    <td className="border p-2">08:00:00</td>
+                    <td className="border p-2">17:00:00</td>
+                    <td className="border p-2">08:02:00</td>
+                    <td className="border p-2">17:05:00</td>
+                    <td className="border p-2">Hadir</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700">
+                <div className="border rounded-xl p-3 bg-gray-50">
+                  <p className="font-semibold text-gray-900">Export Excel</p>
+                  <p>Berisi hasil croscek sesuai filter aktif.</p>
+                </div>
+                <div className="border rounded-xl p-3 bg-gray-50">
+                  <p className="font-semibold text-gray-900">Rekap Harian / Periode / YTD / Shift</p>
+                  <p>Format export disesuaikan dengan jenis rekap yang dipilih user.</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-end">
+              <button onClick={() => setShowTourExportPreview(false)} className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 font-semibold">
+                Tutup Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL PREVIEW REKAP SERVICE */}
       {showPreviewRekap && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-[95vw] h-[90vh] rounded-2xl shadow-2xl flex flex-col border-t-4 border-indigo-500">
+          <div className="bg-white w-full max-w-[95vw] h-[90vh] rounded-2xl shadow-2xl flex flex-col border-t-4 border-indigo-500" data-tour="croscek-service-preview-modal">
 
             {/* HEADER */}
             <div className="p-6 border-b-2 border-gray-200 flex justify-between items-center bg-gradient-to-r from-indigo-50 to-white">
@@ -8389,6 +8547,7 @@ const formatDate = (dateString) => {
                       ? "bg-indigo-600 text-white shadow-md"
                       : "bg-white text-gray-700 border-2 border-gray-300 hover:border-indigo-400"
                   }`}
+                  data-tour="croscek-service-preview-tabs"
                 >
                   {dept}
                 </button>
@@ -8405,7 +8564,7 @@ const formatDate = (dateString) => {
               </div>
 
               {/* TABLE PREVIEW */}
-              <div className="max-h-[600px] overflow-auto border-2 border-gray-200 rounded-xl">
+              <div className="max-h-[600px] overflow-auto border-2 border-gray-200 rounded-xl" data-tour="croscek-service-preview-table">
                 <table className="min-w-full text-sm border-collapse bg-white">
                   <thead className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white sticky top-0 z-10">
                     <tr>
@@ -8459,6 +8618,7 @@ const formatDate = (dateString) => {
               <button
                 onClick={() => exportRekapService()}
                 className="px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-xl font-semibold transition duration-200 shadow-lg hover:shadow-xl"
+                data-tour="croscek-service-preview-download"
               >
                 ⬇️ Download Excel
               </button>
@@ -8470,7 +8630,7 @@ const formatDate = (dateString) => {
       {/* MODAL PREVIEW UANG MAKAN */}
       {showPreviewUangMakan && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-[95vw] h-[90vh] rounded-2xl shadow-2xl flex flex-col border-t-4 border-amber-500">
+          <div className="bg-white w-full max-w-[95vw] h-[90vh] rounded-2xl shadow-2xl flex flex-col border-t-4 border-amber-500" data-tour="croscek-uang-makan-preview-modal">
 
             {/* HEADER */}
             <div className="p-6 border-b-2 border-gray-200 flex justify-between items-center bg-gradient-to-r from-amber-50 to-white">
@@ -8491,7 +8651,7 @@ const formatDate = (dateString) => {
                 PERIODE {startDate} s.d {endDate}
               </div>
 
-              <div className="max-h-[600px] overflow-auto border-2 border-gray-200 rounded-xl">
+              <div className="max-h-[600px] overflow-auto border-2 border-gray-200 rounded-xl" data-tour="croscek-uang-makan-preview-table">
                 <table className="min-w-full text-sm border-collapse bg-white">
                   <thead className="bg-gradient-to-r from-amber-600 to-amber-700 text-white sticky top-0 z-10">
                     <tr>
@@ -8540,6 +8700,7 @@ const formatDate = (dateString) => {
                   )
                 }
                 className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold transition duration-200 shadow-lg hover:shadow-xl"
+                data-tour="croscek-uang-makan-download"
               >
                 ⬇️ Download Excel
               </button>
@@ -8552,7 +8713,7 @@ const formatDate = (dateString) => {
       {/* ==================== MODAL REKAP HARIAN HOD ==================== */}
       {isHodModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[95vw] max-h-[95vh] flex flex-col">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[95vw] max-h-[95vh] flex flex-col" data-tour="croscek-hod-preview-modal">
             
             {/* ========== HEADER ========== */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-cyan-600 to-cyan-700 rounded-t-2xl">
@@ -8572,7 +8733,7 @@ const formatDate = (dateString) => {
             </div>
 
             {/* ========== FILTER SECTION ========== */}
-            <div className="p-6 border-b border-gray-200 bg-gradient-to-br from-gray-50 to-white">
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-br from-gray-50 to-white" data-tour="croscek-hod-filters">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 
                 {/* Tanggal Mulai */}
@@ -8765,6 +8926,7 @@ const formatDate = (dateString) => {
                     onClick={downloadHodExcel}
                     disabled={hodTableData.length === 0}
                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-lg shadow-md hover:shadow-lg transition duration-300 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed"
+                    data-tour="croscek-hod-download"
                   >
                     <Download size={16} /> Download Excel
                   </button>
@@ -8773,7 +8935,7 @@ const formatDate = (dateString) => {
             </div>
 
             {/* ========== TABLE SECTION ========== */}
-            <div className="flex-1 overflow-auto p-6 bg-gray-50">
+            <div className="flex-1 overflow-auto p-6 bg-gray-50" data-tour="croscek-hod-table">
               {loadingHod ? (
                 <div className="flex flex-col items-center justify-center h-64 gap-4">
                   <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-cyan-600"></div>

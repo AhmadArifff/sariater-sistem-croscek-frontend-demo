@@ -21,12 +21,36 @@ const TOUR_SHOW_CROSCEK_KEHADIRAN_PREVIEW_EVENT = "croscek:tour-show-croscek-keh
 const TOUR_CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT = "croscek:tour-clear-croscek-kehadiran-preview";
 const TOUR_OPEN_CROSCEK_RESULT_MODAL_EVENT = "croscek:tour-open-croscek-result-modal";
 const TOUR_CLOSE_CROSCEK_RESULT_MODAL_EVENT = "croscek:tour-close-croscek-result-modal";
+const TOUR_OPEN_CROSCEK_EXPORT_PREVIEW_EVENT = "croscek:tour-open-croscek-export-preview";
+const TOUR_CLOSE_CROSCEK_EXPORT_PREVIEW_EVENT = "croscek:tour-close-croscek-export-preview";
+const TOUR_OPEN_CROSCEK_DW_PREVIEW_EVENT = "croscek:tour-open-croscek-dw-preview";
+const TOUR_CLOSE_CROSCEK_DW_PREVIEW_EVENT = "croscek:tour-close-croscek-dw-preview";
 const TOUR_JADWAL_PREVIEW_HTML = `
   <table class='min-w-full border text-xs bg-white'>
     <thead><tr><th class='border p-2'>NO</th><th class='border p-2'>ID ABSEN</th><th class='border p-2'>NAMA</th><th class='border p-2'>1</th><th class='border p-2'>2</th></tr></thead>
     <tbody><tr><td class='border p-2'>1</td><td class='border p-2'>720001</td><td class='border p-2'>DW CONTOH PRATAMA</td><td class='border p-2'>DW1</td><td class='border p-2'>OFF</td></tr></tbody>
   </table>
 `;
+const TOUR_DW_REKAP_PREVIEW = {
+  "HOUSEKEEPING": {
+    isFoodBeverage: false,
+    weeklyPeriods: [{ label: "01-07 Jun" }],
+    employees: [
+      {
+        no: 1,
+        nama: "DW CONTOH PRATAMA",
+        jabatan: "DAILY WORKER",
+        departemen: "HOUSEKEEPING",
+        isFoodBeverage: false,
+        dailyData: [
+          { date: "01", shift: "DW1", hasPrediksi: false },
+          { date: "02", shift: "OFF", hasPrediksi: false }
+        ],
+        weeklyData: [{ shift: 1 }]
+      }
+    ]
+  }
+};
 const TOUR_KEHADIRAN_PREVIEW_HTML = `
   <table class='min-w-full border text-xs bg-white'>
     <thead><tr><th class='border p-2'>Tanggal scan</th><th class='border p-2'>Tanggal</th><th class='border p-2'>Jam</th><th class='border p-2'>PIN</th><th class='border p-2'>Nama</th></tr></thead>
@@ -61,6 +85,7 @@ export default function Croscek_DW() {
 
   // MODAL PREVIEW CROSCEK
   const [showModal, setShowModal] = useState(false);
+  const [showTourExportPreview, setShowTourExportPreview] = useState(false);
 
   useEffect(() => {
     const openRosterGenerator = () => setShowRosterGeneratorModal(true);
@@ -91,6 +116,14 @@ export default function Croscek_DW() {
     };
     const openResultModalForTour = () => setShowModal(true);
     const closeResultModalForTour = () => setShowModal(false);
+    const openExportPreviewForTour = () => setShowTourExportPreview(true);
+    const closeExportPreviewForTour = () => setShowTourExportPreview(false);
+    const openDwPreviewForTour = () => {
+      setRekapDailyWorkerPreview(TOUR_DW_REKAP_PREVIEW);
+      setActiveDeptDW("HOUSEKEEPING");
+      setShowPreviewDailyWorker(true);
+    };
+    const closeDwPreviewForTour = () => setShowPreviewDailyWorker(false);
 
     window.addEventListener(TOUR_OPEN_CROSCEK_ROSTER_GENERATOR_EVENT, openRosterGenerator);
     window.addEventListener(TOUR_CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT, closeRosterGenerator);
@@ -102,6 +135,10 @@ export default function Croscek_DW() {
     window.addEventListener(TOUR_CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT, clearKehadiranPreviewForTour);
     window.addEventListener(TOUR_OPEN_CROSCEK_RESULT_MODAL_EVENT, openResultModalForTour);
     window.addEventListener(TOUR_CLOSE_CROSCEK_RESULT_MODAL_EVENT, closeResultModalForTour);
+    window.addEventListener(TOUR_OPEN_CROSCEK_EXPORT_PREVIEW_EVENT, openExportPreviewForTour);
+    window.addEventListener(TOUR_CLOSE_CROSCEK_EXPORT_PREVIEW_EVENT, closeExportPreviewForTour);
+    window.addEventListener(TOUR_OPEN_CROSCEK_DW_PREVIEW_EVENT, openDwPreviewForTour);
+    window.addEventListener(TOUR_CLOSE_CROSCEK_DW_PREVIEW_EVENT, closeDwPreviewForTour);
 
     return () => {
       window.removeEventListener(TOUR_OPEN_CROSCEK_ROSTER_GENERATOR_EVENT, openRosterGenerator);
@@ -114,6 +151,10 @@ export default function Croscek_DW() {
       window.removeEventListener(TOUR_CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT, clearKehadiranPreviewForTour);
       window.removeEventListener(TOUR_OPEN_CROSCEK_RESULT_MODAL_EVENT, openResultModalForTour);
       window.removeEventListener(TOUR_CLOSE_CROSCEK_RESULT_MODAL_EVENT, closeResultModalForTour);
+      window.removeEventListener(TOUR_OPEN_CROSCEK_EXPORT_PREVIEW_EVENT, openExportPreviewForTour);
+      window.removeEventListener(TOUR_CLOSE_CROSCEK_EXPORT_PREVIEW_EVENT, closeExportPreviewForTour);
+      window.removeEventListener(TOUR_OPEN_CROSCEK_DW_PREVIEW_EVENT, openDwPreviewForTour);
+      window.removeEventListener(TOUR_CLOSE_CROSCEK_DW_PREVIEW_EVENT, closeDwPreviewForTour);
     };
   }, []);
 
@@ -7676,6 +7717,7 @@ const handlePreviewDailyWorker = () => {
 
                     <button
                       onClick={handlePreviewDailyWorker}
+                      data-tour="croscek-result-rekap-dw"
                       className="
                         inline-flex items-center gap-2
                         px-4 py-2 text-sm font-semibold
@@ -7865,6 +7907,51 @@ const handlePreviewDailyWorker = () => {
           </div>
         </div>
       )}
+
+      {showTourExportPreview && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-4xl max-h-[86vh] rounded-xl shadow flex flex-col border-t-4 border-emerald-500" data-tour="croscek-export-preview-modal">
+            <div className="p-4 border-b flex justify-between items-center">
+              <div>
+                <h2 className="font-bold text-lg">Preview Struktur File Export</h2>
+                <p className="text-sm text-gray-600">Contoh isi file hasil croscek DW sebelum diunduh.</p>
+              </div>
+              <button onClick={() => setShowTourExportPreview(false)}>
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-4 overflow-auto">
+              <table className="min-w-full border text-xs md:text-sm">
+                <thead className="bg-emerald-600 text-white">
+                  <tr>
+                    {["Nama", "Tanggal", "Shift", "Jadwal", "Actual", "Status Kehadiran", "Status Masuk", "Status Pulang"].map((header) => (
+                      <th key={header} className="border p-2 text-left whitespace-nowrap">{header}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border p-2">DW CONTOH PRATAMA</td>
+                    <td className="border p-2">2026-06-01</td>
+                    <td className="border p-2">DW1</td>
+                    <td className="border p-2">08:00-16:00</td>
+                    <td className="border p-2">08:04-16:03</td>
+                    <td className="border p-2">Hadir</td>
+                    <td className="border p-2">Masuk Tepat Waktu</td>
+                    <td className="border p-2">Pulang Tepat Waktu</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="p-4 border-t flex justify-end">
+              <button onClick={() => setShowTourExportPreview(false)} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
+                Tutup Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPreviewRekap && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-[95vw] h-[90vh] rounded-xl shadow flex flex-col">
@@ -8042,7 +8129,7 @@ const handlePreviewDailyWorker = () => {
     // ========================= */}
     {showPreviewDailyWorker && (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white w-full max-w-[98vw] h-[95vh] rounded-xl shadow flex flex-col">
+        <div className="bg-white w-full max-w-[98vw] h-[95vh] rounded-xl shadow flex flex-col" data-tour="croscek-dw-preview-modal">
 
           {/* HEADER */}
           <div className="p-4 border-b flex justify-between items-center">
@@ -8059,7 +8146,7 @@ const handlePreviewDailyWorker = () => {
           </div>
 
           {/* TAB DEPARTEMEN */}
-          <div className="flex gap-2 p-3 border-b overflow-x-auto">
+          <div className="flex gap-2 p-3 border-b overflow-x-auto" data-tour="croscek-dw-preview-tabs">
             {Object.keys(rekapDailyWorkerPreview).map(dept => (
               <button
                 key={dept}
@@ -8076,7 +8163,7 @@ const handlePreviewDailyWorker = () => {
           </div>
 
           {/* CONTENT */}
-          <div className="flex-1 overflow-auto p-4">
+          <div className="flex-1 overflow-auto p-4" data-tour="croscek-dw-preview-table">
             {rekapDailyWorkerPreview[activeDeptDW] && (
               <div className="overflow-x-auto border rounded">
                 <table className="min-w-full text-xs border-collapse">
@@ -8245,6 +8332,7 @@ const handlePreviewDailyWorker = () => {
                 setShowPreviewDailyWorker(false);
               }}
               className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 flex items-center gap-2"
+              data-tour="croscek-dw-preview-download"
             >
               <Download size={18} />
               Download Excel

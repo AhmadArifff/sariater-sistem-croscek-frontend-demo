@@ -47,6 +47,16 @@ const SHOW_CROSCEK_KEHADIRAN_PREVIEW_EVENT = "croscek:tour-show-croscek-kehadira
 const CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT = "croscek:tour-clear-croscek-kehadiran-preview";
 const OPEN_CROSCEK_RESULT_MODAL_EVENT = "croscek:tour-open-croscek-result-modal";
 const CLOSE_CROSCEK_RESULT_MODAL_EVENT = "croscek:tour-close-croscek-result-modal";
+const OPEN_CROSCEK_EXPORT_PREVIEW_EVENT = "croscek:tour-open-croscek-export-preview";
+const CLOSE_CROSCEK_EXPORT_PREVIEW_EVENT = "croscek:tour-close-croscek-export-preview";
+const OPEN_CROSCEK_SERVICE_PREVIEW_EVENT = "croscek:tour-open-croscek-service-preview";
+const CLOSE_CROSCEK_SERVICE_PREVIEW_EVENT = "croscek:tour-close-croscek-service-preview";
+const OPEN_CROSCEK_UANG_MAKAN_PREVIEW_EVENT = "croscek:tour-open-croscek-uang-makan-preview";
+const CLOSE_CROSCEK_UANG_MAKAN_PREVIEW_EVENT = "croscek:tour-close-croscek-uang-makan-preview";
+const OPEN_CROSCEK_HOD_PREVIEW_EVENT = "croscek:tour-open-croscek-hod-preview";
+const CLOSE_CROSCEK_HOD_PREVIEW_EVENT = "croscek:tour-close-croscek-hod-preview";
+const OPEN_CROSCEK_DW_PREVIEW_EVENT = "croscek:tour-open-croscek-dw-preview";
+const CLOSE_CROSCEK_DW_PREVIEW_EVENT = "croscek:tour-close-croscek-dw-preview";
 
 const DASHBOARD_STEPS = [
   {
@@ -745,12 +755,178 @@ const createCroscekSteps = (label) => [
     body: "Jika ada status yang perlu alasan manual, select keterangan muncul di kolom status. Pilihan ini dipakai saat rekap dan simpan croscek.",
   },
   {
-    target: "croscek-result-actions",
-    title: "Export dan Simpan",
-    icon: Download,
+    target: "croscek-result-export-excel",
+    title: "Export Excel",
+    icon: FileSpreadsheet,
     action: "openCroscekResult",
-    body: "Area tombol ini berisi export Excel, rekap, simpan croscek, dan aksi pendukung lain sesuai menu. Gunakan setelah hasil sudah dicek.",
+    body: "Tombol ini mengunduh hasil croscek sesuai filter yang sedang aktif. Gunakan setelah search, tanggal, indikator, dan keterangan manual sudah dicek.",
   },
+  {
+    target: "croscek-export-preview-modal",
+    title: "Preview File Export",
+    icon: FileSpreadsheet,
+    action: "openCroscekExportPreview",
+    body: "Sebelum download, user perlu memahami isi file export: nama, tanggal, shift, jadwal, actual, status kehadiran, status masuk, dan status pulang.",
+  },
+  ...(label === "daily worker" ? [
+    {
+      target: "croscek-result-rekap-dw",
+      title: "Rekap Daily Worker",
+      icon: FileSpreadsheet,
+      action: "openCroscekResult",
+      body: "Tombol ini membuka preview rekap khusus Daily Worker. Rekap ini membaca hasil croscek DW dan mengelompokkan data untuk kebutuhan laporan DW.",
+    },
+    {
+      target: "croscek-dw-preview-modal",
+      title: "Preview Rekap DW",
+      icon: ListChecks,
+      action: "openCroscekDwPreview",
+      body: "Modal preview ini memperlihatkan format rekap DW sebelum file diunduh. User bisa cek departemen, tanggal, periode mingguan, dan total HK.",
+    },
+    {
+      target: "croscek-dw-preview-download",
+      title: "Download Rekap DW",
+      icon: Download,
+      action: "openCroscekDwPreview",
+      body: "Tombol Download Excel pada preview DW baru digunakan setelah isi preview sudah benar. Tutorial tidak menekan tombol download ini.",
+    },
+  ] : [
+    {
+      target: "croscek-result-rekap-harian",
+      title: "Rekap Harian",
+      icon: FileSpreadsheet,
+      action: "openCroscekResult",
+      body: "Tombol Rekap Harian membuat file per hari per sheet. Cocok untuk audit detail harian dari hasil croscek.",
+    },
+    {
+      target: "croscek-export-preview-modal",
+      title: "Preview Rekap Harian",
+      icon: FileSpreadsheet,
+      action: "openCroscekExportPreview",
+      body: "Preview ini menjelaskan struktur file rekap harian sebelum download: setiap hari dipisahkan agar pemeriksaan per tanggal lebih mudah.",
+    },
+    {
+      target: "croscek-result-rekap-periode",
+      title: "Rekap Periode",
+      icon: FileSpreadsheet,
+      action: "openCroscekResult",
+      body: "Tombol Rekap Periode menggabungkan data hasil croscek dalam rentang tanggal aktif. Gunakan untuk laporan bulanan atau periode tertentu.",
+    },
+    {
+      target: "croscek-export-preview-modal",
+      title: "Preview Rekap Periode",
+      icon: FileSpreadsheet,
+      action: "openCroscekExportPreview",
+      body: "Preview ini membantu user memahami isi file rekap periode: ringkasan status hadir, tidak hadir, telat, pulang awal, dan kategori keterangan.",
+    },
+    {
+      target: "croscek-result-rekap-ytd",
+      title: "Rekap YTD",
+      icon: FileSpreadsheet,
+      action: "openCroscekResult",
+      body: "Tombol Rekap YTD membuat rekap dari awal tahun sampai periode aktif. Ini berguna untuk laporan tahunan atau monitoring akumulatif.",
+    },
+    {
+      target: "croscek-export-preview-modal",
+      title: "Preview Rekap YTD",
+      icon: FileSpreadsheet,
+      action: "openCroscekExportPreview",
+      body: "Preview ini menjelaskan bahwa export YTD membawa ringkasan lintas bulan, sehingga user perlu memastikan periode dan data sudah lengkap.",
+    },
+    {
+      target: "croscek-result-export-shift",
+      title: "Export Shift",
+      icon: FileSpreadsheet,
+      action: "openCroscekResult",
+      body: "Tombol Export Shift memisahkan data berdasarkan shift tertentu. Fitur ini membantu audit shift operasional seperti E1-E3 dan 1-1A.",
+    },
+    {
+      target: "croscek-export-preview-modal",
+      title: "Preview Export Shift",
+      icon: FileSpreadsheet,
+      action: "openCroscekExportPreview",
+      body: "Preview ini menjelaskan isi file export shift sebelum download, supaya user tahu data akan dibagi berdasarkan kelompok shift.",
+    },
+    {
+      target: "croscek-result-rekap-service",
+      title: "Rekap Service",
+      icon: FileSpreadsheet,
+      action: "openCroscekResult",
+      body: "Tombol Rekap Service membuka preview rekap layanan per departemen. Data ini menghitung hari kerja dan status yang mempengaruhi service.",
+    },
+    {
+      target: "croscek-service-preview-modal",
+      title: "Preview Rekap Service",
+      icon: ListChecks,
+      action: "openCroscekServicePreview",
+      body: "Modal ini menampilkan preview rekap service sebelum download. User bisa cek tab departemen, total hari, HK, sakit, izin, alpa, cuti, dan nilai service.",
+    },
+    {
+      target: "croscek-service-preview-download",
+      title: "Download Rekap Service",
+      icon: Download,
+      action: "openCroscekServicePreview",
+      body: "Tombol Download Excel pada preview service digunakan setelah isi preview sesuai. Tutorial tidak menekan tombol download ini.",
+    },
+    {
+      target: "croscek-result-rekap-hod",
+      title: "Rekap Harian HOD",
+      icon: FileSpreadsheet,
+      action: "openCroscekResult",
+      body: "Tombol Rekap Harian HOD membuka preview laporan harian untuk Head of Department. User memilih tanggal dan karyawan sebelum download.",
+    },
+    {
+      target: "croscek-hod-preview-modal",
+      title: "Preview Rekap HOD",
+      icon: ListChecks,
+      action: "openCroscekHodPreview",
+      body: "Modal HOD berisi filter tanggal, pilihan karyawan, tabel preview harian, dan tombol download. Ini dipakai untuk laporan detail per karyawan.",
+    },
+    {
+      target: "croscek-hod-download",
+      title: "Download HOD",
+      icon: Download,
+      action: "openCroscekHodPreview",
+      body: "Tombol Download Excel pada modal HOD mengunduh laporan setelah data preview sudah dipilih dan dicek.",
+    },
+    {
+      target: "croscek-result-rekap-uang-makan",
+      title: "Rekap Uang Makan",
+      icon: FileSpreadsheet,
+      action: "openCroscekResult",
+      body: "Tombol Rekap Uang Makan membuka preview kalkulasi uang makan dari hasil kehadiran dan keterangan yang sudah dipilih.",
+    },
+    {
+      target: "croscek-uang-makan-preview-modal",
+      title: "Preview Uang Makan",
+      icon: ListChecks,
+      action: "openCroscekUangMakanPreview",
+      body: "Modal ini memperlihatkan komponen H, OFF, S, I, A, EO, CUTI, TGS, dan TOTAL sebelum file uang makan didownload.",
+    },
+    {
+      target: "croscek-uang-makan-download",
+      title: "Download Uang Makan",
+      icon: Download,
+      action: "openCroscekUangMakanPreview",
+      body: "Tombol Download Excel pada preview uang makan digunakan setelah user memastikan total dan kategori sudah benar.",
+    },
+  ]),
+  {
+    target: "croscek-result-save",
+    title: "Simpan Croscek",
+    icon: CheckSquare,
+    action: "openCroscekResult",
+    body: "Tombol Simpan Croscek menyimpan hasil croscek dan keterangan manual ke backend. Gunakan setelah export atau review selesai.",
+  },
+  ...(label === "daily worker" ? [] : [
+    {
+      target: "croscek-result-truncate",
+      title: "Kosongkan Croscek",
+      icon: Trash2,
+      action: "openCroscekResult",
+      body: "Tombol Kosongkan Croscek menghapus hasil croscek tersimpan. Karena aksinya besar, gunakan hanya saat admin benar-benar ingin reset data.",
+    },
+  ]),
   {
     target: "croscek-result-pagination",
     title: "Pagination Hasil",
@@ -896,6 +1072,11 @@ export default function AdminOnboardingTour() {
     window.dispatchEvent(new Event(CLEAR_CROSCEK_JADWAL_PREVIEW_EVENT));
     window.dispatchEvent(new Event(CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT));
     window.dispatchEvent(new Event(CLOSE_CROSCEK_RESULT_MODAL_EVENT));
+    window.dispatchEvent(new Event(CLOSE_CROSCEK_EXPORT_PREVIEW_EVENT));
+    window.dispatchEvent(new Event(CLOSE_CROSCEK_SERVICE_PREVIEW_EVENT));
+    window.dispatchEvent(new Event(CLOSE_CROSCEK_UANG_MAKAN_PREVIEW_EVENT));
+    window.dispatchEvent(new Event(CLOSE_CROSCEK_HOD_PREVIEW_EVENT));
+    window.dispatchEvent(new Event(CLOSE_CROSCEK_DW_PREVIEW_EVENT));
   };
 
   const hasStoredDecision = useMemo(() => {
@@ -1017,7 +1198,52 @@ export default function AdminOnboardingTour() {
       window.dispatchEvent(new Event(CLOSE_CROSCEK_ATTENDANCE_GENERATOR_EVENT));
       window.dispatchEvent(new Event(CLEAR_CROSCEK_JADWAL_PREVIEW_EVENT));
       window.dispatchEvent(new Event(CLEAR_CROSCEK_KEHADIRAN_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_EXPORT_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_SERVICE_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_UANG_MAKAN_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_HOD_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_DW_PREVIEW_EVENT));
       window.dispatchEvent(new Event(OPEN_CROSCEK_RESULT_MODAL_EVENT));
+    }
+    if (step.action === "openCroscekExportPreview") {
+      window.dispatchEvent(new Event(OPEN_CROSCEK_RESULT_MODAL_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_SERVICE_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_UANG_MAKAN_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_HOD_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_DW_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(OPEN_CROSCEK_EXPORT_PREVIEW_EVENT));
+    }
+    if (step.action === "openCroscekServicePreview") {
+      window.dispatchEvent(new Event(OPEN_CROSCEK_RESULT_MODAL_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_EXPORT_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_UANG_MAKAN_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_HOD_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_DW_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(OPEN_CROSCEK_SERVICE_PREVIEW_EVENT));
+    }
+    if (step.action === "openCroscekUangMakanPreview") {
+      window.dispatchEvent(new Event(OPEN_CROSCEK_RESULT_MODAL_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_EXPORT_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_SERVICE_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_HOD_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_DW_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(OPEN_CROSCEK_UANG_MAKAN_PREVIEW_EVENT));
+    }
+    if (step.action === "openCroscekHodPreview") {
+      window.dispatchEvent(new Event(OPEN_CROSCEK_RESULT_MODAL_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_EXPORT_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_SERVICE_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_UANG_MAKAN_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_DW_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(OPEN_CROSCEK_HOD_PREVIEW_EVENT));
+    }
+    if (step.action === "openCroscekDwPreview") {
+      window.dispatchEvent(new Event(OPEN_CROSCEK_RESULT_MODAL_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_EXPORT_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_SERVICE_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_UANG_MAKAN_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(CLOSE_CROSCEK_HOD_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(OPEN_CROSCEK_DW_PREVIEW_EVENT));
     }
     if (step.action === "clearCroscekPreviews" || step.action === "closeCroscekHelpers") {
       closeCroscekHelpers();
