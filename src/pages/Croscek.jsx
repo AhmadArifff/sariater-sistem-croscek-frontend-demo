@@ -8,6 +8,7 @@ import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import logoCompany from "../assets/Image/logo.jpg";
 import { excelDropzoneClassName, getExcelDropzoneHandlers } from "../utils/excelDropzone";
+import RosterDummyGeneratorModal from "../components/RosterDummyGeneratorModal";
 // import { 
 //   // FileSpreadsheet, 
 //   // X, 
@@ -42,6 +43,7 @@ export default function Croscek() {
   const [savingJadwal, setSavingJadwal] = useState(false);
   const [savingKehadiran, setSavingKehadiran] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [showRosterGeneratorModal, setShowRosterGeneratorModal] = useState(false);
 
   // MODAL PREVIEW CROSCEK
   const [showModal, setShowModal] = useState(false);
@@ -6701,6 +6703,13 @@ const formatDate = (dateString) => {
             <Download size={20} />
             Download Template Excel
           </button>
+          <button
+            onClick={() => setShowRosterGeneratorModal(true)}
+            className="flex items-center justify-center gap-2 bg-white hover:bg-blue-50 text-blue-700 border-2 border-blue-300 px-6 py-3 rounded-xl shadow-md text-sm md:text-base font-semibold transition duration-300"
+          >
+            <FileSpreadsheet size={20} />
+            Generate Dummy Jadwal
+          </button>
         </div>
       </div>
 
@@ -9029,6 +9038,16 @@ const formatDate = (dateString) => {
           </div>
         </div>
       )}
+
+      <RosterDummyGeneratorModal
+        isOpen={showRosterGeneratorModal}
+        onClose={() => setShowRosterGeneratorModal(false)}
+        employees={uniqueKaryawan}
+        shiftCodes={kodeShiftOptions}
+        title="Generate Data Dummy Jadwal Karyawan"
+        description="Pilih karyawan dari database, tentukan bulan, lalu generate roster dummy sesuai format upload jadwal."
+        filePrefix="Dummy_Jadwal_Karyawan"
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import logoCompany from "../assets/Image/logo.jpg";
 import { excelDropzoneClassName, getExcelDropzoneHandlers } from "../utils/excelDropzone";
+import RosterDummyGeneratorModal from "../components/RosterDummyGeneratorModal";
 
 
 export default function Croscek_DW() {
@@ -30,6 +31,7 @@ export default function Croscek_DW() {
   const [savingJadwal, setSavingJadwal] = useState(false);
   const [savingKehadiran, setSavingKehadiran] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [showRosterGeneratorModal, setShowRosterGeneratorModal] = useState(false);
 
   // MODAL PREVIEW CROSCEK
   const [showModal, setShowModal] = useState(false);
@@ -6200,6 +6202,13 @@ const handlePreviewDailyWorker = () => {
             <Download size={20} />
             Download Template Excel
           </button>
+          <button
+            onClick={() => setShowRosterGeneratorModal(true)}
+            className="flex items-center justify-center gap-2 bg-white hover:bg-blue-50 text-blue-700 border border-blue-300 px-6 py-4 rounded-xl shadow-md text-sm md:text-base"
+          >
+            <FileSpreadsheet size={20} />
+            Generate Dummy Jadwal
+          </button>
         </div>
       </div>
 
@@ -8190,6 +8199,16 @@ const handlePreviewDailyWorker = () => {
         </div>
       </div>
     )}
+
+    <RosterDummyGeneratorModal
+      isOpen={showRosterGeneratorModal}
+      onClose={() => setShowRosterGeneratorModal(false)}
+      employees={uniqueKaryawan}
+      shiftCodes={kodeShiftOptions}
+      title="Generate Data Dummy Jadwal Daily Worker (DW)"
+      description="Pilih DW dari database, tentukan bulan, lalu generate roster dummy sesuai format upload jadwal."
+      filePrefix="Dummy_Jadwal_Daily_Worker"
+    />
 
     </div>
   );
