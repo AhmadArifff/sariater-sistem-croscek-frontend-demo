@@ -1,120 +1,168 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
   BarChart3,
+  CalendarDays,
   CheckSquare,
-  FileSpreadsheet,
+  Clock,
+  Filter,
+  LineChart,
+  ListChecks,
+  Play,
+  ShieldCheck,
   Users,
   X,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
-const STORAGE_KEY = "croscek.admin.tour.v1";
+const STORAGE_KEY = "croscek.admin.tour.v2";
 const OPEN_EVENT = "croscek:open-admin-tour";
 
-const TOUR_STEPS = [
+const DASHBOARD_STEPS = [
   {
-    title: "Mulai dari Dashboard",
+    target: "dashboard-header",
+    title: "Dashboard Analytics",
     icon: BarChart3,
-    path: "/dashboard",
-    body: "Dashboard adalah pusat ringkasan: pilih filter hari, range, atau bulan, lalu cek KPI karyawan, check-in, check-out, hadir, terlambat, tidak hadir, kualitas data, dan tren analytics.",
-    checklist: [
-      "Gunakan filter periode sebelum membaca angka.",
-      "Cek kualitas data untuk tahu apakah data siap dianalisis.",
-      "Lihat daftar karyawan terlambat untuk investigasi cepat.",
-    ],
+    body: "Ini halaman ringkasan utama. Recruiter atau admin bisa melihat kondisi kehadiran, tren, kualitas data, dan daftar keterlambatan dari satu tempat.",
   },
   {
-    title: "Siapkan Informasi Jadwal",
-    icon: FileSpreadsheet,
-    path: "/informasi-jadwal",
-    body: "Menu Informasi Jadwal berisi master shift. Admin dapat upload Excel atau mengelola kode shift, lokasi, nama shift, jam masuk, dan jam pulang.",
-    checklist: [
-      "Pastikan kode shift sudah lengkap sebelum upload roster.",
-      "Jam masuk dan pulang dipakai sebagai dasar croscek.",
-      "Lokasi shift membantu validasi dan generator dummy jadwal.",
-    ],
+    target: "dashboard-filter-card",
+    title: "Filter Data",
+    icon: Filter,
+    body: "Area ini menentukan scope data yang akan dianalisis. Semua KPI, kualitas data, dan daftar terlambat mengikuti filter periode yang dipilih.",
   },
   {
-    title: "Kelola Data Karyawan",
+    target: "dashboard-filter-type",
+    title: "Tipe Filter",
+    icon: Filter,
+    body: "Pilih Hari Ini untuk monitoring cepat, Range Tanggal untuk audit periode tertentu, atau Bulan untuk laporan bulanan seperti Juni 2026.",
+  },
+  {
+    target: "dashboard-period",
+    title: "Periode Aktif",
+    icon: CalendarDays,
+    body: "Label ini mengonfirmasi periode yang sedang aktif. Gunakan ini untuk memastikan report dan angka dashboard sedang membaca tanggal yang benar.",
+  },
+  {
+    target: "dashboard-data-quality",
+    title: "Kualitas Data",
+    icon: ShieldCheck,
+    body: "Bagian ini menjelaskan apakah data sudah lengkap, sebagian memakai prediksi, atau masih banyak data hilang. Ini penting sebelum mengambil kesimpulan analytics.",
+  },
+  {
+    target: "dashboard-scan-kpis",
+    title: "KPI Scan Aktual",
     icon: Users,
-    path: "/karyawan",
-    body: "Menu Data Karyawan menyimpan master karyawan tetap. Data pentingnya adalah nama, NIK, ID absen, jabatan, dan departemen.",
-    checklist: [
-      "Upload atau generate dummy data sesuai format Excel.",
-      "Pastikan ID absen terisi karena jadwal dan scanlog dicocokkan lewat ID absen/PIN.",
-      "Gunakan search untuk cek data sebelum proses croscek.",
-    ],
+    body: "Baris KPI ini berisi total karyawan, jumlah check-in aktual, check-out aktual, dan total record. Dipakai untuk membaca volume data mentah yang masuk.",
   },
   {
-    title: "Kelola Data Daily Worker",
-    icon: Users,
-    path: "/dw",
-    body: "Menu Data Daily Worker memiliki alur yang sama dengan data karyawan, tetapi khusus pekerja DW agar proses croscek dan report tidak bercampur.",
-    checklist: [
-      "Upload atau generate dummy DW sesuai kebutuhan test case.",
-      "Pastikan ID absen DW tidak kosong.",
-      "Pisahkan validasi DW dari karyawan tetap.",
-    ],
-  },
-  {
-    title: "Croscek Jadwal Karyawan",
+    target: "dashboard-work-kpis",
+    title: "KPI Hasil Kerja",
     icon: CheckSquare,
-    path: "/croscek-karyawan",
-    body: "Di menu ini admin menyiapkan roster, mengupload atau generate scanlog, menjalankan croscek, membaca indikator warna, lalu export rekap.",
-    checklist: [
-      "Generate atau upload jadwal sesuai bulan yang ingin diuji.",
-      "Upload atau generate data kehadiran berdasarkan jadwal.",
-      "Jalankan croscek, cek indikator merah/kuning/orange/ungu/hijau, lalu export report.",
-    ],
+    body: "Baris ini merangkum hasil croscek: hadir, terlambat, dan tidak hadir. Angka ini sudah berasal dari logic croscek, bukan hanya hitungan scan mentah.",
   },
   {
-    title: "Croscek Jadwal DW",
-    icon: CheckSquare,
-    path: "/croscek-dw",
-    body: "Alur DW sama seperti karyawan tetap, tetapi sumber master data dan jadwalnya memakai kategori Daily Worker.",
-    checklist: [
-      "Pilih data DW yang akan dibuatkan jadwal.",
-      "Generate atau upload scanlog DW.",
-      "Export hasil croscek DW setelah indikator sudah sesuai.",
-    ],
+    target: "dashboard-late-kpi",
+    title: "Metrik Terlambat",
+    icon: Clock,
+    body: "Kartu ini fokus pada keterlambatan. Logic-nya mengikuti status croscek dan kompensasi pulang lebih lama sesuai aturan yang sudah diterapkan.",
   },
   {
-    title: "Manajemen User dan Role",
-    icon: Users,
-    path: "/manajemen-user",
-    body: "Admin dapat mengelola akun demo atau user internal dengan role admin, staff, dan guest. Guest bersifat read-only dan export-only.",
-    checklist: [
-      "Admin memiliki akses penuh.",
-      "Staff fokus pada menu operasional.",
-      "Guest bisa melihat semua menu, tetapi tidak bisa mengubah data.",
-    ],
+    target: "dashboard-latecomers",
+    title: "Daftar Karyawan Terlambat",
+    icon: ListChecks,
+    body: "Bagian ini menampilkan karyawan dengan frekuensi keterlambatan tertinggi dalam periode aktif. Cocok untuk demo investigasi cepat.",
   },
   {
-    title: "Export dan Review Akhir",
-    icon: FileSpreadsheet,
-    path: "/dashboard",
-    body: "Setelah croscek selesai, gunakan export Excel dan dashboard analytics untuk menunjukkan hasil demo kepada reviewer atau recruiter.",
-    checklist: [
-      "Export hasil croscek, rekap harian, periode, YTD, HOD, service, atau uang makan sesuai kebutuhan.",
-      "Gunakan dashboard untuk membuktikan data sudah terbaca di analytics.",
-      "Jika perlu test manual, ulangi generator dummy dengan jumlah data berbeda.",
-    ],
+    target: "dashboard-daily-trend",
+    title: "Tren Harian per Departemen",
+    icon: LineChart,
+    body: "Chart ini membantu melihat pola croscek harian lintas departemen. Gunakan untuk membandingkan departemen yang datanya paling aktif atau bermasalah.",
+  },
+  {
+    target: "dashboard-delay-trend",
+    title: "Tren Keterlambatan",
+    icon: LineChart,
+    body: "Chart ini fokus pada tren keterlambatan harian per departemen. Ini membantu membaca apakah keterlambatan hanya sporadis atau berulang.",
+  },
+  {
+    target: "dashboard-last-updated",
+    title: "Waktu Refresh Tampilan",
+    icon: Clock,
+    body: "Bagian ini menunjukkan kapan dashboard terakhir dirender di browser. Jika data baru diimport, refresh atau ubah filter untuk memastikan tampilan terbaru.",
   },
 ];
+
+const FLOW_OPTIONS = [
+  {
+    id: "dashboard",
+    title: "Dashboard Analytics",
+    subtitle: "Pelajari filter, KPI, kualitas data, daftar terlambat, dan chart satu per satu.",
+    icon: BarChart3,
+    steps: DASHBOARD_STEPS.length,
+    enabled: true,
+  },
+  {
+    id: "jadwal",
+    title: "Informasi Jadwal",
+    subtitle: "Flow master shift dan upload jadwal akan ditambahkan setelah Dashboard selesai.",
+    icon: CalendarDays,
+    steps: 0,
+    enabled: false,
+  },
+  {
+    id: "croscek",
+    title: "Croscek Karyawan",
+    subtitle: "Flow upload, generate dummy, indikator, dan export akan dibuat berikutnya.",
+    icon: CheckSquare,
+    steps: 0,
+    enabled: false,
+  },
+];
+
+const getPlacement = (rect) => {
+  if (!rect) {
+    return {
+      top: Math.max(24, window.innerHeight / 2 - 180),
+      left: Math.max(16, window.innerWidth / 2 - 180),
+    };
+  }
+
+  const tooltipWidth = Math.min(380, window.innerWidth - 32);
+  const spacing = 16;
+  const rightFits = rect.right + tooltipWidth + spacing < window.innerWidth;
+  const leftFits = rect.left - tooltipWidth - spacing > 0;
+  const top = Math.min(
+    Math.max(16, rect.top),
+    Math.max(16, window.innerHeight - 260)
+  );
+
+  if (rightFits) return { top, left: rect.right + spacing };
+  if (leftFits) return { top, left: rect.left - tooltipWidth - spacing };
+
+  const belowFits = rect.bottom + 260 + spacing < window.innerHeight;
+  const verticalTop = belowFits ? rect.bottom + spacing : Math.max(16, rect.top - 260 - spacing);
+  return {
+    top: verticalTop,
+    left: Math.min(Math.max(16, rect.left), window.innerWidth - tooltipWidth - 16),
+  };
+};
 
 export default function AdminOnboardingTour() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
+  const [mode, setMode] = useState("closed");
   const [stepIndex, setStepIndex] = useState(0);
+  const [targetRect, setTargetRect] = useState(null);
 
   const isAdmin = user?.role === "admin";
-  const step = TOUR_STEPS[stepIndex];
-  const Icon = step.icon;
-  const progress = Math.round(((stepIndex + 1) / TOUR_STEPS.length) * 100);
+  const step = DASHBOARD_STEPS[stepIndex];
+  const StepIcon = step?.icon || BarChart3;
+  const progress = Math.round(((stepIndex + 1) / DASHBOARD_STEPS.length) * 100);
+  const tooltipPosition = getPlacement(targetRect);
 
   const hasStoredDecision = useMemo(() => {
     try {
@@ -126,20 +174,64 @@ export default function AdminOnboardingTour() {
 
   useEffect(() => {
     if (!isAdmin || hasStoredDecision) return;
-    setIsOpen(true);
+    setMode("launcher");
   }, [hasStoredDecision, isAdmin]);
 
   useEffect(() => {
     const openTour = () => {
       setStepIndex(0);
-      setIsOpen(true);
+      setMode("launcher");
     };
 
     window.addEventListener(OPEN_EVENT, openTour);
     return () => window.removeEventListener(OPEN_EVENT, openTour);
   }, []);
 
-  if (!isAdmin || !isOpen) return null;
+  useEffect(() => {
+    if (mode !== "walkthrough" || !step) return;
+
+    let frame = 0;
+    const updateRect = () => {
+      const target = document.querySelector(`[data-tour="${step.target}"]`);
+      if (!target) {
+        setTargetRect(null);
+        return;
+      }
+
+      const rect = target.getBoundingClientRect();
+      setTargetRect({
+        top: rect.top,
+        left: rect.left,
+        right: rect.right,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+      });
+    };
+
+    const scrollToTarget = () => {
+      const target = document.querySelector(`[data-tour="${step.target}"]`);
+      if (!target) {
+        setTargetRect(null);
+        return;
+      }
+
+      target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      frame = window.setTimeout(updateRect, 280);
+    };
+
+    scrollToTarget();
+    window.addEventListener("resize", updateRect);
+    window.addEventListener("scroll", updateRect, true);
+
+    return () => {
+      window.clearTimeout(frame);
+      window.removeEventListener("resize", updateRect);
+      window.removeEventListener("scroll", updateRect, true);
+    };
+  }, [location.pathname, mode, step]);
+
+  if (!isAdmin || mode === "closed") return null;
 
   const closeTour = () => {
     try {
@@ -147,11 +239,19 @@ export default function AdminOnboardingTour() {
     } catch {
       // Abaikan jika localStorage tidak tersedia.
     }
-    setIsOpen(false);
+    setMode("closed");
+  };
+
+  const startDashboardFlow = () => {
+    setStepIndex(0);
+    setMode("walkthrough");
+    if (location.pathname !== "/dashboard") {
+      navigate("/dashboard");
+    }
   };
 
   const nextStep = () => {
-    if (stepIndex >= TOUR_STEPS.length - 1) {
+    if (stepIndex >= DASHBOARD_STEPS.length - 1) {
       closeTour();
       return;
     }
@@ -162,24 +262,18 @@ export default function AdminOnboardingTour() {
     setStepIndex((current) => Math.max(0, current - 1));
   };
 
-  const openStepPage = () => {
-    navigate(step.path);
-  };
-
-  return (
+  const renderLauncher = () => (
     <div className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
         <div className="p-5 border-b border-slate-200 flex items-start justify-between gap-4 bg-gradient-to-r from-slate-50 to-blue-50">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow">
-              <Icon size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-blue-700">
-                Tutorial Admin
-              </p>
-              <h2 className="text-xl font-bold text-slate-900">{step.title}</h2>
-            </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-blue-700">
+              Tutorial Interaktif Admin
+            </p>
+            <h2 className="text-2xl font-bold text-slate-900 mt-1">Pilih flow tutorial</h2>
+            <p className="text-sm text-slate-600 mt-2">
+              Untuk sementara flow lengkap dibuat dulu untuk halaman Dashboard. Menu lain disiapkan sebagai pilihan berikutnya.
+            </p>
           </div>
           <button
             type="button"
@@ -191,38 +285,37 @@ export default function AdminOnboardingTour() {
           </button>
         </div>
 
-        <div className="p-6">
-          <div className="mb-5">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-2">
-              <span>Step {stepIndex + 1} dari {TOUR_STEPS.length}</span>
-              <span>{progress}%</span>
-            </div>
-            <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-              <div
-                className="h-full bg-blue-600 transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-
-          <p className="text-sm md:text-base leading-7 text-slate-700 mb-5">
-            {step.body}
-          </p>
-
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-bold text-slate-800 mb-3">Yang perlu dicek:</p>
-            <ul className="space-y-2">
-              {step.checklist.map((item) => (
-                <li key={item} className="flex gap-2 text-sm text-slate-700">
-                  <CheckSquare size={16} className="text-emerald-600 mt-0.5 flex-shrink-0" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+        <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+          {FLOW_OPTIONS.map((flow) => {
+            const Icon = flow.icon;
+            return (
+              <button
+                key={flow.id}
+                type="button"
+                onClick={flow.enabled ? startDashboardFlow : undefined}
+                disabled={!flow.enabled}
+                className={`text-left rounded-xl border p-4 transition-all ${
+                  flow.enabled
+                    ? "border-blue-200 bg-blue-50 hover:bg-blue-100 hover:shadow-md"
+                    : "border-slate-200 bg-slate-50 opacity-70 cursor-not-allowed"
+                }`}
+              >
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+                  flow.enabled ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-500"
+                }`}>
+                  <Icon size={20} />
+                </div>
+                <h3 className="font-bold text-slate-900">{flow.title}</h3>
+                <p className="text-xs leading-5 text-slate-600 mt-2">{flow.subtitle}</p>
+                <div className="mt-4 text-xs font-semibold text-slate-500">
+                  {flow.enabled ? `${flow.steps} langkah` : "Segera dibuat"}
+                </div>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white">
+        <div className="px-5 py-4 border-t border-slate-200 flex justify-between gap-3">
           <button
             type="button"
             onClick={closeTour}
@@ -230,36 +323,123 @@ export default function AdminOnboardingTour() {
           >
             Lewati Tutorial
           </button>
-
-          <div className="flex flex-wrap justify-end gap-2">
-            <button
-              type="button"
-              onClick={openStepPage}
-              className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 text-sm font-semibold"
-            >
-              Buka Halaman Ini
-            </button>
-            <button
-              type="button"
-              onClick={previousStep}
-              disabled={stepIndex === 0}
-              className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 text-sm font-semibold inline-flex items-center gap-2"
-            >
-              <ArrowLeft size={16} /> Sebelumnya
-            </button>
-            <button
-              type="button"
-              onClick={nextStep}
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm font-semibold inline-flex items-center gap-2"
-            >
-              {stepIndex >= TOUR_STEPS.length - 1 ? "Selesai" : "Lanjut"}
-              <ArrowRight size={16} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={startDashboardFlow}
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm font-semibold inline-flex items-center gap-2"
+          >
+            <Play size={16} /> Mulai Dashboard
+          </button>
         </div>
       </div>
     </div>
   );
+
+  const renderWalkthrough = () => {
+    const padding = 10;
+    const rect = targetRect && {
+      top: Math.max(8, targetRect.top - padding),
+      left: Math.max(8, targetRect.left - padding),
+      width: Math.min(window.innerWidth - 16, targetRect.width + padding * 2),
+      height: Math.min(window.innerHeight - 16, targetRect.height + padding * 2),
+    };
+
+    return (
+      <div className="fixed inset-0 z-[100] pointer-events-none">
+        {rect ? (
+          <>
+            <div className="fixed left-0 top-0 right-0 bg-slate-950/65 backdrop-blur-[1px]" style={{ height: rect.top }} />
+            <div className="fixed left-0 bg-slate-950/65 backdrop-blur-[1px]" style={{ top: rect.top, width: rect.left, height: rect.height }} />
+            <div className="fixed bg-slate-950/65 backdrop-blur-[1px]" style={{ top: rect.top, left: rect.left + rect.width, right: 0, height: rect.height }} />
+            <div className="fixed left-0 right-0 bottom-0 bg-slate-950/65 backdrop-blur-[1px]" style={{ top: rect.top + rect.height }} />
+            <div
+              className="fixed rounded-2xl border-4 border-blue-500 shadow-[0_0_0_6px_rgba(37,99,235,0.20),0_0_30px_rgba(37,99,235,0.45)] bg-transparent"
+              style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }}
+            />
+          </>
+        ) : (
+          <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm" />
+        )}
+
+        <div
+          className="fixed w-[min(380px,calc(100vw-32px))] bg-white rounded-2xl shadow-2xl border border-slate-200 pointer-events-auto overflow-hidden"
+          style={{ top: tooltipPosition.top, left: tooltipPosition.left }}
+        >
+          <div className="p-4 border-b border-slate-200 flex items-start justify-between gap-3 bg-gradient-to-r from-blue-50 to-slate-50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow">
+                <StepIcon size={20} />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-700">
+                  Dashboard Tutorial
+                </p>
+                <h2 className="text-base font-bold text-slate-900">{step.title}</h2>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={closeTour}
+              className="p-2 rounded-lg text-slate-500 hover:bg-white hover:text-slate-900"
+              aria-label="Tutup tutorial"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="p-4">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-2">
+              <span>Elemen {stepIndex + 1} dari {DASHBOARD_STEPS.length}</span>
+              <span>{progress}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-slate-100 overflow-hidden mb-4">
+              <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${progress}%` }} />
+            </div>
+            <p className="text-sm leading-6 text-slate-700">{step.body}</p>
+          </div>
+
+          <div className="px-4 py-3 border-t border-slate-200 flex flex-col gap-2 bg-white">
+            <div className="flex justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setMode("launcher")}
+                className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold"
+              >
+                Pilih Flow
+              </button>
+              <button
+                type="button"
+                onClick={closeTour}
+                className="px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold"
+              >
+                Skip
+              </button>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={previousStep}
+                disabled={stepIndex === 0}
+                className="px-3 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 text-xs font-semibold inline-flex items-center gap-2"
+              >
+                <ArrowLeft size={14} /> Back
+              </button>
+              <button
+                type="button"
+                onClick={nextStep}
+                className="px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-xs font-semibold inline-flex items-center gap-2"
+              >
+                {stepIndex >= DASHBOARD_STEPS.length - 1 ? "Selesai" : "Next"}
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return mode === "launcher" ? renderLauncher() : renderWalkthrough();
 }
 
 export const openAdminOnboardingTour = () => {

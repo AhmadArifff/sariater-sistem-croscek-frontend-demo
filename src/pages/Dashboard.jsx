@@ -139,7 +139,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4 md:p-6 lg:p-8">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-8" data-tour="dashboard-header">
         <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
           Analytics Dashboard
         </h1>
@@ -147,7 +147,7 @@ export default function Dashboard() {
       </div>
 
       {/* Filter */}
-      <Card className="mb-6 shadow-lg border border-blue-100">
+      <Card className="mb-6 shadow-lg border border-blue-100" data-tour="dashboard-filter-card">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Filter className="w-5 h-5 text-indigo-600" />
@@ -156,7 +156,7 @@ export default function Dashboard() {
         </CardHeader>
         <CardBody>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
+            <div data-tour="dashboard-filter-type">
               <label className="block text-sm font-medium text-gray-700 mb-2">Tipe Filter</label>
               <select
                 value={filterType}
@@ -197,16 +197,18 @@ export default function Dashboard() {
           </div>
 
           <div className="mt-4 space-y-3">
-            <p className="text-sm text-gray-600 flex items-center gap-2">
+            <p className="text-sm text-gray-600 flex items-center gap-2" data-tour="dashboard-period">
               <Calendar className="w-4 h-4" />
               <span><strong>Periode:</strong> {getDateRange()}</span>
             </p>
-            <DataQualityIndicator
-              filterType={filterType}
-              startDate={filterType === 'range' ? startDate : undefined}
-              endDate={filterType === 'range' ? endDate : undefined}
-              month={filterType === 'month' ? selectedMonth : undefined}
-            />
+            <div data-tour="dashboard-data-quality">
+              <DataQualityIndicator
+                filterType={filterType}
+                startDate={filterType === 'range' ? startDate : undefined}
+                endDate={filterType === 'range' ? endDate : undefined}
+                month={filterType === 'month' ? selectedMonth : undefined}
+              />
+            </div>
           </div>
         </CardBody>
       </Card>
@@ -216,7 +218,7 @@ export default function Dashboard() {
       )}
 
       {/* KPI Row 1 — Scan metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6" data-tour="dashboard-scan-kpis">
         <KPICard
           value={summaryData.unique_employees}
           label="Total Karyawan"
@@ -248,7 +250,7 @@ export default function Dashboard() {
       </div>
 
       {/* KPI Row 2 — Work summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8" data-tour="dashboard-work-kpis">
         <KPICard
           value={ws.present ?? 0}
           label={`Hadir`}
@@ -256,13 +258,15 @@ export default function Dashboard() {
           color="green"
           trend={null}
         />
-        <KPICard
-          value={ws.late ?? 0}
-          label={`Terlambat`}
-          icon={Clock}
-          color="orange"
-          trend={null}
-        />
+        <div data-tour="dashboard-late-kpi">
+          <KPICard
+            value={ws.late ?? 0}
+            label={`Terlambat`}
+            icon={Clock}
+            color="orange"
+            trend={null}
+          />
+        </div>
         <KPICard
           value={ws.absent ?? 0}
           label={`Tidak Hadir`}
@@ -274,7 +278,7 @@ export default function Dashboard() {
 
       {/* Charts & Lists */}
       <div className="space-y-8">
-        <Card className="shadow-lg border border-red-100 hover:shadow-xl transition-shadow">
+        <Card className="shadow-lg border border-red-100 hover:shadow-xl transition-shadow" data-tour="dashboard-latecomers">
           <CardHeader>
             <div className="bg-gradient-to-r from-red-500 to-pink-600 h-1 rounded-full mb-3" />
             <h2 className="text-xl font-semibold bg-gradient-to-r from-red-600 to-pink-700 bg-clip-text text-transparent">
@@ -294,7 +298,7 @@ export default function Dashboard() {
           </CardBody>
         </Card>
 
-        <Card className="shadow-lg border border-indigo-100 hover:shadow-xl transition-shadow">
+        <Card className="shadow-lg border border-indigo-100 hover:shadow-xl transition-shadow" data-tour="dashboard-daily-trend">
           <CardHeader>
             <div className="bg-gradient-to-r from-indigo-500 to-blue-600 h-1 rounded-full mb-3" />
             <h2 className="text-xl font-semibold bg-gradient-to-r from-indigo-600 to-blue-700 bg-clip-text text-transparent">
@@ -309,7 +313,7 @@ export default function Dashboard() {
           </CardBody>
         </Card>
 
-        <Card className="shadow-lg border border-orange-100 hover:shadow-xl transition-shadow">
+        <Card className="shadow-lg border border-orange-100 hover:shadow-xl transition-shadow" data-tour="dashboard-delay-trend">
           <CardHeader>
             <div className="bg-gradient-to-r from-orange-500 to-red-600 h-1 rounded-full mb-3" />
             <h2 className="text-xl font-semibold bg-gradient-to-r from-orange-600 to-red-700 bg-clip-text text-transparent">
@@ -325,7 +329,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="text-center text-xs md:text-sm text-gray-500 mt-8">
+      <div className="text-center text-xs md:text-sm text-gray-500 mt-8" data-tour="dashboard-last-updated">
         <p>Data terakhir diperbarui: {new Date().toLocaleString('id-ID')}</p>
       </div>
     </div>
