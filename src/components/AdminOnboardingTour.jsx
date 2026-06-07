@@ -7,11 +7,15 @@ import {
   CalendarDays,
   CheckSquare,
   Clock,
+  Download,
+  FileSpreadsheet,
   Filter,
   LineChart,
   ListChecks,
   Play,
   ShieldCheck,
+  Trash2,
+  UploadCloud,
   UserPlus,
   Users,
   X,
@@ -23,6 +27,10 @@ const LOGIN_TRIGGER_KEY = "croscek.admin.tour.login-trigger";
 const OPEN_EVENT = "croscek:open-admin-tour";
 const OPEN_USER_CREATE_MODAL_EVENT = "croscek:tour-open-user-create-modal";
 const CLOSE_USER_MODAL_EVENT = "croscek:tour-close-user-modal";
+const OPEN_SCHEDULE_CREATE_MODAL_EVENT = "croscek:tour-open-schedule-create-modal";
+const CLOSE_SCHEDULE_MODAL_EVENT = "croscek:tour-close-schedule-modal";
+const SHOW_SCHEDULE_PREVIEW_EVENT = "croscek:tour-show-schedule-preview";
+const CLEAR_SCHEDULE_PREVIEW_EVENT = "croscek:tour-clear-schedule-preview";
 
 const DASHBOARD_STEPS = [
   {
@@ -221,6 +229,219 @@ const MANAGEMENT_USER_STEPS = [
   },
 ];
 
+const SCHEDULE_STEPS = [
+  {
+    target: "schedule-page",
+    title: "Halaman Informasi Jadwal",
+    icon: CalendarDays,
+    action: "closeScheduleHelpers",
+    body: "Halaman Informasi Jadwal adalah master data shift. Anggap seperti kumpulan komponen kecil: header, upload Excel, template, preview, tabel data, search, pagination, dan form tambah. Setiap bagian punya fungsi sendiri lalu digabung menjadi workflow pengelolaan shift.",
+  },
+  {
+    target: "schedule-header",
+    title: "Header Informasi Jadwal",
+    icon: CalendarDays,
+    action: "closeScheduleHelpers",
+    body: "Header ini memberi konteks halaman. Logo menunjukkan identitas aplikasi, judul menjelaskan menu aktif, dan deskripsi memberi tahu bahwa jadwal bisa diunggah lewat Excel atau ditambah manual.",
+  },
+  {
+    target: "schedule-upload-section",
+    title: "Area Upload dan Template",
+    icon: UploadCloud,
+    action: "closeScheduleHelpers",
+    body: "Bagian ini adalah pintu masuk data Excel. Di sisi kiri ada dropzone upload, dan di sisi kanan ada tombol download template supaya format file yang dipakai tetap sesuai standar sistem.",
+  },
+  {
+    target: "schedule-upload-dropzone",
+    title: "Dropzone Upload Excel",
+    icon: UploadCloud,
+    action: "closeScheduleHelpers",
+    body: "Dropzone ini menerima file Excel dengan klik atau drag and drop. Setelah file dipilih, aplikasi membaca sheet pertama dan menampilkan preview, tetapi belum menyimpan data ke database sampai tombol simpan ditekan.",
+  },
+  {
+    target: "schedule-template-button",
+    title: "Download Template",
+    icon: Download,
+    action: "closeScheduleHelpers",
+    body: "Tombol Download Template membuat file Excel contoh dengan header yang benar. Ini membantu user demo melihat format kolom seperti lokasi kerja, nama shift, kode, jam masuk, jam pulang, keterangan, group, status, dan kontrol.",
+  },
+  {
+    target: "schedule-preview-card",
+    title: "Preview Data Excel",
+    icon: FileSpreadsheet,
+    action: "showSchedulePreview",
+    body: "Area preview muncul setelah file Excel dipilih. Tutorial menampilkan contoh preview agar user memahami bahwa data bisa diperiksa dulu sebelum benar-benar dikirim ke database.",
+  },
+  {
+    target: "schedule-preview-header",
+    title: "Header Preview",
+    icon: FileSpreadsheet,
+    action: "showSchedulePreview",
+    body: "Header preview menampilkan konteks file yang sedang dibaca dan tombol simpan. Ini menjadi checkpoint sebelum data Excel masuk ke master jadwal.",
+  },
+  {
+    target: "schedule-preview-save",
+    title: "Simpan ke Database",
+    icon: CheckSquare,
+    action: "showSchedulePreview",
+    body: "Tombol ini menyimpan file Excel yang sudah dipreview ke database. Saat tutorial, tombol hanya dijelaskan dan tidak ditekan, sehingga tidak ada data yang berubah.",
+  },
+  {
+    target: "schedule-preview-table",
+    title: "Isi Preview Excel",
+    icon: ListChecks,
+    action: "showSchedulePreview",
+    body: "Tabel preview memperlihatkan isi Excel yang berhasil dibaca. User bisa memeriksa apakah kode shift, jam, status, dan kolom lain sudah rapi sebelum proses upload final.",
+  },
+  {
+    target: "schedule-table-card",
+    title: "Data Informasi Jadwal",
+    icon: ListChecks,
+    action: "clearSchedulePreview",
+    body: "Bagian ini menampilkan data shift yang sudah tersimpan. Ini adalah pusat kerja master jadwal setelah data berhasil dibuat lewat upload Excel atau form manual.",
+  },
+  {
+    target: "schedule-table-header",
+    title: "Header Tabel dan Tools",
+    icon: Filter,
+    action: "clearSchedulePreview",
+    body: "Header tabel menggabungkan judul daftar data, input pencarian, dan tombol tambah. Sama seperti komponen kecil di React, masing-masing punya tugas berbeda tetapi membentuk satu workflow.",
+  },
+  {
+    target: "schedule-search-input",
+    title: "Search Jadwal",
+    icon: Filter,
+    action: "clearSchedulePreview",
+    body: "Input pencarian dipakai untuk mencari data berdasarkan kode atau nama shift. Saat diketik, halaman akan reset ke page pertama dan meminta data yang sesuai dari backend.",
+  },
+  {
+    target: "schedule-add-button",
+    title: "Tambah Manual",
+    icon: UserPlus,
+    action: "closeScheduleHelpers",
+    body: "Tombol Tambah membuka form manual untuk membuat satu informasi jadwal baru. Ini berguna saat admin ingin menambah shift kecil tanpa membuat file Excel.",
+  },
+  {
+    target: "schedule-modal-shell",
+    title: "Modal Tambah Jadwal",
+    icon: CalendarDays,
+    action: "openScheduleModal",
+    body: "Modal ini adalah form input jadwal manual. User tetap berada di halaman yang sama, tetapi fokus dipindahkan ke form kecil untuk mengisi detail shift satu per satu.",
+  },
+  {
+    target: "schedule-modal-title",
+    title: "Judul Modal",
+    icon: CalendarDays,
+    action: "openScheduleModal",
+    body: "Judul modal menjelaskan bahwa admin sedang berada di mode tambah informasi jadwal. Ini membedakan form tambah dari tabel utama di belakangnya.",
+  },
+  {
+    target: "schedule-modal-field-kode",
+    title: "Field Kode",
+    icon: CalendarDays,
+    action: "openScheduleModal",
+    body: "Field kode adalah identitas utama shift. Kode dipakai di proses croscek jadwal, sehingga nilainya harus unik dan mudah dikenali.",
+  },
+  {
+    target: "schedule-modal-field-lokasi_kerja",
+    title: "Field Lokasi Kerja",
+    icon: CalendarDays,
+    action: "openScheduleModal",
+    body: "Field lokasi kerja menyimpan area atau tempat shift berlaku. Data ini membantu generator dan laporan membedakan jadwal berdasarkan lokasi operasional.",
+  },
+  {
+    target: "schedule-modal-field-nama_shift",
+    title: "Field Nama Shift",
+    icon: CalendarDays,
+    action: "openScheduleModal",
+    body: "Field nama shift berisi nama deskriptif shift. Nama ini membuat kode shift lebih mudah dipahami oleh admin dan user demo.",
+  },
+  {
+    target: "schedule-modal-field-jam_masuk",
+    title: "Field Jam Masuk",
+    icon: Clock,
+    action: "openScheduleModal",
+    body: "Field jam masuk memakai input waktu. Nilai ini menjadi batas utama untuk membaca apakah aktual masuk masih sesuai jadwal atau terlambat.",
+  },
+  {
+    target: "schedule-modal-field-jam_pulang",
+    title: "Field Jam Pulang",
+    icon: Clock,
+    action: "openScheduleModal",
+    body: "Field jam pulang menyimpan waktu selesai shift. Data ini dipakai dalam croscek pulang cepat, normal, atau kompensasi pulang lebih lama.",
+  },
+  {
+    target: "schedule-modal-field-keterangan",
+    title: "Field Keterangan",
+    icon: ListChecks,
+    action: "openScheduleModal",
+    body: "Field keterangan dipakai untuk catatan tambahan shift. Isinya membantu menjelaskan kondisi khusus tanpa mengubah kode atau jam utama.",
+  },
+  {
+    target: "schedule-modal-field-group",
+    title: "Field Group",
+    icon: Users,
+    action: "openScheduleModal",
+    body: "Field group menyimpan pengelompokan shift. Ini berguna untuk membedakan shift berdasarkan kelompok kerja atau kategori operasional.",
+  },
+  {
+    target: "schedule-modal-field-status",
+    title: "Field Status",
+    icon: ShieldCheck,
+    action: "openScheduleModal",
+    body: "Field status menentukan apakah informasi jadwal aktif atau tidak. Status ini membantu admin mengelola shift yang masih dipakai dan yang hanya menjadi arsip.",
+  },
+  {
+    target: "schedule-modal-field-kontrol",
+    title: "Field Kontrol",
+    icon: CheckSquare,
+    action: "openScheduleModal",
+    body: "Field kontrol dipakai sebagai penanda tambahan sesuai kebutuhan sistem. Nilainya ikut tersimpan sebagai bagian dari master informasi jadwal.",
+  },
+  {
+    target: "schedule-modal-cancel",
+    title: "Tombol Batal",
+    icon: X,
+    action: "openScheduleModal",
+    body: "Tombol Batal menutup modal tanpa menyimpan data. Ini memberi jalan keluar aman ketika admin hanya ingin melihat form atau membatalkan input.",
+  },
+  {
+    target: "schedule-modal-save",
+    title: "Tombol Simpan",
+    icon: CheckSquare,
+    action: "openScheduleModal",
+    body: "Tombol Simpan menjalankan validasi dan mengirim data jadwal baru ke backend. Tutorial hanya menjelaskan tombol ini dan tidak menekannya, jadi database tetap aman.",
+  },
+  {
+    target: "schedule-table-wrapper",
+    title: "Tabel Master Jadwal",
+    icon: ListChecks,
+    action: "closeScheduleHelpers",
+    body: "Tabel ini menampilkan daftar jadwal dari backend. Setiap baris membawa data kode, lokasi, nama shift, jam, status, dan kontrol.",
+  },
+  {
+    target: "schedule-table-head",
+    title: "Kolom Tabel Jadwal",
+    icon: ListChecks,
+    action: "closeScheduleHelpers",
+    body: "Header kolom menjelaskan struktur data jadwal. Kolom No menunjukkan urutan, lalu kolom lain mengikuti format master shift yang dipakai aplikasi.",
+  },
+  {
+    target: "schedule-table-actions",
+    title: "Action Edit dan Hapus",
+    icon: Trash2,
+    action: "closeScheduleHelpers",
+    body: "Kolom Action berisi tombol Edit dan Hapus untuk admin. Edit mengubah baris menjadi input inline, sedangkan Hapus meminta konfirmasi sebelum menghapus jadwal.",
+  },
+  {
+    target: "schedule-pagination",
+    title: "Pagination",
+    icon: ListChecks,
+    action: "closeScheduleHelpers",
+    body: "Pagination membagi data jadwal menjadi beberapa halaman. Ini menjaga tabel tetap ringan dan mudah dibaca saat jumlah shift bertambah banyak.",
+  },
+];
+
 const TOUR_FLOWS = {
   dashboard: {
     id: "dashboard",
@@ -242,19 +463,22 @@ const TOUR_FLOWS = {
     steps: MANAGEMENT_USER_STEPS,
     enabled: true,
   },
+  schedule: {
+    id: "schedule",
+    title: "Informasi Jadwal",
+    label: "Informasi Jadwal Tutorial",
+    subtitle: "Pelajari upload Excel, template, preview, tabel, form tambah, edit, hapus, dan pagination.",
+    icon: CalendarDays,
+    route: "/informasi-jadwal",
+    steps: SCHEDULE_STEPS,
+    enabled: true,
+  },
 };
 
 const FLOW_OPTIONS = [
   TOUR_FLOWS.dashboard,
   TOUR_FLOWS.users,
-  {
-    id: "jadwal",
-    title: "Informasi Jadwal",
-    subtitle: "Flow master shift dan upload jadwal akan ditambahkan pada tahap berikutnya.",
-    icon: CalendarDays,
-    steps: [],
-    enabled: false,
-  },
+  TOUR_FLOWS.schedule,
   {
     id: "croscek",
     title: "Croscek Karyawan",
@@ -358,6 +582,22 @@ export default function AdminOnboardingTour() {
     if (step.action === "closeUserModal") {
       window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
     }
+    if (step.action === "openScheduleModal") {
+      window.dispatchEvent(new Event(CLEAR_SCHEDULE_PREVIEW_EVENT));
+      window.dispatchEvent(new Event(OPEN_SCHEDULE_CREATE_MODAL_EVENT));
+    }
+    if (step.action === "closeScheduleHelpers") {
+      window.dispatchEvent(new Event(CLOSE_SCHEDULE_MODAL_EVENT));
+      window.dispatchEvent(new Event(CLEAR_SCHEDULE_PREVIEW_EVENT));
+    }
+    if (step.action === "showSchedulePreview") {
+      window.dispatchEvent(new Event(CLOSE_SCHEDULE_MODAL_EVENT));
+      window.dispatchEvent(new Event(SHOW_SCHEDULE_PREVIEW_EVENT));
+    }
+    if (step.action === "clearSchedulePreview") {
+      window.dispatchEvent(new Event(CLOSE_SCHEDULE_MODAL_EVENT));
+      window.dispatchEvent(new Event(CLEAR_SCHEDULE_PREVIEW_EVENT));
+    }
 
     const updateRect = () => {
       const target = document.querySelector(`[data-tour="${step.target}"]`);
@@ -408,12 +648,16 @@ export default function AdminOnboardingTour() {
       // Abaikan jika localStorage tidak tersedia.
     }
     window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
+    window.dispatchEvent(new Event(CLOSE_SCHEDULE_MODAL_EVENT));
+    window.dispatchEvent(new Event(CLEAR_SCHEDULE_PREVIEW_EVENT));
     setMode("closed");
   };
 
   const startFlow = (flowId) => {
     const selectedFlow = TOUR_FLOWS[flowId] || TOUR_FLOWS.dashboard;
     window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
+    window.dispatchEvent(new Event(CLOSE_SCHEDULE_MODAL_EVENT));
+    window.dispatchEvent(new Event(CLEAR_SCHEDULE_PREVIEW_EVENT));
     setActiveFlowId(selectedFlow.id);
     setStepIndex(0);
     setTargetRect(null);
@@ -428,6 +672,8 @@ export default function AdminOnboardingTour() {
   const nextStep = () => {
     if (stepIndex >= activeSteps.length - 1) {
       window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
+      window.dispatchEvent(new Event(CLOSE_SCHEDULE_MODAL_EVENT));
+      window.dispatchEvent(new Event(CLEAR_SCHEDULE_PREVIEW_EVENT));
       setStepIndex(0);
       setTargetRect(null);
       setMode("launcher");
@@ -582,6 +828,8 @@ export default function AdminOnboardingTour() {
                 type="button"
                 onClick={() => {
                   window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
+                  window.dispatchEvent(new Event(CLOSE_SCHEDULE_MODAL_EVENT));
+                  window.dispatchEvent(new Event(CLEAR_SCHEDULE_PREVIEW_EVENT));
                   setMode("launcher");
                 }}
                 className="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold"

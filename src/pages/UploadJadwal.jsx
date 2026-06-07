@@ -1,5 +1,5 @@
 // InformasiJadwal.jsx
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { UploadCloud, FileSpreadsheet, Trash2, Plus, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import sariAter from "../assets/sari-ater.png";
@@ -39,6 +39,37 @@ const EMPTY_FORM = {
   group: "", status: "non-active", kontrol: ""
 };
 
+const TOUR_OPEN_SCHEDULE_CREATE_MODAL_EVENT = "croscek:tour-open-schedule-create-modal";
+const TOUR_CLOSE_SCHEDULE_MODAL_EVENT = "croscek:tour-close-schedule-modal";
+const TOUR_SHOW_SCHEDULE_PREVIEW_EVENT = "croscek:tour-show-schedule-preview";
+const TOUR_CLEAR_SCHEDULE_PREVIEW_EVENT = "croscek:tour-clear-schedule-preview";
+const TOUR_PREVIEW_HTML = `
+  <table class='min-w-full border border-gray-300 text-sm bg-white'>
+    <thead>
+      <tr>
+        <th class='border border-gray-300 bg-gray-100 px-2 py-2 text-center font-bold'>No.</th>
+        <th class='border border-gray-300 bg-gray-100 px-2 py-2 text-center font-bold'>Lokasi Kerja</th>
+        <th class='border border-gray-300 bg-gray-100 px-2 py-2 text-center font-bold'>Nama</th>
+        <th class='border border-gray-300 bg-gray-100 px-2 py-2 text-center font-bold'>Kode</th>
+        <th class='border border-gray-300 bg-gray-100 px-2 py-2 text-center font-bold'>Jam Masuk</th>
+        <th class='border border-gray-300 bg-gray-100 px-2 py-2 text-center font-bold'>Jam Pulang</th>
+        <th class='border border-gray-300 bg-gray-100 px-2 py-2 text-center font-bold'>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class='border border-gray-300 px-2 py-2'>1</td>
+        <td class='border border-gray-300 px-2 py-2'>Front Office</td>
+        <td class='border border-gray-300 px-2 py-2'>Morning Shift</td>
+        <td class='border border-gray-300 px-2 py-2'>M1</td>
+        <td class='border border-gray-300 px-2 py-2'>07:00</td>
+        <td class='border border-gray-300 px-2 py-2'>15:00</td>
+        <td class='border border-gray-300 px-2 py-2'>active</td>
+      </tr>
+    </tbody>
+  </table>
+`;
+
 export default function InformasiJadwal() {
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -64,6 +95,7 @@ export default function InformasiJadwal() {
   const [previewTable, setPreviewTable] = useState("");
   const [currentFile, setCurrentFile]   = useState(null);
   const [isDraggingExcel, setIsDraggingExcel] = useState(false);
+  const tourPreviewRef = useRef(false);
 
   // Inline edit
   const [editingKode, setEditingKode] = useState(null);
@@ -129,6 +161,43 @@ export default function InformasiJadwal() {
     console.log(`[useEffect] fetchData triggered: page=${currentPage}, search="${search}"`);
     fetchData(); 
   }, [currentPage, search, fetchData]);
+
+  useEffect(() => {
+    const openCreateModalForTour = () => {
+      setShowModal(true);
+      setNewForm(EMPTY_FORM);
+    };
+
+    const closeModalForTour = () => {
+      setShowModal(false);
+      setNewForm(EMPTY_FORM);
+    };
+
+    const showPreviewForTour = () => {
+      tourPreviewRef.current = true;
+      setCurrentFile(null);
+      setPreviewTable(TOUR_PREVIEW_HTML);
+    };
+
+    const clearPreviewForTour = () => {
+      if (!tourPreviewRef.current) return;
+      tourPreviewRef.current = false;
+      setPreviewTable("");
+      setCurrentFile(null);
+    };
+
+    window.addEventListener(TOUR_OPEN_SCHEDULE_CREATE_MODAL_EVENT, openCreateModalForTour);
+    window.addEventListener(TOUR_CLOSE_SCHEDULE_MODAL_EVENT, closeModalForTour);
+    window.addEventListener(TOUR_SHOW_SCHEDULE_PREVIEW_EVENT, showPreviewForTour);
+    window.addEventListener(TOUR_CLEAR_SCHEDULE_PREVIEW_EVENT, clearPreviewForTour);
+
+    return () => {
+      window.removeEventListener(TOUR_OPEN_SCHEDULE_CREATE_MODAL_EVENT, openCreateModalForTour);
+      window.removeEventListener(TOUR_CLOSE_SCHEDULE_MODAL_EVENT, closeModalForTour);
+      window.removeEventListener(TOUR_SHOW_SCHEDULE_PREVIEW_EVENT, showPreviewForTour);
+      window.removeEventListener(TOUR_CLEAR_SCHEDULE_PREVIEW_EVENT, clearPreviewForTour);
+    };
+  }, []);
 
   // =============================================
   // UPLOAD EXCEL — preview saja (belum simpan)
@@ -404,21 +473,29 @@ export default function InformasiJadwal() {
   // RENDER
   // =============================================
   return (
-    <div className="w-full">
+    <div className="w-full" data-tour="schedule-page">
       {/* HEADER */}
-      <div className="bg-white p-4 md:p-6 rounded-2xl shadow-md flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
-        <img src={sariAter} alt="Logo" className="w-20 md:w-28 object-contain" />
+      <div
+        className="bg-white p-4 md:p-6 rounded-2xl shadow-md flex flex-col md:flex-row md:items-center gap-4 md:gap-6"
+        data-tour="schedule-header"
+      >
+        <img src={sariAter} alt="Logo" className="w-20 md:w-28 object-contain" data-tour="schedule-logo" />
         <div>
-          <h1 className="text-xl md:text-2xl font-bold">Upload Informasi Jadwal</h1>
-          <p className="text-gray-600">Unggah file Excel atau tambah jadwal manual.</p>
+          <h1 className="text-xl md:text-2xl font-bold" data-tour="schedule-title">
+            Upload Informasi Jadwal
+          </h1>
+          <p className="text-gray-600" data-tour="schedule-description">
+            Unggah file Excel atau tambah jadwal manual.
+          </p>
         </div>
       </div>
 
       {/* UPLOAD & TEMPLATE */}
-      <div className="mt-6 flex flex-col md:flex-row gap-4">
+      <div className="mt-6 flex flex-col md:flex-row gap-4" data-tour="schedule-upload-section">
         {!isGuest && (
           <label
             className={`block w-full border-2 border-dashed border-[#1BA39C] bg-white hover:bg-[#e9f7f7] transition cursor-pointer rounded-xl p-10 md:p-14 text-center${excelDropzoneClassName(isDraggingExcel)}`}
+            data-tour="schedule-upload-dropzone"
             {...getExcelDropzoneHandlers(handleFileChange, setIsDraggingExcel)}
           >
             <UploadCloud size={40} className="text-[#1BA39C] mx-auto" />
@@ -432,6 +509,7 @@ export default function InformasiJadwal() {
         <button
           onClick={downloadTemplate}
           className="flex items-center justify-center gap-2 bg-[#1BA39C] hover:bg-[#158f89] text-white px-6 py-4 rounded-xl shadow-md text-sm md:text-base"
+          data-tour="schedule-template-button"
         >
           <Download size={20} /> Download Template Excel
         </button>
@@ -439,8 +517,11 @@ export default function InformasiJadwal() {
 
       {/* PREVIEW */}
       {previewTable && (
-        <div className="bg-white mt-10 p-4 md:p-6 rounded-2xl shadow-md">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-3">
+        <div className="bg-white mt-10 p-4 md:p-6 rounded-2xl shadow-md" data-tour="schedule-preview-card">
+          <div
+            className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-3"
+            data-tour="schedule-preview-header"
+          >
             <div className="flex items-center gap-3">
               <FileSpreadsheet className="text-green-700" size={28} />
               <h2 className="text-xl font-bold">Preview Data Excel</h2>
@@ -450,21 +531,25 @@ export default function InformasiJadwal() {
                 onClick={saveExcelToDB}
                 disabled={loading}
                 className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg shadow text-sm md:text-base"
+                data-tour="schedule-preview-save"
               >
                 {loading ? "Menyimpan..." : "Simpan ke Database"}
               </button>
             )}
           </div>
-          <div className="overflow-auto max-h-[400px] border rounded-xl p-3 text-xs md:text-sm">
+          <div className="overflow-auto max-h-[400px] border rounded-xl p-3 text-xs md:text-sm" data-tour="schedule-preview-table">
             <div dangerouslySetInnerHTML={{ __html: previewTable }} />
           </div>
         </div>
       )}
 
       {/* TABLE + CRUD */}
-      <div className="bg-white mt-10 p-4 md:p-6 rounded-2xl shadow-md">
+      <div className="bg-white mt-10 p-4 md:p-6 rounded-2xl shadow-md" data-tour="schedule-table-card">
         {/* HEADER + SEARCH */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3">
+        <div
+          className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3"
+          data-tour="schedule-table-header"
+        >
           <h2 className="text-xl font-bold">Data Informasi Jadwal</h2>
           <div className="flex items-center gap-2">
             <input
@@ -472,12 +557,14 @@ export default function InformasiJadwal() {
               placeholder="Cari kode / nama shift..."
               className="border p-2 rounded-lg text-sm"
               value={search}
+              data-tour="schedule-search-input"
               onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
             />
             {!isGuest && (
               <button
                 className="flex items-center gap-1 bg-green-600 text-white px-3 py-1 rounded-lg"
                 onClick={() => { setShowModal(true); setNewForm(EMPTY_FORM); }}
+                data-tour="schedule-add-button"
               >
                 <Plus size={16} /> Tambah
               </button>
@@ -487,7 +574,7 @@ export default function InformasiJadwal() {
 
         {/* ERROR MESSAGE */}
         {error && (
-          <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg" data-tour="schedule-error-state">
             <p className="font-semibold">⚠️ Error Loading Data:</p>
             <p className="text-sm">{error}</p>
             <p className="text-xs mt-2 text-gray-600">Check browser console (F12) for more details</p>
@@ -496,23 +583,23 @@ export default function InformasiJadwal() {
 
         {/* LOADING INDICATOR */}
         {loading && (
-          <div className="mt-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded-lg">
+          <div className="mt-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded-lg" data-tour="schedule-loading-state">
             <p>Loading data...</p>
           </div>
         )}
 
         {/* TABLE */}
-        <div className="overflow-auto">
+        <div className="overflow-auto" data-tour="schedule-table-wrapper">
           <table className="min-w-full border text-xs md:text-sm">
-            <thead className="bg-gray-100">
+            <thead className="bg-gray-100" data-tour="schedule-table-head">
               <tr>
-                <th className="border p-2">No</th>
+                <th className="border p-2" data-tour="schedule-table-col-no">No</th>
                 {COLS.map((c) => (
-                  <th key={c} className="border p-2 whitespace-nowrap">
+                  <th key={c} className="border p-2 whitespace-nowrap" data-tour={`schedule-table-col-${c}`}>
                     {c.replace("_", " ").toUpperCase()}
                   </th>
                 ))}
-                {!isGuest && <th className="border p-2">Action</th>}
+                {!isGuest && <th className="border p-2" data-tour="schedule-table-actions">Action</th>}
               </tr>
             </thead>
 
@@ -604,17 +691,21 @@ export default function InformasiJadwal() {
         </div>
 
         {/* PAGINATION */}
-        {renderPagination()}
+        <div data-tour="schedule-pagination">
+          {renderPagination()}
+        </div>
       </div>
 
       {/* MODAL TAMBAH */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-xl w-96 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold mb-4">Tambah Informasi Jadwal</h3>
+          <div className="bg-white p-6 rounded-xl w-96 max-h-[90vh] overflow-y-auto" data-tour="schedule-modal-shell">
+            <h3 className="text-lg font-bold mb-4" data-tour="schedule-modal-title">
+              Tambah Informasi Jadwal
+            </h3>
 
             {COLS.map((col) => (
-              <div key={col} className="mb-2">
+              <div key={col} className="mb-2" data-tour={`schedule-modal-field-${col}`}>
                 <label className="block text-xs text-gray-500 mb-1">
                   {col.replace("_", " ").toUpperCase()}
                 </label>
@@ -634,6 +725,7 @@ export default function InformasiJadwal() {
               <button
                 onClick={() => setShowModal(false)}
                 className="px-3 py-1 border rounded text-sm"
+                data-tour="schedule-modal-cancel"
               >
                 Batal
               </button>
@@ -641,6 +733,7 @@ export default function InformasiJadwal() {
                 onClick={handleCreate}
                 disabled={loading}
                 className="px-3 py-1 bg-green-600 text-white rounded disabled:opacity-60 text-sm"
+                data-tour="schedule-modal-save"
               >
                 {loading ? "Menyimpan..." : "Simpan"}
               </button>
