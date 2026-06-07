@@ -9,6 +9,7 @@ import { saveAs } from "file-saver";
 import logoCompany from "../assets/Image/logo.jpg";
 import { excelDropzoneClassName, getExcelDropzoneHandlers } from "../utils/excelDropzone";
 import RosterDummyGeneratorModal from "../components/RosterDummyGeneratorModal";
+import AttendanceDummyGeneratorModal from "../components/AttendanceDummyGeneratorModal";
 
 
 export default function Croscek_DW() {
@@ -32,6 +33,7 @@ export default function Croscek_DW() {
   const [savingKehadiran, setSavingKehadiran] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [showRosterGeneratorModal, setShowRosterGeneratorModal] = useState(false);
+  const [showAttendanceGeneratorModal, setShowAttendanceGeneratorModal] = useState(false);
 
   // MODAL PREVIEW CROSCEK
   const [showModal, setShowModal] = useState(false);
@@ -996,6 +998,7 @@ export default function Croscek_DW() {
   };
 
   const [kodeShiftOptions, setKodeShiftOptions] = useState([]);
+  const [shiftScheduleMap, setShiftScheduleMap] = useState({});
   const [searchShift, setSearchShift] = useState("");
 
   const filteredShiftOptions = kodeShiftOptions.filter(k =>
@@ -1053,6 +1056,7 @@ export default function Croscek_DW() {
       if (!dataArray || dataArray.length === 0) {
         console.warn("Data kode shift kosong");
         setKodeShiftOptions([]);
+        setShiftScheduleMap({});
         return;
       }
       
@@ -1063,6 +1067,17 @@ export default function Croscek_DW() {
       
       console.log("DEBUG - Final kodes array (length:", kodes.length, "):", kodes);
       setKodeShiftOptions(kodes);
+
+      const scheduleMap = {};
+      dataArray.forEach((item) => {
+        const kode = String(item.kode || item.kode_shift || "").trim().toUpperCase();
+        if (!kode) return;
+        scheduleMap[kode] = {
+          jam_masuk: item.jam_masuk || null,
+          jam_pulang: item.jam_pulang || null,
+        };
+      });
+      setShiftScheduleMap(scheduleMap);
     } catch (e) {
       console.error("Error loading kode shift:", e);
       setImportResult({
@@ -7058,6 +7073,14 @@ const handlePreviewDailyWorker = () => {
           <Download size={20} />
           Download Template Excel
         </button>
+
+        <button
+          onClick={() => setShowAttendanceGeneratorModal(true)}
+          className="flex items-center justify-center gap-2 bg-white hover:bg-green-50 text-green-700 border border-green-300 px-6 py-4 rounded-xl shadow-md text-sm md:text-base"
+        >
+          <FileSpreadsheet size={20} />
+          Generate Dummy Kehadiran
+        </button>
         
         {/* TAMBAHAN: BUTTON HAPUS PERIODE */}
         <button
@@ -8208,6 +8231,18 @@ const handlePreviewDailyWorker = () => {
       title="Generate Data Dummy Jadwal Daily Worker (DW)"
       description="Pilih DW dari database, tentukan bulan, lalu generate roster dummy sesuai format upload jadwal."
       filePrefix="Dummy_Jadwal_Daily_Worker"
+    />
+
+    <AttendanceDummyGeneratorModal
+      isOpen={showAttendanceGeneratorModal}
+      onClose={() => setShowAttendanceGeneratorModal(false)}
+      employees={uniqueKaryawan}
+      schedules={jadwalKaryawanList}
+      shiftScheduleMap={shiftScheduleMap}
+      title="Generate Data Dummy Kehadiran Daily Worker (DW)"
+      description="Pilih DW dari database, tentukan periode dan jumlah kategori telat, pulang cepat, lupa check-in, atau lupa check-out."
+      filePrefix="Dummy_Kehadiran_Daily_Worker"
+      machineName="Karyawan 2"
     />
 
     </div>

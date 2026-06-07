@@ -9,6 +9,7 @@ import { saveAs } from "file-saver";
 import logoCompany from "../assets/Image/logo.jpg";
 import { excelDropzoneClassName, getExcelDropzoneHandlers } from "../utils/excelDropzone";
 import RosterDummyGeneratorModal from "../components/RosterDummyGeneratorModal";
+import AttendanceDummyGeneratorModal from "../components/AttendanceDummyGeneratorModal";
 // import { 
 //   // FileSpreadsheet, 
 //   // X, 
@@ -44,6 +45,7 @@ export default function Croscek() {
   const [savingKehadiran, setSavingKehadiran] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [showRosterGeneratorModal, setShowRosterGeneratorModal] = useState(false);
+  const [showAttendanceGeneratorModal, setShowAttendanceGeneratorModal] = useState(false);
 
   // MODAL PREVIEW CROSCEK
   const [showModal, setShowModal] = useState(false);
@@ -7544,6 +7546,14 @@ const formatDate = (dateString) => {
           </button>
 
           <button
+            onClick={() => setShowAttendanceGeneratorModal(true)}
+            className="flex items-center justify-center gap-2 bg-white hover:bg-emerald-50 text-emerald-700 border-2 border-emerald-300 px-6 py-3 rounded-xl shadow-md text-sm md:text-base font-semibold transition duration-300"
+          >
+            <FileSpreadsheet size={20} />
+            Generate Dummy Kehadiran
+          </button>
+
+          <button
             onClick={handleDeleteKehadiranPeriod}
             disabled={availablePeriods.length === 0 || !selectedMonthKehadiran || !selectedYearKehadiran}
             className="flex items-center justify-center gap-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl text-sm md:text-base font-semibold transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -9047,6 +9057,18 @@ const formatDate = (dateString) => {
         title="Generate Data Dummy Jadwal Karyawan"
         description="Pilih karyawan dari database, tentukan bulan, lalu generate roster dummy sesuai format upload jadwal."
         filePrefix="Dummy_Jadwal_Karyawan"
+      />
+
+      <AttendanceDummyGeneratorModal
+        isOpen={showAttendanceGeneratorModal}
+        onClose={() => setShowAttendanceGeneratorModal(false)}
+        employees={uniqueKaryawan}
+        schedules={jadwalKaryawanList}
+        shiftScheduleMap={shiftScheduleMap}
+        title="Generate Data Dummy Kehadiran Karyawan"
+        description="Pilih karyawan dari database, tentukan periode dan jumlah kategori telat, pulang cepat, lupa check-in, atau lupa check-out."
+        filePrefix="Dummy_Kehadiran_Karyawan"
+        machineName="Karyawan 2"
       />
     </div>
   );
