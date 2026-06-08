@@ -8,12 +8,10 @@ import {
   ChevronDown,
   LogOut,
   BarChart3,
-  HelpCircle,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import sariAter from "../assets/sari-ater.png";
 import { useAuth } from "../context/AuthContext";
-import { openAdminOnboardingTour } from "./AdminOnboardingTour";
 
 export default function Sidebar() {
   const { pathname } = useLocation();
@@ -351,17 +349,6 @@ export default function Sidebar() {
 
         {/* User Info & Logout */}
         <div className="relative z-10 mt-auto border-t border-white/20 pt-4">
-          {["admin", "staff", "guest"].includes(userRole) && (
-            <button
-              type="button"
-              onClick={openAdminOnboardingTour}
-              className="w-full flex items-center gap-3 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white/90 transition-all mb-3"
-            >
-              <HelpCircle size={18} />
-              {open && `Tutorial ${userRole === "staff" ? "Staff" : userRole === "guest" ? "Guest" : "Admin"}`}
-            </button>
-          )}
-
           {user && (
             <div className="px-4 py-3 rounded-lg bg-white/10 backdrop-blur-md border border-white/20 mb-3">
               <p className="text-xs text-white/70">User</p>

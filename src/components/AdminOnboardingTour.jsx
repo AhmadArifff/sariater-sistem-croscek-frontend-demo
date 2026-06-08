@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -10,8 +10,10 @@ import {
   Download,
   FileSpreadsheet,
   Filter,
+  HelpCircle,
   LineChart,
   ListChecks,
+  Move,
   Play,
   Search,
   ShieldCheck,
@@ -26,6 +28,9 @@ import { useAuth } from "../context/AuthContext";
 const STORAGE_KEY = "croscek.admin.tour.v2";
 const LOGIN_TRIGGER_KEY = "croscek.admin.tour.login-trigger";
 const OPEN_EVENT = "croscek:open-admin-tour";
+const FLOAT_BUTTON_POSITION_KEY = "croscek.admin.tour.float-position";
+const FLOAT_BUTTON_SIZE = 64;
+const FLOAT_BUTTON_MARGIN = 16;
 const OPEN_USER_CREATE_MODAL_EVENT = "croscek:tour-open-user-create-modal";
 const CLOSE_USER_MODAL_EVENT = "croscek:tour-close-user-modal";
 const OPEN_SCHEDULE_CREATE_MODAL_EVENT = "croscek:tour-open-schedule-create-modal";
@@ -1223,6 +1228,41 @@ const getRoleFlow = (flow, roleName) => {
   };
 };
 
+const getDefaultFloatPosition = () => {
+  if (typeof window === "undefined") return { x: 24, y: 24 };
+  return {
+    x: Math.max(FLOAT_BUTTON_MARGIN, window.innerWidth - FLOAT_BUTTON_SIZE - FLOAT_BUTTON_MARGIN),
+    y: Math.max(FLOAT_BUTTON_MARGIN, window.innerHeight - FLOAT_BUTTON_SIZE - FLOAT_BUTTON_MARGIN),
+  };
+};
+
+const clampFloatPosition = (position) => {
+  if (typeof window === "undefined") return position || { x: 24, y: 24 };
+  const fallback = getDefaultFloatPosition();
+  const current = position || fallback;
+  const maxX = Math.max(FLOAT_BUTTON_MARGIN, window.innerWidth - FLOAT_BUTTON_SIZE - FLOAT_BUTTON_MARGIN);
+  const maxY = Math.max(FLOAT_BUTTON_MARGIN, window.innerHeight - FLOAT_BUTTON_SIZE - FLOAT_BUTTON_MARGIN);
+
+  return {
+    x: Math.min(Math.max(FLOAT_BUTTON_MARGIN, current.x), maxX),
+    y: Math.min(Math.max(FLOAT_BUTTON_MARGIN, current.y), maxY),
+  };
+};
+
+const getStoredFloatPosition = () => {
+  try {
+    const raw = localStorage.getItem(FLOAT_BUTTON_POSITION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Number.isFinite(parsed?.x) && Number.isFinite(parsed?.y)) {
+      return parsed;
+    }
+  } catch {
+    // Abaikan jika posisi belum tersimpan atau localStorage tidak tersedia.
+  }
+  return null;
+};
+
 const getPlacement = (rect) => {
   if (!rect) {
     return {
@@ -1262,6 +1302,9 @@ export default function AdminOnboardingTour() {
   const [activeFlowId, setActiveFlowId] = useState("dashboard");
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState(null);
+  const [floatPosition, setFloatPosition] = useState(() => getStoredFloatPosition());
+  const [isDraggingFloat, setIsDraggingFloat] = useState(false);
+  const floatDragRef = useRef(null);
 
   const roleName = user?.role?.toLowerCase() || "";
   const isSupportedTourRole = ["admin", "staff", "guest"].includes(roleName);
@@ -1279,6 +1322,7 @@ export default function AdminOnboardingTour() {
   const StepIcon = step?.icon || BarChart3;
   const progress = Math.round(((stepIndex + 1) / activeSteps.length) * 100);
   const tooltipPosition = getPlacement(targetRect);
+  const safeFloatPosition = clampFloatPosition(floatPosition);
   const closeCroscekHelpers = () => {
     window.dispatchEvent(new Event(CLOSE_CROSCEK_ROSTER_GENERATOR_EVENT));
     window.dispatchEvent(new Event(CLOSE_CROSCEK_ATTENDANCE_GENERATOR_EVENT));
@@ -1299,6 +1343,24 @@ export default function AdminOnboardingTour() {
       return false;
     }
   }, [storageKey]);
+
+  useEffect(() => {
+    const syncFloatPosition = () => {
+      setFloatPosition((current) => {
+        const next = clampFloatPosition(current || getDefaultFloatPosition());
+        try {
+          localStorage.setItem(FLOAT_BUTTON_POSITION_KEY, JSON.stringify(next));
+        } catch {
+          // Abaikan jika localStorage tidak tersedia.
+        }
+        return next;
+      });
+    };
+
+    syncFloatPosition();
+    window.addEventListener("resize", syncFloatPosition);
+    return () => window.removeEventListener("resize", syncFloatPosition);
+  }, []);
 
   useEffect(() => {
     if (!isSupportedTourRole) return;
@@ -1504,7 +1566,7 @@ export default function AdminOnboardingTour() {
     };
   }, [location.pathname, mode, step]);
 
-  if (!isSupportedTourRole || mode === "closed") return null;
+  if (!isSupportedTourRole) return null;
 
   const closeTour = () => {
     try {
@@ -1562,6 +1624,108 @@ export default function AdminOnboardingTour() {
   const previousStep = () => {
     setStepIndex((current) => Math.max(0, current - 1));
   };
+
+  const openLauncherFromFloat = () => {
+    setStepIndex(0);
+    setTargetRect(null);
+    setMode("launcher");
+  };
+
+  const saveFloatPosition = (position) => {
+    try {
+      localStorage.setItem(FLOAT_BUTTON_POSITION_KEY, JSON.stringify(position));
+    } catch {
+      // Abaikan jika localStorage tidak tersedia.
+    }
+  };
+
+  const handleFloatPointerDown = (event) => {
+    if (event.button !== 0) return;
+    const origin = clampFloatPosition(floatPosition || safeFloatPosition || getDefaultFloatPosition());
+    floatDragRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      origin,
+      moved: false,
+    };
+    setIsDraggingFloat(true);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const handleFloatPointerMove = (event) => {
+    const dragState = floatDragRef.current;
+    if (!dragState) return;
+
+    const deltaX = event.clientX - dragState.startX;
+    const deltaY = event.clientY - dragState.startY;
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+      dragState.moved = true;
+    }
+
+    const nextPosition = clampFloatPosition({
+      x: dragState.origin.x + deltaX,
+      y: dragState.origin.y + deltaY,
+    });
+    setFloatPosition(nextPosition);
+  };
+
+  const handleFloatPointerUp = (event) => {
+    const dragState = floatDragRef.current;
+    const wasMoved = Boolean(dragState?.moved);
+    const nextPosition = dragState
+      ? clampFloatPosition({
+        x: dragState.origin.x + (event.clientX - dragState.startX),
+        y: dragState.origin.y + (event.clientY - dragState.startY),
+      })
+      : clampFloatPosition(floatPosition || safeFloatPosition || getDefaultFloatPosition());
+
+    floatDragRef.current = null;
+    setIsDraggingFloat(false);
+    setFloatPosition(nextPosition);
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    saveFloatPosition(nextPosition);
+
+    if (!wasMoved) {
+      openLauncherFromFloat();
+    }
+  };
+
+  const handleFloatKeyDown = (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openLauncherFromFloat();
+    }
+  };
+
+  const renderFloatingButton = () => (
+    <button
+      type="button"
+      onPointerDown={handleFloatPointerDown}
+      onPointerMove={handleFloatPointerMove}
+      onPointerUp={handleFloatPointerUp}
+      onPointerCancel={() => {
+        floatDragRef.current = null;
+        setIsDraggingFloat(false);
+      }}
+      onKeyDown={handleFloatKeyDown}
+      className={`fixed z-[90] w-16 h-16 rounded-full bg-blue-600 text-white shadow-2xl border-4 border-white flex items-center justify-center transition-transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 ${
+        isDraggingFloat ? "cursor-grabbing scale-105" : "cursor-grab"
+      }`}
+      style={{
+        left: safeFloatPosition.x,
+        top: safeFloatPosition.y,
+        touchAction: "none",
+      }}
+      aria-label={`Buka tutorial ${roleLabel}`}
+      title={`Tutorial ${roleLabel} - geser untuk pindah posisi`}
+    >
+      <HelpCircle size={26} />
+      <span className="absolute -right-1 -top-1 w-6 h-6 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center">
+        <Move size={12} />
+      </span>
+      <span className="sr-only">Buka tutorial {roleLabel}</span>
+    </button>
+  );
 
   const renderLauncher = () => (
     <div className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1749,7 +1913,13 @@ export default function AdminOnboardingTour() {
     );
   };
 
-  return mode === "launcher" ? renderLauncher() : renderWalkthrough();
+  return (
+    <>
+      {mode === "closed" && renderFloatingButton()}
+      {mode === "launcher" && renderLauncher()}
+      {mode === "walkthrough" && renderWalkthrough()}
+    </>
+  );
 }
 
 export const openAdminOnboardingTour = () => {
