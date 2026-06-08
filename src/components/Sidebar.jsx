@@ -20,6 +20,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const { user, logout, hasRole } = useAuth();
   const isDesktop = window.innerWidth >= 768;
+  const userRole = user?.role?.toLowerCase?.() || "";
 
   const [open, setOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -191,7 +192,7 @@ export default function Sidebar() {
 
     // Filter menu berdasarkan role
     return baseMenu.filter(menu => {
-      if (user?.role === "guest") return true;
+      if (userRole === "guest") return true;
 
       if (menu.requiredRole && !hasRole(menu.requiredRole)) {
         return false;
@@ -350,14 +351,14 @@ export default function Sidebar() {
 
         {/* User Info & Logout */}
         <div className="relative z-10 mt-auto border-t border-white/20 pt-4">
-          {user?.role === "admin" && (
+          {["admin", "staff"].includes(userRole) && (
             <button
               type="button"
               onClick={openAdminOnboardingTour}
               className="w-full flex items-center gap-3 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white/90 transition-all mb-3"
             >
               <HelpCircle size={18} />
-              {open && "Tutorial Admin"}
+              {open && `Tutorial ${userRole === "staff" ? "Staff" : "Admin"}`}
             </button>
           )}
 

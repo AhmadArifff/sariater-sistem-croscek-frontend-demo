@@ -4,6 +4,7 @@ import api from "../utils/api";
 // Create Auth Context
 const AuthContext = createContext(null);
 const ADMIN_TOUR_LOGIN_TRIGGER_KEY = "croscek.admin.tour.login-trigger";
+const TOUR_ENABLED_ROLES = ["admin", "staff"];
 
 // Auth Provider Component
 export const AuthProvider = ({ children }) => {
@@ -39,7 +40,7 @@ export const AuthProvider = ({ children }) => {
       // Store di localStorage
       localStorage.setItem("auth_token", newToken);
       localStorage.setItem("auth_user", JSON.stringify(userData));
-      if (userData?.role?.toLowerCase() === "admin") {
+      if (TOUR_ENABLED_ROLES.includes(userData?.role?.toLowerCase())) {
         try {
           sessionStorage.setItem(ADMIN_TOUR_LOGIN_TRIGGER_KEY, "open");
         } catch {
@@ -73,11 +74,12 @@ export const AuthProvider = ({ children }) => {
   // Check if user has specific role
   const hasRole = (role) => {
     if (!user) return false;
+    const currentRole = user.role?.toLowerCase?.() || "";
     if (typeof role === "string") {
-      return user.role === role;
+      return currentRole === role.toLowerCase();
     }
     // Array of roles
-    return Array.isArray(role) && role.includes(user.role);
+    return Array.isArray(role) && role.map((item) => item.toLowerCase()).includes(currentRole);
   };
 
   // Check if authenticated

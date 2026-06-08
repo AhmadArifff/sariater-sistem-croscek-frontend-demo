@@ -1074,6 +1074,11 @@ const FLOW_OPTIONS = [
   TOUR_FLOWS.croscekDw,
 ];
 
+const ROLE_FLOW_IDS = {
+  admin: FLOW_OPTIONS.map((flow) => flow.id),
+  staff: ["dashboard", "croscekEmployees", "croscekDw"],
+};
+
 const getPlacement = (rect) => {
   if (!rect) {
     return {
@@ -1114,8 +1119,14 @@ export default function AdminOnboardingTour() {
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState(null);
 
-  const isAdmin = user?.role?.toLowerCase() === "admin";
-  const activeFlow = TOUR_FLOWS[activeFlowId] || TOUR_FLOWS.dashboard;
+  const roleName = user?.role?.toLowerCase() || "";
+  const isSupportedTourRole = ["admin", "staff"].includes(roleName);
+  const roleLabel = roleName === "staff" ? "Staff" : "Admin";
+  const storageKey = roleName === "staff" ? "croscek.staff.tour.v2" : STORAGE_KEY;
+  const availableFlowOptions = FLOW_OPTIONS.filter((flow) => (
+    ROLE_FLOW_IDS[roleName]?.includes(flow.id)
+  ));
+  const activeFlow = availableFlowOptions.find((flow) => flow.id === activeFlowId) || availableFlowOptions[0] || TOUR_FLOWS.dashboard;
   const activeSteps = activeFlow.steps;
   const step = activeSteps[stepIndex];
   const StepIcon = step?.icon || BarChart3;
@@ -1136,14 +1147,14 @@ export default function AdminOnboardingTour() {
 
   const hasStoredDecision = useMemo(() => {
     try {
-      return localStorage.getItem(STORAGE_KEY) === "done";
+      return localStorage.getItem(storageKey) === "done";
     } catch {
       return false;
     }
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isSupportedTourRole) return;
 
     try {
       if (sessionStorage.getItem(LOGIN_TRIGGER_KEY) === "open") {
@@ -1157,7 +1168,7 @@ export default function AdminOnboardingTour() {
 
     if (hasStoredDecision) return;
     setMode("launcher");
-  }, [hasStoredDecision, isAdmin]);
+  }, [hasStoredDecision, isSupportedTourRole]);
 
   useEffect(() => {
     const openTour = () => {
@@ -1346,11 +1357,11 @@ export default function AdminOnboardingTour() {
     };
   }, [location.pathname, mode, step]);
 
-  if (!isAdmin || mode === "closed") return null;
+  if (!isSupportedTourRole || mode === "closed") return null;
 
   const closeTour = () => {
     try {
-      localStorage.setItem(STORAGE_KEY, "done");
+      localStorage.setItem(storageKey, "done");
     } catch {
       // Abaikan jika localStorage tidak tersedia.
     }
@@ -1365,7 +1376,7 @@ export default function AdminOnboardingTour() {
   };
 
   const startFlow = (flowId) => {
-    const selectedFlow = TOUR_FLOWS[flowId] || TOUR_FLOWS.dashboard;
+    const selectedFlow = availableFlowOptions.find((flow) => flow.id === flowId) || availableFlowOptions[0] || TOUR_FLOWS.dashboard;
     window.dispatchEvent(new Event(CLOSE_USER_MODAL_EVENT));
     window.dispatchEvent(new Event(CLOSE_SCHEDULE_MODAL_EVENT));
     window.dispatchEvent(new Event(CLEAR_SCHEDULE_PREVIEW_EVENT));
@@ -1411,11 +1422,11 @@ export default function AdminOnboardingTour() {
         <div className="p-5 border-b border-slate-200 flex items-start justify-between gap-4 bg-gradient-to-r from-slate-50 to-blue-50">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-blue-700">
-              Tutorial Interaktif Admin
+              Tutorial Interaktif {roleLabel}
             </p>
             <h2 className="text-2xl font-bold text-slate-900 mt-1">Pilih flow tutorial</h2>
             <p className="text-sm text-slate-600 mt-2">
-              Pilih halaman yang ingin dipandu. Setelah satu flow selesai, modal ini akan muncul lagi supaya admin bisa lanjut ke tutorial halaman lain.
+              Pilih halaman yang ingin dipandu. Setelah satu flow selesai, modal ini akan muncul lagi supaya {roleName === "staff" ? "staff" : "admin"} bisa lanjut ke tutorial halaman lain.
             </p>
           </div>
           <button
@@ -1429,7 +1440,7 @@ export default function AdminOnboardingTour() {
         </div>
 
         <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-          {FLOW_OPTIONS.map((flow) => {
+          {availableFlowOptions.map((flow) => {
             const Icon = flow.icon;
             return (
               <button
