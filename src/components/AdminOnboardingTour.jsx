@@ -1077,6 +1077,150 @@ const FLOW_OPTIONS = [
 const ROLE_FLOW_IDS = {
   admin: FLOW_OPTIONS.map((flow) => flow.id),
   staff: ["dashboard", "croscekEmployees", "croscekDw"],
+  guest: FLOW_OPTIONS.map((flow) => flow.id),
+};
+
+const ROLE_LABELS = {
+  admin: "Admin",
+  staff: "Staff",
+  guest: "Guest",
+};
+
+const ROLE_STORAGE_KEYS = {
+  admin: STORAGE_KEY,
+  staff: "croscek.staff.tour.v2",
+  guest: "croscek.guest.tour.v2",
+};
+
+const GUEST_FLOW_SUBTITLES = {
+  users: "Pelajari daftar user, pencarian, kolom tabel, dan informasi role dalam mode baca.",
+  schedule: "Pelajari download template, pencarian, tabel informasi jadwal, dan pagination dalam mode baca/export.",
+  employees: "Pelajari template, pencarian, struktur tabel data karyawan, dan pagination dalam mode baca/export.",
+  dw: "Pelajari template, pencarian, struktur tabel data DW, dan pagination dalam mode baca/export.",
+  croscekEmployees: "Pelajari periode/template, data jadwal dan kehadiran, modal hasil, indikator, preview export, dan rekap download.",
+  croscekDw: "Pelajari periode/template, data jadwal dan kehadiran DW, modal hasil, indikator, preview export, dan rekap download.",
+};
+
+const GUEST_HIDDEN_STEP_TARGETS = new Set([
+  "users-add-button",
+  "users-modal-username",
+  "users-modal-name",
+  "users-modal-role",
+  "users-modal-password",
+  "users-modal-confirm-password",
+  "users-modal-cancel",
+  "users-modal-submit",
+  "users-table-actions",
+  "schedule-upload-dropzone",
+  "schedule-preview-card",
+  "schedule-preview-save",
+  "schedule-preview-table",
+  "schedule-add-button",
+  "schedule-modal-field-kode",
+  "schedule-modal-field-lokasi_kerja",
+  "schedule-modal-field-nama_shift",
+  "schedule-modal-field-jam_masuk",
+  "schedule-modal-field-jam_pulang",
+  "schedule-modal-field-keterangan",
+  "schedule-modal-field-group",
+  "schedule-modal-field-status",
+  "schedule-modal-field-kontrol",
+  "schedule-modal-cancel",
+  "schedule-modal-save",
+  "schedule-table-actions",
+  "employee-upload-dropzone",
+  "employee-generator-button",
+  "employee-generator-count",
+  "employee-generator-generate",
+  "employee-generator-export",
+  "employee-preview-card",
+  "employee-preview-save",
+  "employee-preview-table",
+  "employee-add-button",
+  "employee-modal-field-nama",
+  "employee-modal-field-nik",
+  "employee-modal-field-jabatan",
+  "employee-modal-field-dept",
+  "employee-modal-field-id_absen",
+  "employee-modal-cancel",
+  "employee-modal-save",
+  "employee-table-actions",
+  "croscek-jadwal-upload-dropzone",
+  "croscek-roster-generator-button",
+  "roster-generator-period",
+  "roster-generator-count",
+  "roster-generator-employee-search",
+  "roster-generator-employee-table",
+  "roster-generator-shift-card",
+  "roster-generator-generate",
+  "roster-generator-preview",
+  "roster-generator-export",
+  "croscek-jadwal-preview-card",
+  "croscek-jadwal-preview-save",
+  "croscek-jadwal-action-menu-button",
+  "croscek-jadwal-table-actions",
+  "croscek-kehadiran-upload-dropzone",
+  "croscek-attendance-generator-button",
+  "attendance-generator-dates",
+  "attendance-generator-categories",
+  "attendance-generator-employee-table",
+  "attendance-generator-actions",
+  "attendance-generator-preview",
+  "croscek-kehadiran-preview-card",
+  "croscek-kehadiran-preview-save",
+  "croscek-process-button",
+  "croscek-result-status-controls",
+  "croscek-result-save",
+  "croscek-result-truncate",
+]);
+
+const GUEST_STEP_OVERRIDES = {
+  "users-table-search": {
+    title: "Cari User",
+    body: "Guest dapat memakai pencarian untuk membaca data akun demo tanpa membuka aksi tambah, edit, aktifkan, atau hapus.",
+  },
+  "users-table-columns": {
+    title: "Kolom Data User",
+    body: "Tabel ini menjadi referensi akun, role, status, dan tanggal dibuat. Pada role guest, bagian ini dipakai untuk membaca informasi saja.",
+  },
+  "schedule-template-button": {
+    title: "Download Template Jadwal",
+    body: "Guest dapat memakai template sebagai contoh struktur Excel. Aksi upload dan simpan jadwal tidak diarahkan pada tutorial guest.",
+  },
+  "employee-template-button": {
+    title: "Download Template Data",
+    body: "Template ini dipakai sebagai contoh format file Excel. Guest diarahkan ke bagian download dan baca data, bukan generate atau simpan data.",
+  },
+  "croscek-result-modal": {
+    title: "Modal Hasil Croscek",
+    body: "Guest dapat membaca hasil croscek pada modal ini dan memakai fitur export/rekap yang tersedia, tanpa mengubah status atau menyimpan hasil.",
+  },
+  "croscek-result-table": {
+    title: "Tabel Hasil Read Only",
+    body: "Area ini menampilkan hasil croscek lengkap. Untuk guest, fokusnya adalah membaca indikator, status, jam aktual, dan jadwal tanpa melakukan koreksi manual.",
+  },
+  "croscek-result-export-excel": {
+    title: "Export Hasil",
+    body: "Tombol export termasuk aksi yang boleh dipakai guest. Preview akan ditampilkan dulu supaya isi file Excel bisa dicek sebelum download.",
+  },
+};
+
+const getRoleLabel = (roleName) => ROLE_LABELS[roleName] || "Admin";
+
+const getRoleFlow = (flow, roleName) => {
+  if (roleName !== "guest") return flow;
+
+  return {
+    ...flow,
+    subtitle: GUEST_FLOW_SUBTITLES[flow.id] || flow.subtitle,
+    steps: flow.steps
+      .filter((step) => !GUEST_HIDDEN_STEP_TARGETS.has(step.target))
+      .map((step) => (
+        GUEST_STEP_OVERRIDES[step.target]
+          ? { ...step, ...GUEST_STEP_OVERRIDES[step.target] }
+          : step
+      )),
+  };
 };
 
 const getPlacement = (rect) => {
@@ -1120,12 +1264,15 @@ export default function AdminOnboardingTour() {
   const [targetRect, setTargetRect] = useState(null);
 
   const roleName = user?.role?.toLowerCase() || "";
-  const isSupportedTourRole = ["admin", "staff"].includes(roleName);
-  const roleLabel = roleName === "staff" ? "Staff" : "Admin";
-  const storageKey = roleName === "staff" ? "croscek.staff.tour.v2" : STORAGE_KEY;
-  const availableFlowOptions = FLOW_OPTIONS.filter((flow) => (
-    ROLE_FLOW_IDS[roleName]?.includes(flow.id)
-  ));
+  const isSupportedTourRole = ["admin", "staff", "guest"].includes(roleName);
+  const roleLabel = getRoleLabel(roleName);
+  const storageKey = ROLE_STORAGE_KEYS[roleName] || STORAGE_KEY;
+  const availableFlowOptions = useMemo(() => (
+    FLOW_OPTIONS
+      .filter((flow) => ROLE_FLOW_IDS[roleName]?.includes(flow.id))
+      .map((flow) => getRoleFlow(flow, roleName))
+      .filter((flow) => flow.steps.length > 0)
+  ), [roleName]);
   const activeFlow = availableFlowOptions.find((flow) => flow.id === activeFlowId) || availableFlowOptions[0] || TOUR_FLOWS.dashboard;
   const activeSteps = activeFlow.steps;
   const step = activeSteps[stepIndex];
@@ -1426,7 +1573,7 @@ export default function AdminOnboardingTour() {
             </p>
             <h2 className="text-2xl font-bold text-slate-900 mt-1">Pilih flow tutorial</h2>
             <p className="text-sm text-slate-600 mt-2">
-              Pilih halaman yang ingin dipandu. Setelah satu flow selesai, modal ini akan muncul lagi supaya {roleName === "staff" ? "staff" : "admin"} bisa lanjut ke tutorial halaman lain.
+              Pilih halaman yang ingin dipandu. Setelah satu flow selesai, modal ini akan muncul lagi supaya {roleLabel.toLowerCase()} bisa lanjut ke tutorial halaman lain.
             </p>
           </div>
           <button

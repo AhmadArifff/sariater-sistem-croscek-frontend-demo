@@ -4,7 +4,7 @@ import api from "../utils/api";
 // Create Auth Context
 const AuthContext = createContext(null);
 const ADMIN_TOUR_LOGIN_TRIGGER_KEY = "croscek.admin.tour.login-trigger";
-const TOUR_ENABLED_ROLES = ["admin", "staff"];
+const TOUR_ENABLED_ROLES = ["admin", "staff", "guest"];
 
 // Auth Provider Component
 export const AuthProvider = ({ children }) => {
