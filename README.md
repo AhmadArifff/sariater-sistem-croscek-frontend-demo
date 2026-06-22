@@ -283,6 +283,48 @@ Backend aggregates croscek
 
 ---
 
+## 📷 Tampilan Aplikasi & Alur Fitur
+
+Berikut ringkasan tampilan (screenshots) yang ada di folder `public/assets/image/tampilan-app` dan alur fitur yang sesuai dengan tampilan saat ini:
+
+- **halaman demo menu tutorial.png** — Halaman onboarding / demo menu/tutorial awal.
+- **halaman login.png** — Halaman Login (masuk) ke aplikasi; langkah awal untuk akses Dashboard.
+- **halaman menu dashboard.png** — Dashboard utama yang berisi KPI, chart, dan navigasi sidebar.
+- **halaman menu dashboard (Karyawan Top terlamabat).png** — Widget "Top Latecomers" pada dashboard.
+
+- Croscek Karyawan:
+  - **halaman menu croscek karyawan (Data karyawan).png** — Daftar data karyawan (lihat, cari, filter).
+  - **halaman menu croscek karyawan (Data karyawan - Form tambah data karyawan).png** — Form tambah / edit data karyawan.
+  - **halaman menu croscek karyawan (jadwal karyawan).png** — Halaman jadwal karyawan per shift.
+  - **halaman menu croscek karyawan (hasil proses croscek jadwal karyawan dengan kehadiran karyawan).png** — Hasil proses croscek jadwal terhadap data kehadiran.
+
+- Croscek Daily Worker (DW):
+  - **halaman menu croscek daily worker (Data daily worker).png** — Daftar daily worker.
+  - **halaman menu croscek daily worker (Data daily worker - Form tambah data daily worker).png** — Form tambah/edit daily worker.
+  - **halaman menu croscek daily worker (jadwal daily worker).png** — Jadwal untuk daily worker.
+  - **halaman menu croscek daily worker (hasil proses croscek jadwal daily worker dengan kehadiran daily worker).png** — Hasil proses croscek untuk daily worker.
+
+- Informasi Jadwal:
+  - **halaman menu informasi jadwal.png** — Halaman informasi jadwal.
+  - **halaman menu informasi jadwal (form tambah informasi jadwal).png** — Form tambah informasi jadwal.
+
+- Manajemen User:
+  - **halaman menu managemen user.png** — Daftar user dan kontrol akses.
+  - **halaman menu managemen user (Form tambah user).png** — Form untuk menambah user baru.
+
+Rekomendasi alur pengguna singkat berdasarkan tampilan:
+1. Pengguna membuka **Login** → berhasil → diarahkan ke **Dashboard**.
+2. Dari **Sidebar** pilih modul sesuai peran (Admin / Staff / DW):
+   - Admin: `Manajemen User` → `Informasi Jadwal` → `Upload Jadwal` → `Process Croscek` → lihat hasil.
+   - Staff: lihat `Dashboard` → `Croscek Karyawan` untuk cek data dan hasil croscek.
+   - Daily Worker: gunakan menu `Croscek Daily Worker` untuk upload/cek jadwal dan hasil croscek.
+3. Untuk upload data (karyawan/jadwal/DW): gunakan halaman data terkait → klik tombol Upload / Tambah → validasi file/form → submit.
+4. Setelah upload, jalankan proses Croscek (jika perlu) → hasil tampil pada halaman hasil croscek dan dashboard analytics.
+
+Catatan: semua screenshot berada di `public/assets/image/tampilan-app`. Gunakan gambar tersebut sebagai acuan UI saat menulis dokumentasi fitur atau membuat tutorial pengguna.
+
+---
+
 ## � SISTEM PREDIKSI PINDAH SHIFT
 
 ### Pengenalan Algoritma Prediksi
